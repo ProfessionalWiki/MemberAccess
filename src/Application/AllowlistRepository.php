@@ -1,0 +1,27 @@
+<?php
+
+declare( strict_types = 1 );
+
+namespace ProfessionalWiki\MemberAccess\Application;
+
+interface AllowlistRepository {
+
+	/**
+	 * @return ?AllowlistEntry Null when the value already belongs to a group
+	 */
+	public function addEntry( int $groupId, AllowlistValue $value, int $actorId ): ?AllowlistEntry;
+
+	public function getEntry( int $entryId ): ?AllowlistEntry;
+
+	public function removeEntry( int $entryId ): void;
+
+	/**
+	 * @return AllowlistEntry[]
+	 */
+	public function listEntries( int $groupId ): array;
+
+	public function countEntries( int $groupId ): int;
+
+	public function findGroupForValue( AllowlistValue $value ): ?MemberGroup;
+
+}

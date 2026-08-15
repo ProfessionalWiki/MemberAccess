@@ -1,0 +1,33 @@
+{
+	"@metadata": {
+		"authors": [
+			"Professional Wiki"
+		]
+	},
+	"memberaccess-description": "{{desc|name=MemberAccess|url=https://professional.wiki}}",
+	"memberaccess-code-email-subject": "Subject line of the email carrying a one-time login code.",
+	"memberaccess-code-email-body": "Plain text body of the email carrying a one-time login code.\n\nParameters:\n* $1 - the login code\n* $2 - the number of minutes the code stays valid",
+	"memberaccess-auth-button-label": "Label of the button on the login form that asks for a login code to be mailed.",
+	"memberaccess-auth-button-help": "Help text below the button that asks for a login code to be mailed. \"Nothing beyond your email address is requested\" is a commitment: keep the meaning \"asked for\", and do not turn it into \"stored\".",
+	"memberaccess-auth-email-label": "Label of the email address field on the login form.",
+	"memberaccess-auth-email-help": "Help text below the email address field on the login form.",
+	"memberaccess-auth-email-missing": "Error shown when a login code is asked for without an email address.",
+	"memberaccess-auth-email-invalid": "Error shown when the entered email address is malformed.",
+	"memberaccess-auth-throttled": "Error shown when too many login codes have been asked for. The translation must not reveal whether the address is a member.",
+	"memberaccess-auth-code-sent": "Shown on the screen that asks for the code. Keep the translation conditional: it must not assert that a code was sent.\n\nParameters:\n* $1 - the number of minutes the code stays valid",
+	"memberaccess-auth-code-label": "Label of the login code field.",
+	"memberaccess-auth-code-help": "Help text below the login code field. Must not assert that a code was sent.",
+	"memberaccess-auth-code-wrong": "Error shown when the entered code is wrong and further attempts remain.\n\nParameters:\n* $1 - the number of attempts left",
+	"memberaccess-auth-code-expired": "Error shown when the code is used up, expired, or out of attempts.",
+	"memberaccess-auth-not-authorized": "Error shown when a correct code was entered but the address is not on the allowlist.",
+	"memberaccess-auth-failed": "Error shown when logging in cannot continue: the session lost track of the code request, the address cannot become a username, or that username belongs to a different account. Deliberately vague; only the first case is fixable by requesting a new code.",
+	"memberaccess-auth-password-refused": "Error shown when setting or resetting the password of a member account is attempted.",
+	"memberaccess-api-module-denied": "Action API error shown when a member asks for a query module that lists the wiki's accounts.\n\nParameters:\n* $1 - the name of the query submodule, for example allusers",
+	"memberaccess-block-reason": "Reason recorded in the block log when a member is deactivated. Reactivation recognises the extension's own block by this text in the wiki's content language: after a rewording, blocks placed under the old wording are reported as foreign instead of lifted.",
+	"memberaccess-unblock-reason": "Reason recorded in the block log when a member is reactivated.",
+	"right-memberaccess-manage": "{{doc-right|memberaccess-manage}}",
+	"action-memberaccess-manage": "{{doc-action|memberaccess-manage}}",
+	"group-reader": "{{doc-group|reader}}",
+	"group-reader-member": "{{doc-group|reader|member}}",
+	"grouppage-reader": "{{doc-group|reader|page}}"
+}
