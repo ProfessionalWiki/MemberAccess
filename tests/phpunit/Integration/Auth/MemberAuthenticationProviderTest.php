@@ -1,0 +1,510 @@
+<?php
+
+declare( strict_types = 1 );
+
+namespace ProfessionalWiki\MemberAccess\Tests\Integration\Auth;
+
+use MediaWiki\Auth\AuthenticationResponse;
+use MediaWiki\Auth\PasswordAuthenticationRequest;
+use MediaWiki\Context\RequestContext;
+use MediaWiki\Deferred\DeferredUpdates;
+use MediaWiki\MainConfigNames;
+use MediaWiki\Tests\Unit\Auth\AuthenticationProviderTestTrait;
+use MediaWiki\User\User;
+use Wikimedia\Rdbms\IDBAccessObject;
+use MediaWikiIntegrationTestCase;
+use ProfessionalWiki\MemberAccess\Application\AllowlistValue;
+use ProfessionalWiki\MemberAccess\Application\Member;
+use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
+use ProfessionalWiki\MemberAccess\EntryPoints\Auth\EnterCodeRequest;
+use ProfessionalWiki\MemberAccess\EntryPoints\Auth\LoginCodeRequest;
+use ProfessionalWiki\MemberAccess\EntryPoints\Auth\MemberAuthenticationProvider;
+use ProfessionalWiki\MemberAccess\MemberAccessExtension;
+use ProfessionalWiki\MemberAccess\Tests\TestDoubles\FixedSecretGenerator;
+use ProfessionalWiki\MemberAccess\Tests\TestDoubles\SpyEmailer;
+use RuntimeException;
+use Wikimedia\ObjectCache\HashBagOStuff;
+
+/**
+ * @group Database
+ * @covers \ProfessionalWiki\MemberAccess\EntryPoints\Auth\MemberAuthenticationProvider
+ * @covers \ProfessionalWiki\MemberAccess\EntryPoints\Auth\LoginCodeRequest
+ * @covers \ProfessionalWiki\MemberAccess\EntryPoints\Auth\EnterCodeRequest
+ * @covers \ProfessionalWiki\MemberAccess\EntryPoints\Auth\MemberProvisioner
+ */
+class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
+
+	use AuthenticationProviderRegistration;
+	use AuthenticationProviderTestTrait;
+
+	private const CODE = '12345678';
+	private const RETURN_TO_URL = 'https://wiki.example.com/return';
+
+	private SpyEmailer $emailer;
+
+	private bool $groupAdditionsRefused = false;
+
+	protected function setUp(): void {
+		parent::setUp();
+
+		$this->emailer = new SpyEmailer();
+		$this->setService( 'Emailer', $this->emailer );
+		$this->registerOurAuthenticationProvider();
+		$this->allowAnonymousAutocreation();
+
+		MemberAccessExtension::getInstance()->setStashOverride( new HashBagOStuff() );
+		MemberAccessExtension::getInstance()->setSecretGeneratorOverride( new FixedSecretGenerator( self::CODE ) );
+	}
+
+	protected function tearDown(): void {
+		MemberAccessExtension::getInstance()->setStashOverride( null );
+		MemberAccessExtension::getInstance()->setSecretGeneratorOverride( null );
+
+		parent::tearDown();
+	}
+
+	public function testAdmittedAddressIsMailedACodeAndTheCodeScreenIsShown(): void {
+		$this->allow( 'jane@example.com' );
+
+		$response = $this->requestCode( 'jane@example.com' );
+
+		$this->assertSame( AuthenticationResponse::UI, $response->status );
+		$this->assertCount( 1, $this->emailer->getSentMails() );
+		$this->assertStringContainsString( self::CODE, $this->emailer->getSentMails()[0]['bodyText'] );
+	}
+
+	public function testCorrectCodeLogsTheMemberInAndCreatesTheAccount(): void {
+		$this->allow( 'jane@example.com' );
+		$this->requestCode( 'jane@example.com' );
+
+		$response = $this->enterCode( self::CODE );
+
+		$this->assertSame( AuthenticationResponse::PASS, $response->status );
+		$this->assertSame( 'Jane@example.com', $response->username );
+	}
+
+	public function testCreatedAccountIsAReaderWithAConfirmedEmail(): void {
+		$this->allow( 'jane@example.com' );
+		$this->requestCode( 'jane@example.com' );
+		$this->enterCode( self::CODE );
+
+		$user = $this->userNamed( 'Jane@example.com' );
+
+		$this->assertContains( 'reader', $this->getServiceContainer()->getUserGroupManager()->getUserGroups( $user ) );
+		$this->assertSame( 'jane@example.com', $user->getEmail() );
+		$this->assertTrue( $user->isEmailConfirmed() );
+	}
+
+	public function testCreatedAccountIsRecordedInTheGroupThatAdmittedIt(): void {
+		$groupId = $this->allow( 'jane@example.com' );
+		$this->requestCode( 'jane@example.com' );
+		$this->enterCode( self::CODE );
+
+		$member = $this->memberNamed( 'Jane@example.com' );
+
+		$this->assertNotNull( $member );
+		$this->assertSame( $groupId, $member->groupId );
+		$this->assertSame( 'jane@example.com', $member->email );
+	}
+
+	public function testAddressIsAdmittedByADomainEntry(): void {
+		$this->allow( '@example.com' );
+
+		$response = $this->logIn( 'jane@example.com' );
+
+		$this->assertSame( AuthenticationResponse::PASS, $response->status );
+	}
+
+	public function testUnderscoreInTheAddressBecomesASpaceInTheUsername(): void {
+		$this->allow( '@example.com' );
+
+		$response = $this->logIn( 'John_Doe@example.com' );
+
+		$this->assertSame( 'John doe@example.com', $response->username );
+	}
+
+	public function testAddressThatCannotBecomeAUsernameIsRefused(): void {
+		$this->allow( '@example.com' );
+
+		$this->requestCode( 'jane#doe@example.com' );
+		$response = $this->enterCode( self::CODE );
+
+		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		$this->assertSame( 'memberaccess-auth-failed', $response->message?->getKey() );
+	}
+
+	public function testOnlyMemberAccountsCanAuthenticateWithACode(): void {
+		$this->allow( 'jane@example.com' );
+		$this->logIn( 'jane@example.com' );
+
+		$provider = $this->newInitializedProvider();
+
+		$this->assertTrue( $provider->testUserExists( 'Jane@example.com' ) );
+		$this->assertFalse( $provider->testUserExists( $this->getMutableTestUser()->getUser()->getName() ) );
+	}
+
+	public function testCaseVariantsOfOneAddressReachTheSameAccount(): void {
+		$this->allow( '@example.com' );
+		$this->logIn( 'jane@example.com' );
+
+		$response = $this->logIn( 'JANE@Example.COM' );
+
+		$this->assertSame( 'Jane@example.com', $response->username );
+	}
+
+	public function testWrongCodeShowsTheCodeScreenAgain(): void {
+		$this->allow( 'jane@example.com' );
+		$this->requestCode( 'jane@example.com' );
+
+		$response = $this->enterCode( '00000000' );
+
+		$this->assertSame( AuthenticationResponse::UI, $response->status );
+	}
+
+	public function testCodeStillWorksAfterAWrongAttempt(): void {
+		$this->allow( 'jane@example.com' );
+		$this->requestCode( 'jane@example.com' );
+		$this->enterCode( '00000000' );
+
+		$response = $this->enterCode( self::CODE );
+
+		$this->assertSame( AuthenticationResponse::PASS, $response->status );
+	}
+
+	public function testCodeIsBurnedAfterTheAttemptLimitIsReached(): void {
+		$this->allow( 'jane@example.com' );
+		$this->requestCode( 'jane@example.com' );
+
+		$response = null;
+		for ( $attempt = 1; $attempt <= 5; $attempt++ ) {
+			$response = $this->enterCode( '00000000' );
+		}
+
+		$this->assertSame( AuthenticationResponse::FAIL, $response?->status );
+	}
+
+	public function testAddressThatIsNotAdmittedGetsNoMailButTheSameScreen(): void {
+		$response = $this->requestCode( 'stranger@example.com' );
+
+		$this->assertSame( AuthenticationResponse::UI, $response->status );
+		$this->assertSame( [], $this->emailer->getSentMails() );
+	}
+
+	public function testAddressThatIsNotAdmittedCannotLogInWithItsDecoyCode(): void {
+		$this->requestCode( 'stranger@example.com' );
+
+		$response = $this->enterCode( self::CODE );
+
+		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		$this->assertNull( $this->getServiceContainer()->getUserIdentityLookup()
+			->getUserIdentityByName( 'Stranger@example.com' ) );
+	}
+
+	public function testMemberRemovedFromTheAllowlistIsRefusedAtTheNextLogin(): void {
+		$this->allow( 'jane@example.com' );
+		$this->logIn( 'jane@example.com' );
+		$this->removeAllAllowlistEntries();
+
+		$this->requestCode( 'jane@example.com' );
+		$response = $this->enterCode( self::CODE );
+
+		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+	}
+
+	public function testEmptyAddressIsRefusedWithAnExplanation(): void {
+		$response = $this->requestCode( '' );
+
+		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		$this->assertSame( 'memberaccess-auth-email-missing', $response->message?->getKey() );
+	}
+
+	public function testMalformedAddressIsNamedAsSuch(): void {
+		$response = $this->requestCode( 'not-an-address' );
+
+		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		$this->assertSame( 'memberaccess-auth-email-invalid', $response->message?->getKey() );
+	}
+
+	public function testThrottledRequestSaysNothingAboutTheAllowlist(): void {
+		$this->allow( 'jane@example.com' );
+		$this->overrideConfigValue( 'MemberAccessEmailBurstLimit', 1 );
+		$this->requestCode( 'jane@example.com' );
+
+		$response = $this->requestCode( 'jane@example.com' );
+
+		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		$this->assertSame( 'memberaccess-auth-throttled', $response->message?->getKey() );
+	}
+
+	public function testExistingAccountWithoutAMemberRowCannotBeOpenedWithACode(): void {
+		$this->allow( 'jane@example.com' );
+		$this->getServiceContainer()->getUserFactory()->newFromName( 'Jane@example.com' )?->addToDatabase();
+
+		$this->requestCode( 'jane@example.com' );
+		$response = $this->enterCode( self::CODE );
+
+		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		$this->assertSame( 'memberaccess-auth-failed', $response->message?->getKey() );
+	}
+
+	public function testAccountNamedAfterTheNormalisedAddressIsAlsoDefendedAgainst(): void {
+		$this->allow( '@example.com' );
+		$this->getServiceContainer()->getUserFactory()->newFromName( 'John doe@example.com' )?->addToDatabase();
+
+		$this->requestCode( 'John_Doe@example.com' );
+		$response = $this->enterCode( self::CODE );
+
+		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+	}
+
+	public function testSecondLoginOfAMemberDoesNotProvisionAgain(): void {
+		$this->allow( 'jane@example.com' );
+		$this->logIn( 'jane@example.com' );
+		$this->getServiceContainer()->getUserGroupManager()
+			->removeUserFromGroup( $this->userNamed( 'Jane@example.com' ), 'reader' );
+
+		$response = $this->logIn( 'jane@example.com' );
+
+		$this->assertSame( AuthenticationResponse::PASS, $response->status );
+		$this->assertCount( 1, MemberAccessExtension::getInstance()->newMemberRepository()->listMembers() );
+		$this->assertNotContains(
+			'reader',
+			$this->getServiceContainer()->getUserGroupManager()->getUserGroups( $this->userNamed( 'Jane@example.com' ) )
+		);
+	}
+
+	/**
+	 * An account created for someone else while a member is waiting to be provisioned, a temporary
+	 * user for instance, must not be handed the membership that was meant for the member.
+	 */
+	public function testAccountOtherThanTheAdmittedOneIsNotMadeAMember(): void {
+		$this->markAsWaitingToBeProvisioned( 'jane@example.com' );
+		$stranger = $this->getMutableTestUser()->getUser();
+
+		$this->newInitializedProvider()->autoCreatedAccount( $stranger, 'SomeOtherProvider' );
+
+		$this->assertNull( MemberAccessExtension::getInstance()->newMemberRepository()
+			->getMember( $stranger->getId(), ReadConsistency::UpToDate ) );
+	}
+
+	public function testAdmittedAccountIsMadeAMemberWhateverCreatedIt(): void {
+		$this->markAsWaitingToBeProvisioned( 'jane@example.com' );
+		$member = $this->userNamed( 'Jane@example.com' );
+		$member->addToDatabase();
+
+		$this->newInitializedProvider()->autoCreatedAccount( $member, 'SomeOtherProvider' );
+
+		$this->assertNotNull( $this->memberNamed( 'Jane@example.com' ) );
+	}
+
+	public function testNobodyIsLeftWaitingToBeProvisionedAfterALogin(): void {
+		$this->allow( 'jane@example.com' );
+
+		$this->logIn( 'jane@example.com' );
+
+		$this->assertNull( $this->getServiceContainer()->getAuthManager()
+			->getAuthenticationSessionData( MemberAuthenticationProvider::PROVISIONING_SESSION_KEY ) );
+	}
+
+	/**
+	 * Members have one way in. Offering to link the account to another login would take core to
+	 * this provider's linking methods, which it does not have.
+	 */
+	public function testMemberAccountsCannotBeLinkedToAnotherLogin(): void {
+		$this->overrideConfigValue( MainConfigNames::AuthManagerConfig, [
+			'preauth' => [],
+			'primaryauth' => $this->ourAuthenticationProviderConfig(),
+			'secondaryauth' => []
+		] );
+
+		$this->assertFalse( $this->getServiceContainer()->getAuthManager()->canLinkAccounts() );
+	}
+
+	/**
+	 * Core reads this to keep the code out of logs and out of a URL.
+	 */
+	public function testEnteredCodeIsMarkedSensitive(): void {
+		$fields = ( new EnterCodeRequest() )->getFieldInfo();
+
+		$this->assertTrue( $fields[EnterCodeRequest::CODE_FIELD]['sensitive'] ?? false );
+	}
+
+	public function testProviderAbstainsWhenItsButtonWasNotPressed(): void {
+		$response = $this->newInitializedProvider()
+			->beginPrimaryAuthentication( [ new PasswordAuthenticationRequest() ] );
+
+		$this->assertSame( AuthenticationResponse::ABSTAIN, $response->status );
+	}
+
+	public function testPasswordLoginStillWorksAlongsideTheCodeButton(): void {
+		$testUser = $this->getMutableTestUser();
+		$request = new PasswordAuthenticationRequest();
+		$request->username = $testUser->getUser()->getName();
+		$request->password = $testUser->getPassword();
+
+		$response = $this->getServiceContainer()->getAuthManager()
+			->beginAuthentication( [ $request ], self::RETURN_TO_URL );
+
+		$this->assertSame( AuthenticationResponse::PASS, $response->status );
+	}
+
+	public function testMemberLoginIsRememberedSoItOutlivesTheBrowserSession(): void {
+		$this->allow( 'jane@example.com' );
+
+		$this->logIn( 'jane@example.com' );
+
+		$this->assertTrue( RequestContext::getMain()->getRequest()->getSession()->shouldRememberUser() );
+	}
+
+	public function testLoginFailsWhenTheNewAccountCannotBeMadeAReader(): void {
+		$this->allow( 'jane@example.com' );
+		$this->refuseGroupAdditions();
+		$this->requestCode( 'jane@example.com' );
+
+		$this->expectException( RuntimeException::class );
+		$this->enterCode( self::CODE );
+	}
+
+	public function testVisitorIsNotSignedInWhenTheNewAccountCannotBeMadeAReader(): void {
+		$this->allow( 'jane@example.com' );
+		$this->refuseGroupAdditions();
+		$this->requestCode( 'jane@example.com' );
+
+		$this->enterCodeExpectingProvisioningToFail();
+
+		$this->assertFalse( RequestContext::getMain()->getRequest()->getSession()->getUser()->isRegistered() );
+	}
+
+	public function testAccountLeftBehindByAFailedProvisioningCannotBeLoggedIntoLater(): void {
+		$this->allow( 'jane@example.com' );
+		$this->refuseGroupAdditions();
+		$this->requestCode( 'jane@example.com' );
+		$this->enterCodeExpectingProvisioningToFail();
+		$this->allowGroupAdditionsAgain();
+
+		$this->requestCode( 'jane@example.com' );
+		$response = $this->enterCode( self::CODE );
+
+		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+	}
+
+	/**
+	 * A group addition is refused by handlers of core's UserAddGroup hook, which other extensions
+	 * use to hold group membership to their own rules.
+	 */
+	private function refuseGroupAdditions(): void {
+		$this->groupAdditionsRefused = true;
+
+		$this->setTemporaryHook(
+			'UserAddGroup',
+			fn ( User $user, string &$group, ?string &$expiry ): bool => !$this->groupAdditionsRefused
+		);
+	}
+
+	private function allowGroupAdditionsAgain(): void {
+		$this->groupAdditionsRefused = false;
+	}
+
+	private function markAsWaitingToBeProvisioned( string $email ): void {
+		$this->getServiceContainer()->getAuthManager()->setAuthenticationSessionData(
+			MemberAuthenticationProvider::PROVISIONING_SESSION_KEY,
+			[ 'email' => $email, 'groupId' => $this->allow( $email ) ]
+		);
+	}
+
+	private function enterCodeExpectingProvisioningToFail(): void {
+		try {
+			$this->enterCode( self::CODE );
+		} catch ( RuntimeException ) {
+		}
+	}
+
+	private function allowAnonymousAutocreation(): void {
+		$this->overrideConfigValue( MainConfigNames::GroupPermissions, array_replace_recursive(
+			$this->getConfVar( MainConfigNames::GroupPermissions ),
+			[ '*' => [ 'autocreateaccount' => true ] ]
+		) );
+	}
+
+	private function newInitializedProvider(): MemberAuthenticationProvider {
+		$provider = MemberAccessExtension::getInstance()->newAuthenticationProvider();
+
+		$this->initProvider(
+			$provider,
+			$this->getServiceContainer()->getMainConfig(),
+			null,
+			$this->getServiceContainer()->getAuthManager(),
+			$this->getServiceContainer()->getHookContainer(),
+			$this->getServiceContainer()->getUserNameUtils()
+		);
+
+		return $provider;
+	}
+
+	private function allow( string $value ): int {
+		$extension = MemberAccessExtension::getInstance();
+		$allowlistValue = AllowlistValue::fromString( $value );
+
+		$this->assertNotNull( $allowlistValue );
+
+		$groupId = $extension->newMemberGroupRepository()->createGroup( 'Acme' )->id;
+		$extension->newAllowlistRepository()->addEntry( groupId: $groupId, value: $allowlistValue, actorId: 1 );
+
+		return $groupId;
+	}
+
+	private function removeAllAllowlistEntries(): void {
+		$extension = MemberAccessExtension::getInstance();
+
+		foreach ( $extension->newMemberGroupRepository()->listGroups() as $group ) {
+			foreach ( $extension->newAllowlistRepository()->listEntries( $group->id ) as $entry ) {
+				$extension->newAllowlistRepository()->removeEntry( $entry->id );
+			}
+		}
+	}
+
+	private function requestCode( string $email ): AuthenticationResponse {
+		$request = new LoginCodeRequest();
+		$request->memberaccessEmail = $email;
+		$request->memberaccessLogin = true;
+
+		$response = $this->getServiceContainer()->getAuthManager()
+			->beginAuthentication( [ $request ], self::RETURN_TO_URL );
+
+		$this->runDeferredUpdates();
+
+		return $response;
+	}
+
+	private function enterCode( string $code ): AuthenticationResponse {
+		$request = new EnterCodeRequest();
+		$request->memberaccessCode = $code;
+
+		return $this->getServiceContainer()->getAuthManager()->continueAuthentication( [ $request ] );
+	}
+
+	private function logIn( string $email ): AuthenticationResponse {
+		$this->requestCode( $email );
+
+		return $this->enterCode( self::CODE );
+	}
+
+	private function userNamed( string $name ): User {
+		$user = $this->getServiceContainer()->getUserFactory()->newFromName( $name );
+
+		$this->assertNotNull( $user );
+		$user->load( IDBAccessObject::READ_LATEST );
+
+		return $user;
+	}
+
+	private function memberNamed( string $name ): ?Member {
+		return MemberAccessExtension::getInstance()->newMemberRepository()
+			->getMember( $this->userNamed( $name )->getId(), ReadConsistency::UpToDate );
+	}
+
+	private function runDeferredUpdates(): void {
+		DeferredUpdates::doUpdates();
+	}
+
+}

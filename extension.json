@@ -1,0 +1,187 @@
+{
+	"name": "MemberAccess",
+	"license-name": "proprietary",
+	"version": "0.1.0",
+	"author": [
+		"[https://Professional.Wiki/ Professional Wiki]"
+	],
+	"url": "https://professional.wiki",
+	"descriptionmsg": "memberaccess-description",
+	"manifest_version": 2,
+	"requires": {
+		"MediaWiki": ">= 1.43.0"
+	},
+	"MessagesDirs": {
+		"MemberAccess": [
+			"i18n"
+		]
+	},
+	"AutoloadNamespaces": {
+		"ProfessionalWiki\\MemberAccess\\": "src/"
+	},
+	"TestAutoloadNamespaces": {
+		"ProfessionalWiki\\MemberAccess\\Tests\\": "tests/phpunit/"
+	},
+	"HookHandlers": {
+		"schema": {
+			"class": "ProfessionalWiki\\MemberAccess\\EntryPoints\\SchemaChangesHandler"
+		},
+		"sso": {
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newSsoAuthorizationHandlerHookHandler"
+		},
+		"login": {
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newMemberLoginHookHandler"
+		},
+		"api": {
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newUserListApiHookHandler"
+		}
+	},
+	"Hooks": {
+		"LoadExtensionSchemaUpdates": "schema",
+		"PluggableAuthUserAuthorization": "sso",
+		"UserLoggedIn": "login",
+		"ApiCheckCanExecute": "api"
+	},
+	"callback": "ProfessionalWiki\\MemberAccess\\EntryPoints\\RegistrationHandler::onRegistration",
+	"AuthManagerAutoConfig": {
+		"primaryauth": {
+			"MemberAccessPrimaryAuthenticationProvider": {
+				"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newMemberAuthenticationProvider",
+				"sort": 10
+			}
+		}
+	},
+	"RevokePermissions": {
+		"reader": {
+			"edit": true,
+			"createpage": true,
+			"createtalk": true,
+			"applychangetags": true,
+			"changetags": true,
+			"minoredit": true,
+			"upload": true,
+			"reupload": true,
+			"reupload-own": true,
+			"upload_by_url": true,
+			"move": true,
+			"movefile": true,
+			"move-subpages": true,
+			"delete": true,
+			"undelete": true,
+			"protect": true,
+			"createaccount": true,
+			"sendemail": true,
+			"viewmyprivateinfo": true,
+			"editmyprivateinfo": true,
+			"editmyoptions": true,
+			"cs-comment": true,
+			"abusefilter-view": true,
+			"abusefilter-log": true
+		}
+	},
+	"config": {
+		"MemberAccessReaderGroup": {
+			"value": "reader",
+			"description": "Name of the user group that members are placed in."
+		},
+		"MemberAccessCodeTtlSeconds": {
+			"value": 600,
+			"description": "How long an issued login code stays valid, in seconds."
+		},
+		"MemberAccessCodeAttemptLimit": {
+			"value": 5,
+			"description": "How many times an issued login code may be entered before it is burned."
+		},
+		"MemberAccessEmailBurstLimit": {
+			"value": 3,
+			"description": "Maximum login code requests per email address within 15 minutes."
+		},
+		"MemberAccessEmailDailyLimit": {
+			"value": 10,
+			"description": "Maximum login code requests per email address within 24 hours."
+		},
+		"MemberAccessIpBurstLimit": {
+			"value": 10,
+			"description": "Maximum login code requests per client IP within 15 minutes."
+		},
+		"MemberAccessIpDailyLimit": {
+			"value": 50,
+			"description": "Maximum login code requests per client IP within 24 hours."
+		},
+		"MemberAccessSenderAddress": {
+			"value": null,
+			"description": "Email address login codes are sent from. Falls back to $wgPasswordSender when null."
+		},
+		"MemberAccessSessionDurationSeconds": {
+			"value": 2592000,
+			"description": "How long a remembered login lasts, in seconds. Sets $wgExtendedLoginCookieExpiration, so it applies to everyone on the wiki, not only to members. Set to 0 to leave that setting alone."
+		},
+		"MemberAccessBlockedApiModules": {
+			"value": [ "allusers", "users", "blocks" ],
+			"description": "Names of action API query submodules the reader group may not use."
+		}
+	},
+	"RestRoutes": [
+		{
+			"path": "/member-access/v0/groups",
+			"method": [ "GET" ],
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newListGroupsApi"
+		},
+		{
+			"path": "/member-access/v0/groups",
+			"method": [ "POST" ],
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newCreateGroupApi"
+		},
+		{
+			"path": "/member-access/v0/groups/{id}",
+			"method": [ "PUT" ],
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newRenameGroupApi"
+		},
+		{
+			"path": "/member-access/v0/groups/{id}",
+			"method": [ "DELETE" ],
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newDeleteGroupApi"
+		},
+		{
+			"path": "/member-access/v0/groups/{id}/entries",
+			"method": [ "GET" ],
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newListEntriesApi"
+		},
+		{
+			"path": "/member-access/v0/groups/{id}/entries",
+			"method": [ "POST" ],
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newAddEntryApi"
+		},
+		{
+			"path": "/member-access/v0/entries/{id}",
+			"method": [ "DELETE" ],
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newRemoveEntryApi"
+		},
+		{
+			"path": "/member-access/v0/members",
+			"method": [ "GET" ],
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newListMembersApi"
+		},
+		{
+			"path": "/member-access/v0/members/{userId}/deactivate",
+			"method": [ "POST" ],
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newDeactivateMemberApi"
+		},
+		{
+			"path": "/member-access/v0/members/{userId}/reactivate",
+			"method": [ "POST" ],
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newReactivateMemberApi"
+		}
+	],
+	"AvailableRights": [
+		"memberaccess-manage"
+	],
+	"GroupPermissions": {
+		"sysop": {
+			"memberaccess-manage": true
+		},
+		"bureaucrat": {
+			"memberaccess-manage": true
+		}
+	}
+}

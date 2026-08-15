@@ -1,0 +1,59 @@
+{
+	"name": "professional-wiki/member-access",
+	"type": "mediawiki-extension",
+	"description": "Members-only wiki access: email one-time-code login gated by an allowlist of addresses and domains",
+	"keywords": [
+		"MediaWiki"
+	],
+	"homepage": "https://professional.wiki",
+	"license": "proprietary",
+	"authors": [
+		{
+			"name": "Professional Wiki",
+			"email": "info@Professional.Wiki",
+			"homepage": "https://Professional.Wiki"
+		}
+	],
+	"require": {
+		"php": ">=8.3"
+	},
+	"require-dev": {
+		"phpunit/phpunit": "^9.6",
+		"phpstan/phpstan": "^2.0.1",
+		"mediawiki/mediawiki-codesniffer": "^52.0.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"ProfessionalWiki\\MemberAccess\\": "src/"
+		}
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"ProfessionalWiki\\MemberAccess\\Tests\\": "tests/phpunit/"
+		}
+	},
+	"extra": {
+		"installer-name": "MemberAccess"
+	},
+	"scripts": {
+		"fix": "phpcbf",
+		"phpcs": "phpcs -p -s",
+		"phpunit": "cd ../../ && php tests/phpunit/phpunit.php -c extensions/MemberAccess/",
+		"phpstan": "phpstan analyse --memory-limit=512M",
+		"test": [
+			"@phpcs",
+			"@phpstan"
+		],
+		"preflight": [
+			"@phpcs",
+			"@phpstan",
+			"@phpunit"
+		]
+	},
+	"config": {
+		"allow-plugins": {
+			"composer/installers": true,
+			"dealerdirect/phpcodesniffer-composer-installer": true
+		}
+	}
+}

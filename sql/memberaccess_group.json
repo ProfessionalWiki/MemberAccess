@@ -1,0 +1,37 @@
+[
+	{
+		"name": "memberaccess_group",
+		"comment": "Named groups that allowlist entries and members are attributed to",
+		"columns": [
+			{
+				"name": "mag_id",
+				"type": "integer",
+				"options": {
+					"autoincrement": true,
+					"unsigned": true,
+					"notnull": true
+				}
+			},
+			{
+				"name": "mag_name",
+				"type": "binary",
+				"options": {
+					"length": 255,
+					"notnull": true
+				}
+			},
+			{
+				"name": "mag_timestamp",
+				"comment": "When the group was created",
+				"type": "mwtimestamp",
+				"options": {
+					"notnull": true
+				}
+			}
+		],
+		"indexes": [],
+		"pk": [
+			"mag_id"
+		]
+	}
+]

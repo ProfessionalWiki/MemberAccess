@@ -1,0 +1,73 @@
+[
+	{
+		"name": "memberaccess_member",
+		"comment": "Accounts admitted through the allowlist, with the group that admitted them",
+		"columns": [
+			{
+				"name": "mam_user_id",
+				"type": "integer",
+				"options": {
+					"unsigned": true,
+					"notnull": true
+				}
+			},
+			{
+				"name": "mam_email",
+				"comment": "Lowercased email address the member was admitted with",
+				"type": "binary",
+				"options": {
+					"length": 255,
+					"notnull": true
+				}
+			},
+			{
+				"name": "mam_group_id",
+				"comment": "The memberaccess_group that matched when the account was created",
+				"type": "integer",
+				"options": {
+					"unsigned": true,
+					"notnull": true
+				}
+			},
+			{
+				"name": "mam_timestamp",
+				"comment": "When the account was created",
+				"type": "mwtimestamp",
+				"options": {
+					"notnull": true
+				}
+			},
+			{
+				"name": "mam_deactivated",
+				"comment": "When the member was deactivated, null while active",
+				"type": "mwtimestamp",
+				"options": {
+					"notnull": false
+				}
+			},
+			{
+				"name": "mam_last_login",
+				"comment": "When the member last logged in, null until they first do",
+				"type": "mwtimestamp",
+				"options": {
+					"notnull": false
+				}
+			}
+		],
+		"indexes": [
+			{
+				"name": "mam_group_id",
+				"columns": [ "mam_group_id" ],
+				"unique": false
+			},
+			{
+				"name": "mam_email",
+				"columns": [ "mam_email" ],
+				"unique": false
+			}
+		],
+		"pk": [
+			"mam_user_id"
+		]
+	}
+]
