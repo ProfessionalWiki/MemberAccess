@@ -312,6 +312,30 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->assertNotNull( $this->memberNamed( 'Jane from acme' ) );
 	}
 
+	/**
+	 * Provisioning that failed has to be able to run again. Forgetting the login the moment it is
+	 * attempted would leave the account that was created behind as no member, with nothing left to
+	 * make it one.
+	 */
+	public function testAccountThatCouldNotBeProvisionedIsStillWaitingToBeProvisioned(): void {
+		$this->markAsWaitingToBeProvisioned( 'jane@example.com', 'Jane@example.com' );
+		$member = $this->userNamed( 'Jane@example.com' );
+		$member->addToDatabase();
+		$this->refuseGroupAdditions();
+
+		$this->provisionExpectingItToFail( $member );
+
+		$this->assertNotNull( $this->getServiceContainer()->getAuthManager()
+			->getAuthenticationSessionData( MemberAuthenticationProvider::PROVISIONING_SESSION_KEY ) );
+	}
+
+	private function provisionExpectingItToFail( User $account ): void {
+		try {
+			$this->newInitializedProvider()->autoCreatedAccount( $account, 'SomeOtherProvider' );
+		} catch ( RuntimeException ) {
+		}
+	}
+
 	public function testSingleSignOnAccountNamedByItsProviderIsRecordedInTheGroupThatAdmittedIt(): void {
 		$groupId = $this->allow( 'jane@example.com' );
 

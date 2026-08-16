@@ -211,8 +211,10 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 			return;
 		}
 
-		$this->manager->removeAuthenticationSessionData( self::PROVISIONING_SESSION_KEY );
+		// Forgotten only once it has been provisioned, or a failure would take the login with it and
+		// leave the account that was created behind with nothing left to make it a member.
 		$this->provisioner->provision( $user, $provisioning->email, $provisioning->groupId );
+		$this->manager->removeAuthenticationSessionData( self::PROVISIONING_SESSION_KEY );
 	}
 
 	public function testUserExists( $username, $flags = IDBAccessObject::READ_NORMAL ) {
