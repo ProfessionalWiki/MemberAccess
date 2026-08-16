@@ -21,7 +21,8 @@ confirmed. The allowlist is consulted again at that point, so removing an entry 
 next login. A code never opens an account that was created some other way.
 
 A member never has a password: setting one is refused, and so is having a temporary one mailed by a
-password reset. Both stay open to accounts that were not admitted through the allowlist.
+password reset. Both stay open to accounts that were not admitted through the allowlist. Asking for
+a reset of a member's address answers exactly as it does for an address that was never admitted.
 
 Logins are remembered, so a member stays signed in for about a month without fetching a new code.
 

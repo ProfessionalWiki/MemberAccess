@@ -65,12 +65,16 @@ class MemberPasswordTest extends ApiTestCase {
 		$this->assertTrue( $status->hasMessage( 'memberaccess-auth-password-refused' ) );
 	}
 
-	public function testPasswordResetForAMemberFailsAndMailsNothing(): void {
+	/**
+	 * Answering a member's address differently from any other address would make the reset form a
+	 * way to ask who is a member, which the login flow is careful never to tell.
+	 */
+	public function testPasswordResetForAMemberAnswersLikeAnAccountThatIsNotThere(): void {
 		$member = $this->newMember( 'jane@example.com' );
 
 		$status = $this->resetPasswordOf( $member->getName(), null );
 
-		$this->assertFalse( $status->isGood() );
+		$this->assertEquals( $this->resetPasswordOf( 'Nobody', null ), $status );
 		$this->assertSame( [], $this->emailer->getSentMails() );
 	}
 
@@ -79,7 +83,7 @@ class MemberPasswordTest extends ApiTestCase {
 
 		$status = $this->resetPasswordOf( null, $member->getEmail() );
 
-		$this->assertFalse( $status->isGood() );
+		$this->assertEquals( $this->resetPasswordOf( null, 'stranger@example.com' ), $status );
 		$this->assertSame( [], $this->emailer->getSentMails() );
 	}
 
