@@ -5,6 +5,7 @@ declare( strict_types = 1 );
 namespace ProfessionalWiki\MemberAccess\Tests\Integration;
 
 use MediaWiki\Block\DatabaseBlock;
+use MediaWiki\Block\Restriction\PageRestriction;
 use MediaWiki\User\User;
 use MediaWikiIntegrationTestCase;
 use ProfessionalWiki\MemberAccess\Application\BlockLiftResult;
@@ -94,6 +95,27 @@ class MediaWikiMemberBlockerTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( 'Spamming', $this->blockOnMember()?->getReasonComment()->text );
 	}
 
+	/**
+	 * A block that runs out is not the lockout a deactivation stands for, and it is not this
+	 * extension's to replace, so the deactivation is refused rather than recorded on a member who
+	 * would be back in the day the block expires.
+	 */
+	public function testDeactivatingAMemberWhoCarriesABlockThatExpiresFails(): void {
+		$this->temporaryBlockByHand();
+
+		$this->assertFalse( $this->blocker->blockMember( $this->member->getId(), $this->adminId ) );
+	}
+
+	/**
+	 * A partial block leaves the account able to log in, since what keeps a member out looks at
+	 * sitewide blocks only.
+	 */
+	public function testDeactivatingAMemberWhoCarriesAPartialBlockFails(): void {
+		$this->partialBlockByHand();
+
+		$this->assertFalse( $this->blocker->blockMember( $this->member->getId(), $this->adminId ) );
+	}
+
 	public function testBlockPlacedByHandIsNotLiftedByAReactivation(): void {
 		$this->blockByHand( 'Spamming' );
 
@@ -104,11 +126,37 @@ class MediaWikiMemberBlockerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	private function blockByHand( string $reason ): void {
+		$this->placeBlockByHand( expiry: 'infinity', reason: $reason, options: [], restrictions: [] );
+	}
+
+	private function temporaryBlockByHand(): void {
+		$this->placeBlockByHand( expiry: '7 days', reason: 'Edit warring', options: [], restrictions: [] );
+	}
+
+	/**
+	 * Blocked from one page, which leaves the account able to log in and read everything else.
+	 */
+	private function partialBlockByHand(): void {
+		$this->placeBlockByHand(
+			expiry: 'infinity',
+			reason: 'Edit warring',
+			options: [ 'isPartial' => true ],
+			restrictions: [ new PageRestriction( 0, $this->getExistingTestPage()->getId() ) ]
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $options
+	 * @param PageRestriction[] $restrictions
+	 */
+	private function placeBlockByHand( string $expiry, string $reason, array $options, array $restrictions ): void {
 		$status = $this->getServiceContainer()->getBlockUserFactory()->newBlockUser(
 			$this->member,
 			$this->getTestSysop()->getUser(),
-			'infinity',
-			$reason
+			$expiry,
+			$reason,
+			$options,
+			$restrictions
 		)->placeBlock();
 
 		$this->assertTrue( $status->isOK() );

@@ -52,6 +52,8 @@ the account otherwise as it was.
 
 A block placed by hand, for some other reason, is neither replaced when the member is deactivated
 nor lifted when they are reactivated. Reactivating then reports the account as still blocked.
+Deactivating is refused while such a block would not keep the member out by itself, because it runs
+out or is only partial.
 
 A member's username is their email address, so anything that names accounts names the roster. The
 action API query modules whose purpose is enumerating accounts are closed to the reader group, and

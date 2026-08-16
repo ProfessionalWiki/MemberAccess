@@ -146,10 +146,14 @@ class MemberApiTest extends RestApiTestCase {
 	}
 
 	private function blockByHand( int $userId ): void {
+		$this->blockByHandUntil( $userId, 'infinity' );
+	}
+
+	private function blockByHandUntil( int $userId, string $expiry ): void {
 		$status = $this->getServiceContainer()->getBlockUserFactory()->newBlockUser(
 			$this->getServiceContainer()->getUserFactory()->newFromId( $userId ),
 			$this->getTestSysop()->getUser(),
-			'infinity',
+			$expiry,
 			'Spamming'
 		)->placeBlock();
 
@@ -178,6 +182,18 @@ class MemberApiTest extends RestApiTestCase {
 		);
 
 		$this->assertError( 'block_right_required', 403, $response );
+	}
+
+	/**
+	 * The roster may never say a member is gone while they can still get in, so a deactivation that
+	 * could not place its own block is a failure rather than a quiet no-op.
+	 */
+	public function testMemberCarryingABlockThatExpiresIsLeftActive(): void {
+		$userId = $this->newMember( $this->groupId, 'jane@example.com' );
+		$this->blockByHandUntil( $userId, '7 days' );
+
+		$this->assertError( 'block_failed', 500, $this->deactivateThrough( $userId ) );
+		$this->assertTrue( $this->roster()['members'][0]['active'] );
 	}
 
 	public function testDeactivatingAnAccountThatIsNoMemberIsRefused(): void {

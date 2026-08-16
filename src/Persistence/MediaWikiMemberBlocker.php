@@ -49,15 +49,22 @@ class MediaWikiMemberBlocker implements MemberBlocker {
 			]
 		)->placeBlock( reblock: false );
 
-		// A block already being there is refused rather than replaced. Whatever it is for, the
-		// account is locked out, which is all a deactivation asks for.
-		if ( !$status->isOK() && !$status->hasMessage( self::ALREADY_BLOCKED ) ) {
-			$this->logger->error( 'Blocking a member failed', [ 'status' => $status->__toString() ] );
-
-			return false;
+		// A block already being there is refused rather than replaced, so it has to be one that
+		// ends access by itself. Core refuses that way for any unexpired block, including one that
+		// runs out and one that is only partial, neither of which keeps a member out.
+		if ( $status->isOK() || ( $status->hasMessage( self::ALREADY_BLOCKED ) && $this->isLockedOut( $userId ) ) ) {
+			return true;
 		}
 
-		return true;
+		$this->logger->error( 'Blocking a member failed', [ 'status' => $status->__toString() ] );
+
+		return false;
+	}
+
+	private function isLockedOut( int $userId ): bool {
+		$block = $this->blockStore->newFromTarget( $this->userFactory->newFromId( $userId ), null, true );
+
+		return $block !== null && $block->isSitewide() && $block->getExpiry() === self::INDEFINITE;
 	}
 
 	public function unblockMember( int $userId, int $performerId ): BlockLiftResult {
