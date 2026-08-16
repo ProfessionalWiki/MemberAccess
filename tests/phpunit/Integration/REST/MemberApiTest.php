@@ -196,6 +196,20 @@ class MemberApiTest extends RestApiTestCase {
 		$this->assertTrue( $this->roster()['members'][0]['active'] );
 	}
 
+	public function testReactivatingWithoutTheRightToBlockIsRefusedCleanly(): void {
+		$userId = $this->newMember( $this->groupId, 'jane@example.com' );
+		$this->deactivateThrough( $userId );
+
+		$response = $this->runHandler(
+			MemberAccessExtension::newReactivateMemberApi(),
+			$this->newRequest( 'POST', [], [ 'userId' => (string)$userId ] ),
+			$this->managerWhoMayNotBlock()
+		);
+
+		$this->assertError( 'block_right_required', 403, $response );
+		$this->assertNotNull( $this->blockOn( $userId ) );
+	}
+
 	public function testDeactivatingAnAccountThatIsNoMemberIsRefused(): void {
 		$outsider = $this->getMutableTestUser()->getUser();
 

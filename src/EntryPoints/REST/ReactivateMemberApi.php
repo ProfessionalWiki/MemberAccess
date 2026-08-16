@@ -11,6 +11,8 @@ use ProfessionalWiki\MemberAccess\Application\ReactivationResult;
 
 class ReactivateMemberApi extends MemberAccessApiHandler {
 
+	private const string BLOCK_RIGHT = 'block';
+
 	public function __construct(
 		CsrfTokenSet $csrfTokens,
 		private readonly ReactivateMemberUseCase $useCase
@@ -19,6 +21,26 @@ class ReactivateMemberApi extends MemberAccessApiHandler {
 	}
 
 	public function run( int $userId ): Response {
+		return $this->refuse() ?? $this->reactivate( $userId );
+	}
+
+	/**
+	 * Reactivating lifts the block, which core refuses to a caller who may not block. Left to
+	 * surface as a failed unblock, a permission problem would answer as a server error.
+	 */
+	private function refuse(): ?Response {
+		if ( !$this->getAuthority()->isAllowed( self::BLOCK_RIGHT ) ) {
+			return $this->newErrorResponse(
+				'block_right_required',
+				'Reactivating a member requires the "' . self::BLOCK_RIGHT . '" right',
+				403
+			);
+		}
+
+		return null;
+	}
+
+	private function reactivate( int $userId ): Response {
 		return match ( $this->useCase->reactivate( $userId, $this->performerId() ) ) {
 			ReactivationResult::Reactivated => $this->newJsonResponse( [
 				'userId' => $userId,
