@@ -11,8 +11,9 @@ namespace ProfessionalWiki\MemberAccess\Application;
 interface MemberBlocker {
 
 	/**
-	 * Blocks the account sitewide and indefinitely. An account that is already blocked, for
-	 * whatever reason, is left with the block it has: it is locked out either way.
+	 * Blocks the account sitewide and indefinitely. An account that already carries such a block,
+	 * for whatever reason, is left with the one it has: it is locked out either way. A block that
+	 * would let the member back in is neither replaced nor accepted.
 	 *
 	 * @return bool False when the block could not be placed
 	 */
