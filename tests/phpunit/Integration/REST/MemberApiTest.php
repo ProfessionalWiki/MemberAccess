@@ -6,6 +6,7 @@ namespace ProfessionalWiki\MemberAccess\Tests\Integration\REST;
 
 use MediaWiki\Block\DatabaseBlock;
 use MediaWiki\Permissions\Authority;
+use MediaWiki\Rest\RequestData;
 use MediaWiki\Rest\ResponseInterface;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\MemberAccessExtension;
@@ -221,6 +222,42 @@ class MemberApiTest extends RestApiTestCase {
 		$outsider = $this->getMutableTestUser()->getUser();
 
 		$this->assertError( 'not_a_member', 404, $this->reactivateThrough( $outsider->getId() ) );
+	}
+
+	/**
+	 * These endpoints take no body, and a browser posting none still announces a content type and
+	 * a body of nothing, which is not a malformed request.
+	 */
+	public function testDeactivatingWithAnEmptyBodyIsAccepted(): void {
+		$userId = $this->newMember( $this->groupId, 'jane@example.com' );
+
+		$response = $this->runHandler(
+			MemberAccessExtension::newDeactivateMemberApi(),
+			$this->emptyBodyRequest( $userId )
+		);
+
+		$this->assertSame( 200, $response->getStatusCode() );
+	}
+
+	public function testReactivatingWithAnEmptyBodyIsAccepted(): void {
+		$userId = $this->newMember( $this->groupId, 'jane@example.com' );
+		$this->deactivateThrough( $userId );
+
+		$response = $this->runHandler(
+			MemberAccessExtension::newReactivateMemberApi(),
+			$this->emptyBodyRequest( $userId )
+		);
+
+		$this->assertSame( 200, $response->getStatusCode() );
+	}
+
+	private function emptyBodyRequest( int $userId ): RequestData {
+		return new RequestData( [
+			'method' => 'POST',
+			'pathParams' => [ 'userId' => (string)$userId ],
+			'headers' => [ 'content-type' => 'application/json', 'content-length' => '0' ],
+			'bodyContents' => ''
+		] );
 	}
 
 	/**

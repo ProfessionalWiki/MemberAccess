@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace ProfessionalWiki\MemberAccess\EntryPoints\REST;
 
+use MediaWiki\Rest\RequestInterface;
 use MediaWiki\Rest\Response;
 use MediaWiki\Session\CsrfTokenSet;
 use ProfessionalWiki\MemberAccess\Application\ReactivateMemberUseCase;
@@ -63,6 +64,16 @@ class ReactivateMemberApi extends MemberAccessApiHandler {
 				500
 			)
 		};
+	}
+
+	/**
+	 * The endpoint takes no body, so one that is empty is not a malformed request, whatever content
+	 * type it announces: a browser posting nothing still sends the type it was configured with.
+	 *
+	 * @return array<mixed>
+	 */
+	public function parseBodyData( RequestInterface $request ): ?array {
+		return $request->getBody()->getSize() === 0 ? [] : parent::parseBodyData( $request );
 	}
 
 	/**
