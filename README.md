@@ -1,12 +1,9 @@
 # MemberAccess
 
 MediaWiki extension for members-only wikis: readers log in with an email one-time code,
-admitted by an allowlist of addresses and domains organised into named groups.
+admitted by an allowlist of addresses and domains organized into named groups.
 
 Created by [Professional Wiki](https://professional.wiki) and released under the [GNU GPL v2 or later](LICENSE).
-
-**Status:** complete on the server. Everything the feature does is reachable over the management
-API; the admin panel interface that calls it is still to come.
 
 ## How it works
 
