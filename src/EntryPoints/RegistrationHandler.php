@@ -20,6 +20,7 @@ class RegistrationHandler {
 	private const MANAGE_RIGHT = 'memberaccess-manage';
 	private const PUBLIC_LOG = '*';
 	private const LOGS_THAT_NAME_MEMBERS = [ 'newusers', 'block' ];
+	private const PER_ADDRESS_CAPTCHA_TRIGGER = 'badloginperuser';
 
 	public static function onRegistration(): void {
 		self::moveReaderRevocationsToTheConfiguredGroup();
@@ -27,6 +28,7 @@ class RegistrationHandler {
 		self::allowLoggingInToCreateTheAccount();
 		self::keepMembersSignedIn();
 		self::closeTheLogsThatNameMembers();
+		self::keepTheCaptchaFromTellingMembersApart();
 
 		// A deactivated member is blocked, and only this makes a block keep them out of a private wiki.
 		$GLOBALS['wgBlockDisablesLogin'] = true;
@@ -50,6 +52,26 @@ class RegistrationHandler {
 		}
 
 		$GLOBALS['wgLogRestrictions'] = $restrictions;
+	}
+
+	/**
+	 * A code request names the address in the field MediaWiki reads the login subject from, which is
+	 * also where ConfirmEdit looks before deciding whether to demand a captcha. Its per-address
+	 * bad-login counter is filled by any failed login for the address, but emptied only by a
+	 * successful one, and for a member's address the only login that can succeed is one the
+	 * allowlist admitted. Whether a code request meets a captcha would then differ between an
+	 * admitted address and one that is not, which is the one thing a code request must never say.
+	 *
+	 * ConfirmEdit gates filling, reading and emptying that counter on this trigger, so turning it
+	 * off closes all three, at the price of the escalation on password logins to any account here.
+	 * The per-IP counter beside it stays on: no login empties that one, so it says nothing about the
+	 * address it was reached with.
+	 */
+	private static function keepTheCaptchaFromTellingMembersApart(): void {
+		$triggers = self::globalArray( 'wgCaptchaTriggers' );
+		$triggers[self::PER_ADDRESS_CAPTCHA_TRIGGER] = false;
+
+		$GLOBALS['wgCaptchaTriggers'] = $triggers;
 	}
 
 	/**

@@ -70,7 +70,7 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 			return AuthenticationResponse::newAbstain();
 		}
 
-		$address = trim( $request->memberaccessEmail );
+		$address = $request->address();
 
 		if ( $address === '' ) {
 			return AuthenticationResponse::newFail( wfMessage( 'memberaccess-auth-email-missing' ) );
