@@ -70,7 +70,7 @@ class SsoAuthorizationHandler {
 		}
 
 		if ( !$user->isRegistered() ) {
-			$this->markForProvisioning( $address, $group );
+			$this->markForProvisioning( $user, $address, $group );
 		}
 
 		return true;
@@ -101,12 +101,18 @@ class SsoAuthorizationHandler {
 
 	/**
 	 * The account is created by the provider that authenticated it, which is why provisioning is
-	 * left for our own provider to do once it exists.
+	 * left for our own provider to do once it exists. It is created under the name that provider
+	 * has settled on, so that name is what the account will be recognised by, rather than the
+	 * address.
 	 */
-	private function markForProvisioning( NormalizedEmail $address, MemberGroup $group ): void {
+	private function markForProvisioning( UserIdentity $user, NormalizedEmail $address, MemberGroup $group ): void {
 		$this->authManager->setAuthenticationSessionData(
 			MemberAuthenticationProvider::PROVISIONING_SESSION_KEY,
-			( new PendingProvisioning( $address, $group->id ) )->toSessionData()
+			( new PendingProvisioning(
+				username: $user->getName(),
+				email: $address,
+				groupId: $group->id
+			) )->toSessionData()
 		);
 	}
 

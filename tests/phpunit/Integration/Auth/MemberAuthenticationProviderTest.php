@@ -39,6 +39,7 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 
 	private const CODE = '12345678';
 	private const RETURN_TO_URL = 'https://wiki.example.com/return';
+	private const SSO_USERNAME = 'Jane of Acme';
 
 	private SpyEmailer $emailer;
 
@@ -278,7 +279,7 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	 * user for instance, must not be handed the membership that was meant for the member.
 	 */
 	public function testAccountOtherThanTheAdmittedOneIsNotMadeAMember(): void {
-		$this->markAsWaitingToBeProvisioned( 'jane@example.com' );
+		$this->markAsWaitingToBeProvisioned( 'jane@example.com', 'Jane@example.com' );
 		$stranger = $this->getMutableTestUser()->getUser();
 
 		$this->newInitializedProvider()->autoCreatedAccount( $stranger, 'SomeOtherProvider' );
@@ -288,13 +289,75 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	}
 
 	public function testAdmittedAccountIsMadeAMemberWhateverCreatedIt(): void {
-		$this->markAsWaitingToBeProvisioned( 'jane@example.com' );
+		$this->markAsWaitingToBeProvisioned( 'jane@example.com', 'Jane@example.com' );
 		$member = $this->userNamed( 'Jane@example.com' );
 		$member->addToDatabase();
 
 		$this->newInitializedProvider()->autoCreatedAccount( $member, 'SomeOtherProvider' );
 
 		$this->assertNotNull( $this->memberNamed( 'Jane@example.com' ) );
+	}
+
+	/**
+	 * Not every identity provider normalises the name it creates an account under, so the name
+	 * waiting to be provisioned is put through the same rules the account itself went through.
+	 */
+	public function testAccountWhoseNameTheProviderLeftUnnormalisedIsStillMadeAMember(): void {
+		$this->markAsWaitingToBeProvisioned( 'jane@example.com', 'jane from acme' );
+		$member = $this->userNamed( 'Jane from acme' );
+		$member->addToDatabase();
+
+		$this->newInitializedProvider()->autoCreatedAccount( $member, 'SomeOtherProvider' );
+
+		$this->assertNotNull( $this->memberNamed( 'Jane from acme' ) );
+	}
+
+	public function testSingleSignOnAccountNamedByItsProviderIsRecordedInTheGroupThatAdmittedIt(): void {
+		$groupId = $this->allow( 'jane@example.com' );
+
+		$this->logInThroughSingleSignOn( 'jane@example.com' );
+
+		$member = $this->memberNamed( self::SSO_USERNAME );
+		$this->assertSame( $groupId, $member?->groupId );
+		$this->assertSame( 'jane@example.com', $member?->email );
+	}
+
+	public function testSingleSignOnAccountNamedByItsProviderIsMadeAReader(): void {
+		$this->allow( 'jane@example.com' );
+
+		$account = $this->logInThroughSingleSignOn( 'jane@example.com' );
+
+		$this->assertContains( 'reader', $this->getServiceContainer()->getUserGroupManager()->getUserGroups( $account ) );
+	}
+
+	public function testSingleSignOnAccountNamedByItsProviderHasItsAddressConfirmed(): void {
+		$this->allow( 'jane@example.com' );
+
+		$this->logInThroughSingleSignOn( 'jane@example.com' );
+
+		$account = $this->userNamed( self::SSO_USERNAME );
+		$this->assertSame( 'jane@example.com', $account->getEmail() );
+		$this->assertTrue( $account->isEmailConfirmed() );
+	}
+
+	/**
+	 * A first single sign-on login: the gate admits the address and marks it for provisioning, and
+	 * the identity provider's plugin then creates the account under a name of its own choosing.
+	 */
+	private function logInThroughSingleSignOn( string $email ): User {
+		$identity = $this->userNamed( self::SSO_USERNAME );
+		$identity->setEmail( $email );
+
+		$authorized = true;
+		MemberAccessExtension::newSsoAuthorizationHandlerHookHandler()
+			->onPluggableAuthUserAuthorization( $identity, $authorized );
+
+		$account = $this->userNamed( self::SSO_USERNAME );
+		$account->addToDatabase();
+
+		$this->newInitializedProvider()->autoCreatedAccount( $account, 'PluggableAuth' );
+
+		return $account;
 	}
 
 	public function testNobodyIsLeftWaitingToBeProvisionedAfterALogin(): void {
@@ -405,10 +468,10 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->groupAdditionsRefused = false;
 	}
 
-	private function markAsWaitingToBeProvisioned( string $email ): void {
+	private function markAsWaitingToBeProvisioned( string $email, string $username ): void {
 		$this->getServiceContainer()->getAuthManager()->setAuthenticationSessionData(
 			MemberAuthenticationProvider::PROVISIONING_SESSION_KEY,
-			[ 'email' => $email, 'groupId' => $this->allow( $email ) ]
+			[ 'username' => $username, 'email' => $email, 'groupId' => $this->allow( $email ) ]
 		);
 	}
 

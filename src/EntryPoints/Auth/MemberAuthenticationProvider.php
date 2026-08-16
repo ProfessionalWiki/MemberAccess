@@ -35,9 +35,9 @@ use Wikimedia\Rdbms\IDBAccessObject;
 class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider {
 
 	/**
-	 * Holds the address and group an account is to be provisioned with, for the moment between
-	 * admitting a login and the account being created. Also written by the single sign-on gate,
-	 * whose logins are created by another provider but provisioned here.
+	 * Holds the account name, address and group an account is to be provisioned with, for the
+	 * moment between admitting a login and the account being created. Also written by the single
+	 * sign-on gate, whose logins are created by another provider but provisioned here.
 	 */
 	public const PROVISIONING_SESSION_KEY = 'MemberAccessProvisioning';
 
@@ -152,7 +152,7 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 
 		$this->manager->setAuthenticationSessionData(
 			self::PROVISIONING_SESSION_KEY,
-			( new PendingProvisioning( $email, $group->id ) )->toSessionData()
+			( new PendingProvisioning( username: $username, email: $email, groupId: $group->id ) )->toSessionData()
 		);
 		$this->manager->setAuthenticationSessionData( AuthManager::REMEMBER_ME, true );
 
@@ -164,9 +164,13 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	 * through title normalisation, which turns underscores into spaces.
 	 */
 	private function usernameFor( NormalizedEmail $email ): ?string {
-		$username = $this->userNameUtils->getCanonical( $email->value, UserRigorOptions::RIGOR_USABLE );
+		return $this->canonicalNameOf( $email->value );
+	}
 
-		return $username === false ? null : $username;
+	private function canonicalNameOf( string $username ): ?string {
+		$canonical = $this->userNameUtils->getCanonical( $username, UserRigorOptions::RIGOR_USABLE );
+
+		return $canonical === false ? null : $canonical;
 	}
 
 	/**
@@ -193,15 +197,17 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 
 	/**
 	 * Called for every account created in this session, whichever provider caused it, so the one
-	 * waiting to be provisioned is recognised by name. Another account created meanwhile, a
-	 * temporary user for instance, must not be handed the membership meant for the member.
+	 * waiting to be provisioned is recognised by the name it was admitted under. Another account
+	 * created meanwhile, a temporary user for instance, must not be handed the membership meant for
+	 * the member. The name is canonicalised, since not every provider normalises the name it
+	 * creates an account under.
 	 */
 	public function autoCreatedAccount( $user, $source ): void {
 		$provisioning = PendingProvisioning::fromSessionData(
 			$this->manager->getAuthenticationSessionData( self::PROVISIONING_SESSION_KEY )
 		);
 
-		if ( $provisioning === null || $user->getName() !== $this->usernameFor( $provisioning->email ) ) {
+		if ( $provisioning === null || $user->getName() !== $this->canonicalNameOf( $provisioning->username ) ) {
 			return;
 		}
 
