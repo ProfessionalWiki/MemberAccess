@@ -47,6 +47,18 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $groupId, $provisioning->groupId );
 	}
 
+	/**
+	 * The account is created by the identity provider's plugin, under a name of its choosing, which
+	 * is rarely the address. Provisioning has to recognise the account by that name.
+	 */
+	public function testNewIdentityIsMarkedForProvisioningUnderTheNameItsAccountWillHave(): void {
+		$this->allow( '@example.com' );
+
+		$this->authorize( $this->newIdentity( 'jane@example.com' ) );
+
+		$this->assertSame( 'SsoNewcomer', $this->pendingProvisioning()?->username );
+	}
+
 	public function testNewIdentityWithAnAddressThatIsNotAdmittedIsRefused(): void {
 		$this->allow( '@example.com' );
 
@@ -173,6 +185,22 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $authorized );
 	}
 
+	/**
+	 * Runs the hook itself rather than the handler, so that the registration in extension.json is
+	 * covered as well: an unregistered handler would admit every single sign-on login.
+	 */
+	public function testHookRegistrationHoldsSingleSignOnLoginsToTheAllowlist(): void {
+		$this->allow( '@example.com' );
+
+		$authorized = true;
+		$this->getServiceContainer()->getHookContainer()->run(
+			'PluggableAuthUserAuthorization',
+			[ $this->newIdentity( 'jane@other.example' ), &$authorized ]
+		);
+
+		$this->assertFalse( $authorized );
+	}
+
 	private function newHandler(): SsoAuthorizationHandler {
 		$extension = MemberAccessExtension::getInstance();
 
@@ -193,11 +221,13 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * Shaped like the user PluggableAuth hands the hook for a login that has no account yet.
+	 * Shaped like the user PluggableAuth hands the hook for a login that has no account yet: named
+	 * the way its plugin decided, carrying the address the identity provider vouched for.
 	 */
 	private function newIdentity( string $email ): User {
-		$user = new User();
-		$user->loadDefaults( 'SsoNewcomer' );
+		$user = $this->getServiceContainer()->getUserFactory()->newFromName( 'SsoNewcomer' );
+
+		$this->assertNotNull( $user );
 		$user->setEmail( $email );
 
 		return $user;
