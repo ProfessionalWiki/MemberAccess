@@ -32,6 +32,9 @@
 		"login": {
 			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newMemberLoginHookHandler"
 		},
+		"passwordReset": {
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newPasswordResetHookHandler"
+		},
 		"api": {
 			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newUserListApiHookHandler"
 		}
@@ -40,6 +43,7 @@
 		"LoadExtensionSchemaUpdates": "schema",
 		"PluggableAuthUserAuthorization": "sso",
 		"UserLoggedIn": "login",
+		"SpecialPasswordResetOnSubmit": "passwordReset",
 		"ApiCheckCanExecute": "api"
 	},
 	"callback": "ProfessionalWiki\\MemberAccess\\EntryPoints\\RegistrationHandler::onRegistration",

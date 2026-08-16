@@ -32,6 +32,7 @@ use ProfessionalWiki\MemberAccess\Application\SecretGenerator;
 use ProfessionalWiki\MemberAccess\Application\VerifyCodeUseCase;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\MemberAuthenticationProvider;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\MemberProvisioner;
+use ProfessionalWiki\MemberAccess\EntryPoints\Auth\PasswordResetHandler;
 use ProfessionalWiki\MemberAccess\EntryPoints\MemberLoginHandler;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\AddEntryApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\CreateGroupApi;
@@ -229,6 +230,14 @@ class MemberAccessExtension {
 
 	private function newMemberLoginHandler(): MemberLoginHandler {
 		return new MemberLoginHandler( members: $this->newMemberRepository() );
+	}
+
+	public static function newPasswordResetHookHandler(): PasswordResetHandler {
+		return self::getInstance()->newPasswordResetHandler();
+	}
+
+	private function newPasswordResetHandler(): PasswordResetHandler {
+		return new PasswordResetHandler( members: $this->newMemberRepository() );
 	}
 
 	private function newMemberProvisioner(): MemberProvisioner {
