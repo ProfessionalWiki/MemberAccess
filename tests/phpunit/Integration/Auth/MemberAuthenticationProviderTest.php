@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace ProfessionalWiki\MemberAccess\Tests\Integration\Auth;
 
+use MediaWiki\Auth\AuthenticationRequest;
 use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Auth\PasswordAuthenticationRequest;
 use MediaWiki\Context\RequestContext;
@@ -35,6 +36,7 @@ use Wikimedia\ObjectCache\HashBagOStuff;
 class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 
 	use AuthenticationProviderRegistration;
+	use CodeRequestSubmission;
 	use AuthenticationProviderTestTrait;
 
 	private const CODE = '12345678';
@@ -214,6 +216,13 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 
 	public function testEmptyAddressIsRefusedWithAnExplanation(): void {
 		$response = $this->requestCode( '' );
+
+		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		$this->assertSame( 'memberaccess-auth-email-missing', $response->message?->getKey() );
+	}
+
+	public function testAddressOfNothingButSpacesIsRefusedAsAMissingOne(): void {
+		$response = $this->requestCode( '   ' );
 
 		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
 		$this->assertSame( 'memberaccess-auth-email-missing', $response->message?->getKey() );
@@ -416,6 +425,19 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $fields[EnterCodeRequest::CODE_FIELD]['sensitive'] ?? false );
 	}
 
+	/**
+	 * What makes the provider abstain: a submission that pressed some other button carries no code
+	 * request, however filled in the username box it shares is.
+	 */
+	public function testAnotherProvidersButtonSubmitsNoCodeRequest(): void {
+		$requests = AuthenticationRequest::loadRequestsFromSubmission(
+			[ new LoginCodeRequest() ],
+			[ 'username' => 'jane@example.com' ]
+		);
+
+		$this->assertSame( [], $requests );
+	}
+
 	public function testProviderAbstainsWhenItsButtonWasNotPressed(): void {
 		$response = $this->newInitializedProvider()
 			->beginPrimaryAuthentication( [ new PasswordAuthenticationRequest() ] );
@@ -551,12 +573,8 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	}
 
 	private function requestCode( string $email ): AuthenticationResponse {
-		$request = new LoginCodeRequest();
-		$request->memberaccessEmail = $email;
-		$request->memberaccessLogin = true;
-
 		$response = $this->getServiceContainer()->getAuthManager()
-			->beginAuthentication( [ $request ], self::RETURN_TO_URL );
+			->beginAuthentication( $this->submittedCodeRequest( $email ), self::RETURN_TO_URL );
 
 		$this->runDeferredUpdates();
 

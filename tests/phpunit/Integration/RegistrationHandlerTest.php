@@ -79,6 +79,14 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $GLOBALS['wgGroupPermissions']['*']['autocreateaccount'] );
 	}
 
+	public function testACodeRequestIsNeverMetWithAPerAddressCaptcha(): void {
+		$this->setMwGlobals( 'wgCaptchaTriggers', [ 'badlogin' => true, 'badloginperuser' => true ] );
+
+		RegistrationHandler::onRegistration();
+
+		$this->assertSame( [ 'badlogin' => true, 'badloginperuser' => false ], $GLOBALS['wgCaptchaTriggers'] );
+	}
+
 	public function testAddressesAreAcceptableUsernames(): void {
 		$this->assertStringNotContainsString( '@', $GLOBALS['wgInvalidUsernameCharacters'] );
 	}
@@ -157,6 +165,7 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 
 		$this->setMwGlobals( [
 			'wgBlockDisablesLogin' => $GLOBALS['wgBlockDisablesLogin'],
+			'wgCaptchaTriggers' => $GLOBALS['wgCaptchaTriggers'],
 			'wgGroupPermissions' => $GLOBALS['wgGroupPermissions'],
 			'wgInvalidUsernameCharacters' => $GLOBALS['wgInvalidUsernameCharacters'],
 			'wgLogRestrictions' => $GLOBALS['wgLogRestrictions'],

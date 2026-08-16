@@ -13,9 +13,9 @@ use MediaWiki\User\User;
 use PermissionsError;
 use ProfessionalWiki\MemberAccess\Application\AllowlistValue;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\EnterCodeRequest;
-use ProfessionalWiki\MemberAccess\EntryPoints\Auth\LoginCodeRequest;
 use ProfessionalWiki\MemberAccess\MemberAccessExtension;
 use ProfessionalWiki\MemberAccess\Tests\Integration\Auth\AuthenticationProviderRegistration;
+use ProfessionalWiki\MemberAccess\Tests\Integration\Auth\CodeRequestSubmission;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\FixedSecretGenerator;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\SpyEmailer;
 use SpecialPageExecutor;
@@ -31,6 +31,7 @@ use Wikimedia\ObjectCache\HashBagOStuff;
 class MemberLogVisibilityTest extends ApiTestCase {
 
 	use AuthenticationProviderRegistration;
+	use CodeRequestSubmission;
 
 	private const CODE = '12345678';
 	private const MEMBER_EMAIL = 'jane@example.com';
@@ -194,11 +195,8 @@ class MemberLogVisibilityTest extends ApiTestCase {
 	}
 
 	private function logIn(): void {
-		$request = new LoginCodeRequest();
-		$request->memberaccessEmail = self::MEMBER_EMAIL;
-		$request->memberaccessLogin = true;
-
-		$this->getServiceContainer()->getAuthManager()->beginAuthentication( [ $request ], self::RETURN_TO_URL );
+		$this->getServiceContainer()->getAuthManager()
+			->beginAuthentication( $this->submittedCodeRequest( self::MEMBER_EMAIL ), self::RETURN_TO_URL );
 		DeferredUpdates::doUpdates();
 
 		$codeEntry = new EnterCodeRequest();

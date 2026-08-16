@@ -7,10 +7,11 @@ Created by [Professional Wiki](https://professional.wiki) and released under the
 
 ## How it works
 
-A visitor asks for a login code for their email address. Whether one is sent depends on the
-allowlist. An entry names either one address or a whole domain, and each entry belongs to exactly
-one group. A code is eight digits, valid for ten minutes and usable once. The response to a code
-request is the same either way, so it never reveals who is on the list.
+A visitor asks for a login code by entering their email address in the login form's username field.
+Whether one is sent depends on the allowlist. An entry names either one address or a whole domain,
+and each entry belongs to exactly one group. A code is eight digits, valid for ten minutes and
+usable once. The response to a code request is the same either way, so it never reveals who is on
+the list.
 
 Entering the right code logs the visitor in, and the first time also creates their account: the
 username is their email address, they are placed in the reader group, and the address is recorded as
@@ -81,6 +82,9 @@ Loading the extension is the switch that turns members-only access on. It:
 * sets `$wgBlockDisablesLogin`, so blocking a member keeps them out of a private wiki;
 * restricts the `newusers` and `block` logs to the `memberaccess-manage` right, unless the wiki
   already restricted them;
+* turns off ConfirmEdit's `badloginperuser` captcha trigger, so failed logins no longer escalate to a
+  captcha for the account they name, for everyone on the wiki and not only for members; the per-IP
+  `badlogin` trigger is left alone;
 * grants `autocreateaccount` to anonymous visitors, since a member's account is created by logging in;
 * removes `@` from `$wgInvalidUsernameCharacters`, and changes `$wgUserrightsInterwikiDelimiter` from
   `@` to `@@`, so that `Special:UserRights` can act on an account named after an address;
