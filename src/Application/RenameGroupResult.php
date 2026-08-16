@@ -8,6 +8,7 @@ enum RenameGroupResult {
 
 	case Renamed;
 	case InvalidName;
+	case NameTooLong;
 	case DuplicateName;
 	case GroupNotFound;
 

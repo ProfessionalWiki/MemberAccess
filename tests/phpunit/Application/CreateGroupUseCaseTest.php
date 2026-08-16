@@ -7,6 +7,7 @@ namespace ProfessionalWiki\MemberAccess\Tests\Application;
 use PHPUnit\Framework\TestCase;
 use ProfessionalWiki\MemberAccess\Application\CreateGroupOutcome;
 use ProfessionalWiki\MemberAccess\Application\CreateGroupUseCase;
+use ProfessionalWiki\MemberAccess\Application\MemberGroup;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\InMemoryMemberGroupRepository;
 
 /**
@@ -44,6 +45,33 @@ class CreateGroupUseCaseTest extends TestCase {
 
 		$this->assertSame( CreateGroupOutcome::InvalidName, $result->outcome );
 		$this->assertSame( [], $this->groups->listGroups() );
+	}
+
+	public function testNameOfExactlyTheLongestAcceptedLengthIsCreated(): void {
+		$result = $this->newUseCase()->createGroup( str_repeat( 'a', MemberGroup::MAX_NAME_LENGTH ) );
+
+		$this->assertSame( CreateGroupOutcome::Created, $result->outcome );
+	}
+
+	/**
+	 * A name that does not fit is stored cut off, which makes it another group's name as far as
+	 * the uniqueness check can tell, so the same name can be used twice.
+	 */
+	public function testNameOneByteTooLongIsRefused(): void {
+		$result = $this->newUseCase()->createGroup( str_repeat( 'a', MemberGroup::MAX_NAME_LENGTH + 1 ) );
+
+		$this->assertSame( CreateGroupOutcome::NameTooLong, $result->outcome );
+		$this->assertSame( [], $this->groups->listGroups() );
+	}
+
+	/**
+	 * The limit is the column's, which counts bytes, so a name of few enough characters can still
+	 * be too long, and would be cut off through the middle of a character.
+	 */
+	public function testNameOfFewEnoughCharactersButTooManyBytesIsRefused(): void {
+		$name = str_repeat( 'é', intdiv( MemberGroup::MAX_NAME_LENGTH, 2 ) + 1 );
+
+		$this->assertSame( CreateGroupOutcome::NameTooLong, $this->newUseCase()->createGroup( $name )->outcome );
 	}
 
 	public function testNameThatIsAlreadyUsedIsRefused(): void {

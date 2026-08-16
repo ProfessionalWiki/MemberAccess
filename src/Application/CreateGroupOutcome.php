@@ -8,6 +8,7 @@ enum CreateGroupOutcome {
 
 	case Created;
 	case InvalidName;
+	case NameTooLong;
 	case DuplicateName;
 
 }

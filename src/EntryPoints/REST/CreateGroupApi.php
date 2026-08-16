@@ -8,6 +8,7 @@ use MediaWiki\Rest\Response;
 use MediaWiki\Session\CsrfTokenSet;
 use ProfessionalWiki\MemberAccess\Application\CreateGroupOutcome;
 use ProfessionalWiki\MemberAccess\Application\CreateGroupUseCase;
+use ProfessionalWiki\MemberAccess\Application\MemberGroup;
 
 class CreateGroupApi extends MemberAccessApiHandler {
 
@@ -30,6 +31,11 @@ class CreateGroupApi extends MemberAccessApiHandler {
 			CreateGroupOutcome::InvalidName => $this->newErrorResponse(
 				'invalid_group_name',
 				'A group needs a name',
+				400
+			),
+			CreateGroupOutcome::NameTooLong => $this->newErrorResponse(
+				'group_name_too_long',
+				'A group name may be at most ' . MemberGroup::MAX_NAME_LENGTH . ' bytes long',
 				400
 			),
 			CreateGroupOutcome::DuplicateName => $this->newErrorResponse(

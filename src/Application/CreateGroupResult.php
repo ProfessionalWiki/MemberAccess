@@ -23,6 +23,10 @@ final class CreateGroupResult {
 		return new self( CreateGroupOutcome::InvalidName, null );
 	}
 
+	public static function nameTooLong(): self {
+		return new self( CreateGroupOutcome::NameTooLong, null );
+	}
+
 	public static function duplicateName(): self {
 		return new self( CreateGroupOutcome::DuplicateName, null );
 	}
