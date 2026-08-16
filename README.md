@@ -131,7 +131,7 @@ wiki's CSRF token in an `X-CSRF-TOKEN` header, unless the session provider is in
 | `DELETE /entries/{id}` | Removes an allowlist entry |
 | `GET /members` | The roster: each member's address, group, creation, last login and active flag, plus the totals overall and per group |
 | `POST /members/{userId}/deactivate` | Ends a member's access. Also requires the `block` right, and refuses your own account |
-| `POST /members/{userId}/reactivate` | Restores a member's access. The response's `blocked` says whether a block placed for another reason is still on the account |
+| `POST /members/{userId}/reactivate` | Restores a member's access. Also requires the `block` right. The response's `blocked` says whether a block placed for another reason is still on the account |
 
 A failure answers with the HTTP status and a body carrying a stable `errorCode` next to a human
 readable `error`: `not_logged_in`, `permission_denied`, `invalid_csrf_token`, `invalid_group_name`,
