@@ -135,9 +135,9 @@ wiki's CSRF token in an `X-CSRF-TOKEN` header, unless the session provider is in
 
 A failure answers with the HTTP status and a body carrying a stable `errorCode` next to a human
 readable `error`: `not_logged_in`, `permission_denied`, `invalid_csrf_token`, `invalid_group_name`,
-`duplicate_group_name`, `group_not_found`, `group_not_empty`, `group_has_members`, `invalid_entry_value`,
-`entry_value_too_long`, `duplicate_entry`, `entry_not_found`, `not_a_member`, `cannot_deactivate_self`,
-`block_right_required`, `block_failed`, `unblock_failed`. A `duplicate_entry` also carries
+`group_name_too_long`, `duplicate_group_name`, `group_not_found`, `group_not_empty`, `group_has_members`,
+`invalid_entry_value`, `entry_value_too_long`, `duplicate_entry`, `entry_not_found`, `not_a_member`,
+`cannot_deactivate_self`, `block_right_required`, `block_failed`, `unblock_failed`. A `duplicate_entry` also carries
 `conflictingGroupId` and `conflictingGroupName`, naming the group that already admits the value.
 Malformed requests are refused by MediaWiki's REST framework before reaching the extension, and
 carry its error shape rather than this one.

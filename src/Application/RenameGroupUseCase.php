@@ -7,6 +7,9 @@ namespace ProfessionalWiki\MemberAccess\Application;
 /**
  * Renames a group, refusing a name another group already has. Changing only the capitalisation of
  * a group's own name is a rename like any other.
+ *
+ * A name longer than the column is refused for the same reason: stored cut off, it is no longer the
+ * name that was checked for being taken.
  */
 class RenameGroupUseCase {
 
@@ -20,6 +23,10 @@ class RenameGroupUseCase {
 
 		if ( $name === '' ) {
 			return RenameGroupResult::InvalidName;
+		}
+
+		if ( MemberGroup::nameExceedsMaxLength( $name ) ) {
+			return RenameGroupResult::NameTooLong;
 		}
 
 		if ( $this->groups->getGroup( $groupId ) === null ) {

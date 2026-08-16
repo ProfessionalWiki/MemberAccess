@@ -5,6 +5,7 @@ declare( strict_types = 1 );
 namespace ProfessionalWiki\MemberAccess\Tests\Integration\REST;
 
 use MediaWiki\Rest\ResponseInterface;
+use ProfessionalWiki\MemberAccess\Application\MemberGroup;
 use ProfessionalWiki\MemberAccess\MemberAccessExtension;
 
 /**
@@ -75,6 +76,13 @@ class GroupApiTest extends RestApiTestCase {
 		$this->assertError( 'invalid_group_name', 400, $this->create( '  ' ) );
 	}
 
+	public function testGroupWithANameThatDoesNotFitIsRefused(): void {
+		$response = $this->create( str_repeat( 'a', MemberGroup::MAX_NAME_LENGTH + 1 ) );
+
+		$this->assertError( 'group_name_too_long', 400, $response );
+		$this->assertSame( [], $this->listGroups() );
+	}
+
 	public function testGroupWithAUsedNameIsRefused(): void {
 		$this->newGroup( 'Acme' );
 
@@ -101,6 +109,15 @@ class GroupApiTest extends RestApiTestCase {
 		$group = $this->newGroup( 'Acme' );
 
 		$this->assertError( 'invalid_group_name', 400, $this->rename( $group->id, '' ) );
+	}
+
+	public function testRenamingToANameThatDoesNotFitIsRefused(): void {
+		$group = $this->newGroup( 'Acme' );
+
+		$response = $this->rename( $group->id, str_repeat( 'a', MemberGroup::MAX_NAME_LENGTH + 1 ) );
+
+		$this->assertError( 'group_name_too_long', 400, $response );
+		$this->assertSame( [ 'Acme' ], array_column( $this->listGroups(), 'name' ) );
 	}
 
 	public function testRenamingAGroupThatIsNotThereIsRefused(): void {
