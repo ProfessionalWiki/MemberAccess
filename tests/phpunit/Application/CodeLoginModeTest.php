@@ -15,11 +15,11 @@ use ProfessionalWiki\MemberAccess\Application\MemberGroup;
  */
 class CodeLoginModeTest extends TestCase {
 
-	public function testRouteThatIsOffAdmitsAnAddressAnEntryMatches(): void {
+	public function testRouteThatIsOffRefusesAnAddressAnEntryMatches(): void {
 		$this->assertFalse( CodeLoginMode::Off->admits( $this->aGroup() ) );
 	}
 
-	public function testRouteThatIsOffAdmitsAnAddressNoEntryMatches(): void {
+	public function testRouteThatIsOffRefusesAnAddressNoEntryMatches(): void {
 		$this->assertFalse( CodeLoginMode::Off->admits( null ) );
 	}
 
