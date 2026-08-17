@@ -124,9 +124,16 @@ reach them. An account that is no member is exempt, so everyone who signed in wh
 off keeps their account and the rights it carries, outside the allowlist, until an administrator
 deals with the account by hand.
 
-An open route changes only the allowlist check; everything else described above still holds. A
-member no entry matched has no group until one does: their next login, over either route, writes
-that group down. The group a member already has is never moved.
+An open route accepts what its name says: anyone who can receive mail at the address they enter gets
+an account and a roster row, without an administrator having seen the address first. Code requests
+are throttled per address and per client IP. The per-address limits bound what can be aimed at one
+mailbox; an attacker who varies the address is left to the IP limits alone. The route suits a wiki
+with another gate in front of it, an internal network for instance, rather than one on the open
+internet.
+
+It changes only the allowlist check; everything else described above still holds. A member no entry
+matched has no group until one does: their next login, over either route, writes that group down.
+The group a member already has is never moved.
 
 Narrowing a route ends the access of everyone it no longer admits, at their next login: everyone on
 the code route, and every member on single sign-on.
