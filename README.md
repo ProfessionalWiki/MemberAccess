@@ -118,13 +118,18 @@ is offered at all.
 | `off` | Is not offered: no button on the login form, and no code is issued |
 
 `$wgMemberAccessApplyAllowlistToSso` holds single sign-on logins to the allowlist, and does so by
-default. Set to `false`, it leaves that route alone: no login is refused, and no member is created.
+default. Set to `false`, it leaves that route alone: no login is refused, none is recorded, and the
+accounts it creates are ordinary accounts rather than members. Setting it back to `true` does not
+reach them. An account that is no member is exempt, so everyone who signed in while the switch was
+off keeps their account and the rights it carries, outside the allowlist, until an administrator
+deals with the account by hand.
 
 An open route changes only the allowlist check; everything else described above still holds. A
 member no entry matched has no group until one does: their next login, over either route, writes
 that group down. The group a member already has is never moved.
 
-Narrowing a route ends the access of everyone it no longer admits, at their next login.
+Narrowing a route ends the access of everyone it no longer admits, at their next login: everyone on
+the code route, and every member on single sign-on.
 
 With the code route off and single sign-on left alone, the allowlist governs nothing and is only
 managed.
