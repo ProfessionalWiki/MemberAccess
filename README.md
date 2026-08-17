@@ -5,7 +5,21 @@ admitted by an allowlist of addresses and domains organized into named groups.
 
 Created by [Professional Wiki](https://professional.wiki) and released under the [GNU GPL v2 or later](LICENSE).
 
+* A member never has a password, and a login is remembered for about a month.
+* Members can read and nothing else: everything that would let them change the wiki or see behind
+  the scenes is revoked.
+* Accounts create themselves at first login. Removing an allowlist entry ends access at the next
+  login; deactivating a member blocks them at once.
+* Single sign-on logins through [PluggableAuth](https://www.mediawiki.org/wiki/Extension:PluggableAuth)
+  are held to the same allowlist; staff accounts are exempt.
+* Nothing gives the member list away: code and password-reset requests answer the same for every
+  address, and account listings and the logs that record members are restricted.
+* Groups, allowlist entries and the member roster are managed over a REST API.
+* It does not make the wiki private: restricting who may read stays a wiki configuration decision.
+
 ## How it works
+
+### Login codes
 
 A visitor asks for a login code by entering their email address in the login form's username field.
 Whether one is sent depends on the allowlist. An entry names either one address or a whole domain,
@@ -18,11 +32,22 @@ username is their email address, they are placed in the reader group, and the ad
 confirmed. The allowlist is consulted again at that point, so removing an entry ends access at the
 next login. A code never opens an account that was created some other way.
 
+Logins are remembered, so a member stays signed in for about a month without fetching a new code.
+
+### Usernames
+
+The username is the address lowercased and then put through MediaWiki's username rules: the first
+letter is capitalized and underscores become spaces, so `John_Doe@Example.com` logs in as
+`John doe@example.com`. Addresses that cannot become a username, and addresses whose username is
+already taken by an account that is not that member, are refused.
+
+### Passwords
+
 A member never has a password: setting one is refused, and so is having a temporary one mailed by a
 password reset. Both stay open to accounts that were not admitted through the allowlist. Asking for
 a reset of a member's address answers exactly as it does for an address that was never admitted.
 
-Logins are remembered, so a member stays signed in for about a month without fetching a new code.
+### Single sign-on
 
 Single sign-on logins are held to the same allowlist. With
 [PluggableAuth](https://www.mediawiki.org/wiki/Extension:PluggableAuth) configured, the address the
@@ -35,13 +60,7 @@ channel. A refusal is final: no other handler of the same hook can hand the logi
 login gets PluggableAuth's own `pluggableauth-not-authorized` message. Without PluggableAuth the
 check never runs.
 
-Code requests are rate limited per email address and per client IP, with both a burst and a daily
-limit. Codes are stored hashed and are burned after five wrong entries. Every issue, success,
-failure and rate-limit hit is logged through the `MemberAccess` log channel, with the email
-address hashed.
-
-Groups, allowlist entries and the member roster live in the extension's own database tables. The
-roster records when each member last logged in, over either route.
+### Deactivation
 
 Deactivating a member blocks their account sitewide and indefinitely; removing their allowlist entry
 alone leaves the account and its open session intact. The block is an ordinary one, so it appears in
@@ -54,6 +73,18 @@ nor lifted when they are reactivated. Reactivating then reports the account as s
 Deactivating is refused while such a block would not keep the member out by itself, because it runs
 out or is only partial.
 
+### Rate limits and logging
+
+Code requests are rate limited per email address and per client IP, with both a burst and a daily
+limit. Codes are stored hashed and are burned after five wrong entries. Every issue, success,
+failure and rate-limit hit is logged through the `MemberAccess` log channel, with the email
+address hashed.
+
+### The roster
+
+Groups, allowlist entries and the member roster live in the extension's own database tables. The
+roster records when each member last logged in, over either route.
+
 A member's username is their email address, so anything that names accounts names the roster. The
 action API query modules whose purpose is enumerating accounts are closed to the reader group, and
 two logs are closed to anyone who cannot manage members: the new user log, where every member's
@@ -63,13 +94,6 @@ configuration matter, for instance with [Lockdown](https://www.mediawiki.org/wik
 
 Page histories and recent changes still name whoever acted, which on a members-only wiki means the
 staff who edit: members cannot appear there, since they cannot change anything.
-
-## Usernames
-
-The username is the address lowercased and then put through MediaWiki's username rules: the first
-letter is capitalized and underscores become spaces, so `John_Doe@Example.com` logs in as
-`John doe@example.com`. Addresses that cannot become a username, and addresses whose username is
-already taken by an account that is not that member, are refused.
 
 ## What loading the extension changes on the wiki
 
