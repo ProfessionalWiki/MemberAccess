@@ -105,14 +105,21 @@ class MemberApiTest extends RestApiTestCase {
 		$this->assertSame( 2, $this->roster()['totals']['all'] );
 	}
 
+	/**
+	 * Two groups and a member outside both, so that a breakdown lumping the ungrouped member in
+	 * with anybody shows up, whichever group it picks.
+	 */
 	public function testMembersWithoutAGroupAreLeftOutOfThePerGroupTotals(): void {
+		$other = $this->newGroup( 'Umbrella' );
 		$this->newMember( $this->groupId, 'jane@example.com' );
-		$this->newMemberWithoutAGroup( 'john@example.com' );
+		$this->newMember( $other->id, 'john@example.com' );
+		$this->newMember( $other->id, 'jack@example.com' );
+		$this->newMemberWithoutAGroup( 'stranger@example.com' );
 
 		$perGroup = array_column( $this->roster()['totals']['perGroup'], null, 'groupId' );
 
-		$this->assertCount( 1, $perGroup );
 		$this->assertSame( 1, $perGroup[$this->groupId]['all'] );
+		$this->assertSame( 2, $perGroup[$other->id]['all'] );
 	}
 
 	public function testMemberWithoutAGroupCanBeDeactivated(): void {
