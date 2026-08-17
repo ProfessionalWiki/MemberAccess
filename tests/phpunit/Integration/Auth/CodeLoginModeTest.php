@@ -151,7 +151,10 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 
 		$this->logIn( self::UNLISTED_ADDRESS );
 
-		$this->assertNull( $this->memberNamed( 'Stranger@other.example' )?->groupId );
+		$member = $this->memberNamed( 'Stranger@other.example' );
+
+		$this->assertNotNull( $member, 'the login has to leave a member behind' );
+		$this->assertNull( $member->groupId );
 	}
 
 	public function testOpenCodeLoginStillAttributesTheGroupThatAdmitsTheAddress(): void {
