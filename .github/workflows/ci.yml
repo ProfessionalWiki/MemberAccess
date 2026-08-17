@@ -63,8 +63,14 @@ jobs:
       - name: Run update.php
         run: php maintenance/run.php update --quick
 
-      - name: Run PHPUnit
-        run: php tests/phpunit/phpunit.php -c extensions/MemberAccess/
+      - name: Run PHPUnit with code coverage
+        run: php tests/phpunit/phpunit.php -c extensions/MemberAccess/ --coverage-clover coverage.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_GLOBAL_TOKEN }}
+          slug: ProfessionalWiki/MemberAccess
 
   PHPStan:
     name: "PHPStan: MW ${{ matrix.mw }}, PHP ${{ matrix.php }}"
