@@ -1,5 +1,10 @@
 # MemberAccess
 
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ProfessionalWiki/MemberAccess/ci.yml?branch=master)](https://github.com/ProfessionalWiki/MemberAccess/actions?query=workflow%3ACI)
+[![Latest Stable Version](https://poser.pugx.org/professional-wiki/member-access/v/stable)](https://packagist.org/packages/professional-wiki/member-access)
+[![Download count](https://poser.pugx.org/professional-wiki/member-access/downloads)](https://packagist.org/packages/professional-wiki/member-access)
+[![License](https://poser.pugx.org/professional-wiki/member-access/license)](LICENSE)
+
 MediaWiki extension for members-only wikis: readers log in with an email one-time code,
 admitted by an allowlist of addresses and domains organized into named groups.
 
