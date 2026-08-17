@@ -35,6 +35,9 @@ We provide [MediaWiki Development], [MediaWiki Hosting], and [MediaWiki Consulti
 
 ## How it works
 
+Both login routes are settable, and what follows is what they do as they come: see
+[Login routes](#login-routes).
+
 ### Login codes
 
 A visitor asks for a login code by entering their email address in the login form's username field.
@@ -102,9 +105,34 @@ configuration matter, for instance with [Lockdown].
 Page histories and recent changes still name whoever acted, which on a members-only wiki means the
 staff who edit: members cannot appear there, since they cannot change anything.
 
+### Login routes
+
+Two settings decide which of the two routes above lets anyone in, and what the allowlist governs.
+Their defaults are the behaviour described above.
+
+`$wgMemberAccessCodeLogin` says whom the one-time code route admits:
+
+| Value | What the route does |
+|---|---|
+| `allowlisted` | Admits the addresses an allowlist entry matches. The default |
+| `open` | Admits every address. An entry that matches still attributes the member to its group, and a member no entry matches has none |
+| `off` | Is not offered: no button on the login form, and no code is ever issued |
+
+`$wgMemberAccessApplyAllowlistToSso` says whether single sign-on logins are held to the allowlist.
+Set to `false`, the extension leaves that route alone: it refuses nobody and makes nobody a member.
+
+An open route keeps everything the allowlist check is not: the rate limits, the code lifetime and
+attempt limit, the one answer every address gets, the silence towards a deactivated member, the
+audit trail, and the refusal to open an account the roster does not tie to the proven address. The
+allowlist is consulted at every login whatever the setting, so narrowing a route ends the access of
+everyone it no longer admits, at their next login.
+
+With the code route off and the allowlist kept off single sign-on, the allowlist governs nothing and
+is only managed, which is a wiki being set up before it lets anyone in.
+
 ## What loading the extension changes on the wiki
 
-Loading the extension is the switch that turns members-only access on. It:
+Loading the extension applies these settings, whatever the login routes are set to. It:
 
 * revokes from the reader group everything that would let a reader change the wiki or see behind the
   scenes: editing, commenting, moving, uploading, deleting, protecting, tagging, creating accounts,
@@ -177,6 +205,8 @@ carry its error shape rather than this one.
 
 | Variable | Type | Default | Description |
 |---|---|---|---|
+| `$wgMemberAccessCodeLogin` | string | `'allowlisted'` | Whom the one-time code route admits: `allowlisted`, `open` or `off`. See [Login routes](#login-routes) |
+| `$wgMemberAccessApplyAllowlistToSso` | bool | `true` | Whether single sign-on logins are held to the allowlist |
 | `$wgMemberAccessReaderGroup` | string | `'reader'` | Name of the user group that members are placed in |
 | `$wgMemberAccessCodeTtlSeconds` | int | `600` | How long an issued login code stays valid, in seconds |
 | `$wgMemberAccessCodeAttemptLimit` | int | `5` | How many times a code may be entered before it is burned |
