@@ -433,21 +433,18 @@ class MemberAccessExtension {
 	}
 
 	/**
-	 * A setting nobody recognises leaves the route working, and working the way the extension
-	 * exists to work. Kept until the setting changes, so the warning is said once rather than on
+	 * The reading is kept until the setting changes, so the warning is said once rather than on
 	 * every read.
 	 */
 	private function readCodeLoginMode( string $configured ): CodeLoginMode {
-		$mode = CodeLoginMode::tryFrom( $configured );
-
-		if ( $mode === null ) {
+		if ( CodeLoginMode::tryFrom( $configured ) === null ) {
 			$this->newLogger()->warning(
 				'$wgMemberAccessCodeLogin holds an unknown value and is read as "allowlisted"',
 				[ 'value' => $configured ]
 			);
 		}
 
-		return $mode ?? CodeLoginMode::Allowlisted;
+		return CodeLoginMode::fromSetting( $configured );
 	}
 
 	public function newCodeLifetime(): CodeLifetime {

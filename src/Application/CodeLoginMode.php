@@ -18,6 +18,14 @@ enum CodeLoginMode: string {
 	/** Every address gets in. An entry that matches still says which group admits them. */
 	case Open = 'open';
 
+	/**
+	 * A setting nobody recognises leaves the route working, and working the way the extension
+	 * exists to work.
+	 */
+	public static function fromSetting( string $setting ): self {
+		return self::tryFrom( $setting ) ?? self::Allowlisted;
+	}
+
 	public function admits( ?MemberGroup $group ): bool {
 		return match ( $this ) {
 			self::Off => false,

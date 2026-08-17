@@ -4,9 +4,11 @@ declare( strict_types = 1 );
 
 namespace ProfessionalWiki\MemberAccess\EntryPoints;
 
+use ProfessionalWiki\MemberAccess\Application\CodeLoginMode;
+
 /**
- * Applies the wiki-wide settings the feature needs. Loading the extension is the switch that turns
- * members-only access on, so none of this is further conditional.
+ * Applies the wiki-wide settings the feature needs. They do not depend on which login routes are
+ * offered, except where one says so.
  *
  * Settings that can be stated in extension.json are stated there. What is left here either depends
  * on configuration only known at load time, or is a core setting extension.json cannot express.
@@ -66,8 +68,17 @@ class RegistrationHandler {
 	 * off closes all three, at the price of the escalation on password logins to any account here.
 	 * The per-IP counter beside it stays on: no login empties that one, so it says nothing about the
 	 * address it was reached with.
+	 *
+	 * That price buys nothing where there is no code request to meet a captcha, so a wiki that
+	 * turned the route off keeps the escalation.
 	 */
 	private static function keepTheCaptchaFromTellingMembersApart(): void {
+		$route = CodeLoginMode::fromSetting( self::globalString( 'wgMemberAccessCodeLogin' ) );
+
+		if ( $route === CodeLoginMode::Off ) {
+			return;
+		}
+
 		$triggers = self::globalArray( 'wgCaptchaTriggers' );
 		$triggers[self::PER_ADDRESS_CAPTCHA_TRIGGER] = false;
 

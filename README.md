@@ -143,7 +143,7 @@ managed.
 
 ## What loading the extension changes on the wiki
 
-Whatever the login routes are set to, loading the extension:
+Loading the extension:
 
 * revokes from the reader group everything that would let a reader change the wiki or see behind the
   scenes: editing, commenting, moving, uploading, deleting, protecting, tagging, creating accounts,
@@ -152,9 +152,9 @@ Whatever the login routes are set to, loading the extension:
 * sets `$wgBlockDisablesLogin`, so blocking a member keeps them out of a private wiki;
 * restricts the `newusers` and `block` logs to the `memberaccess-manage` right, unless the wiki
   already restricted them;
-* turns off ConfirmEdit's `badloginperuser` captcha trigger, so failed logins no longer escalate to a
-  captcha for the account they name, for everyone on the wiki and not only for members; the per-IP
-  `badlogin` trigger is left alone;
+* turns off ConfirmEdit's `badloginperuser` captcha trigger, unless the code route is off, so failed
+  logins no longer escalate to a captcha for the account they name, for everyone on the wiki and not
+  only for members; the per-IP `badlogin` trigger is left alone;
 * grants `autocreateaccount` to anonymous visitors, since a member's account is created by logging in;
 * removes `@` from `$wgInvalidUsernameCharacters`, and changes `$wgUserrightsInterwikiDelimiter` from
   `@` to `@@`, so that `Special:UserRights` can act on an account named after an address;
