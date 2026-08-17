@@ -114,6 +114,7 @@ class MemberAccessExtension {
 
 	private function newSsoAuthorizationHandler(): SsoAuthorizationHandler {
 		return new SsoAuthorizationHandler(
+			allowlistApplies: $this->allowlistAppliesToSso(),
 			matcher: $this->newAllowlistMatcher(),
 			members: $this->newMemberRepository(),
 			authManager: MediaWikiServices::getInstance()->getAuthManager(),
@@ -412,6 +413,14 @@ class MemberAccessExtension {
 		}
 
 		return $mode;
+	}
+
+	/**
+	 * Anything but an explicit false leaves the allowlist governing single sign-on, which is what
+	 * the extension is there to do.
+	 */
+	private function allowlistAppliesToSso(): bool {
+		return $this->getConfigValue( 'MemberAccessApplyAllowlistToSso' ) !== false;
 	}
 
 	/**

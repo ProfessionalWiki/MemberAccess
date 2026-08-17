@@ -201,10 +201,58 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertFalse( $authorized );
 	}
 
+	/**
+	 * A wiki whose single sign-on is not the extension's business: it holds nobody to the
+	 * allowlist, and provisions nobody, while the allowlist itself stays as it is.
+	 */
+	public function testSingleSignOnIsLeftAloneWhenTheAllowlistDoesNotApplyToIt(): void {
+		$this->overrideConfigValue( 'MemberAccessApplyAllowlistToSso', false );
+		$this->allow( '@example.com' );
+
+		$authorized = true;
+		MemberAccessExtension::newSsoAuthorizationHandlerHookHandler()
+			->onPluggableAuthUserAuthorization( $this->newIdentity( 'jane@other.example' ), $authorized );
+
+		$this->assertTrue( $authorized );
+	}
+
+	public function testIdentityTheAllowlistWouldRefuseIsAuthorizedWhenItDoesNotApply(): void {
+		$this->allow( '@example.com' );
+
+		$this->assertTrue( $this->authorizeWithoutTheAllowlist( $this->newIdentity( 'jane@other.example' ) ) );
+	}
+
+	public function testMemberTheAllowlistNoLongerAdmitsIsAuthorizedWhenItDoesNotApply(): void {
+		$this->allow( '@example.com' );
+
+		$this->assertTrue( $this->authorizeWithoutTheAllowlist( $this->existingMember( 'former@other.example' ) ) );
+	}
+
+	public function testAdmittedIdentityIsNotMarkedForProvisioningWhenTheAllowlistDoesNotApply(): void {
+		$this->allow( '@example.com' );
+
+		$this->authorizeWithoutTheAllowlist( $this->newIdentity( 'jane@example.com' ) );
+
+		$this->assertNull( $this->pendingProvisioning() );
+	}
+
+	public function testNothingIsRecordedWhenTheAllowlistDoesNotApply(): void {
+		$this->allow( '@example.com' );
+
+		$this->authorizeWithoutTheAllowlist( $this->existingUser( 'staff@other.example' ) );
+
+		$this->assertSame( [], $this->logger->getEntries() );
+	}
+
 	private function newHandler(): SsoAuthorizationHandler {
+		return $this->newHandlerWith( allowlistApplies: true );
+	}
+
+	private function newHandlerWith( bool $allowlistApplies ): SsoAuthorizationHandler {
 		$extension = MemberAccessExtension::getInstance();
 
 		return new SsoAuthorizationHandler(
+			allowlistApplies: $allowlistApplies,
 			matcher: $extension->newAllowlistMatcher(),
 			members: $extension->newMemberRepository(),
 			authManager: $this->getServiceContainer()->getAuthManager(),
@@ -213,9 +261,17 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	private function authorize( User $user ): bool {
+		return $this->authorizeThrough( $this->newHandler(), $user );
+	}
+
+	private function authorizeWithoutTheAllowlist( User $user ): bool {
+		return $this->authorizeThrough( $this->newHandlerWith( allowlistApplies: false ), $user );
+	}
+
+	private function authorizeThrough( SsoAuthorizationHandler $handler, User $user ): bool {
 		$authorized = true;
 
-		$this->newHandler()->onPluggableAuthUserAuthorization( $user, $authorized );
+		$handler->onPluggableAuthUserAuthorization( $user, $authorized );
 
 		return $authorized;
 	}

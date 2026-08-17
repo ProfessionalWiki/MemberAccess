@@ -16,7 +16,8 @@ use Psr\Log\LoggerInterface;
 
 /**
  * Holds single sign-on logins to the same allowlist the one-time codes are held to, so connecting
- * an identity provider admits nobody by itself.
+ * an identity provider admits nobody by itself. A wiki that wants its identity provider to decide
+ * on its own turns this off, and the route is then left entirely alone.
  *
  * Handles PluggableAuth's PluggableAuthUserAuthorization hook. It ships with the extension and lies
  * dormant while no provider is configured, so the rule holds from the first connection onwards.
@@ -29,6 +30,7 @@ use Psr\Log\LoggerInterface;
 class SsoAuthorizationHandler {
 
 	public function __construct(
+		private readonly bool $allowlistApplies,
 		private readonly AllowlistMatcher $matcher,
 		private readonly MemberRepository $members,
 		private readonly AuthManager $authManager,
@@ -41,7 +43,9 @@ class SsoAuthorizationHandler {
 	 * back. Nothing else this returns matters to PluggableAuth, which reads only $authorized.
 	 */
 	public function onPluggableAuthUserAuthorization( UserIdentity $user, bool &$authorized ): bool {
-		if ( !$authorized ) {
+		// A wiki can keep the allowlist off this route, and single sign-on is then somebody else's
+		// business entirely: nobody to refuse, and nobody to make a member.
+		if ( !$this->allowlistApplies || !$authorized ) {
 			return true;
 		}
 
