@@ -15,6 +15,7 @@ use ProfessionalWiki\MemberAccess\Application\AllowlistRepository;
 use ProfessionalWiki\MemberAccess\Application\CreateGroupUseCase;
 use ProfessionalWiki\MemberAccess\Application\CodeHasher;
 use ProfessionalWiki\MemberAccess\Application\CodeLifetime;
+use ProfessionalWiki\MemberAccess\Application\CodeLoginMode;
 use ProfessionalWiki\MemberAccess\Application\CodeMailer;
 use ProfessionalWiki\MemberAccess\Application\CodeRepository;
 use ProfessionalWiki\MemberAccess\Application\CounterStore;
@@ -64,6 +65,12 @@ class MemberAccessExtension {
 
 	private ?SecretGenerator $secretGeneratorOverride = null;
 
+	private ?LoggerInterface $loggerOverride = null;
+
+	private ?CodeLoginMode $codeLoginMode = null;
+
+	private ?string $configuredCodeLogin = null;
+
 	public static function getInstance(): self {
 		/** @var ?self $instance */
 		static $instance = null;
@@ -79,12 +86,17 @@ class MemberAccessExtension {
 		$this->secretGeneratorOverride = $generator;
 	}
 
+	public function setLoggerOverride( ?LoggerInterface $logger ): void {
+		$this->loggerOverride = $logger;
+	}
+
 	public static function newMemberAuthenticationProvider(): MemberAuthenticationProvider {
 		return self::getInstance()->newAuthenticationProvider();
 	}
 
 	public function newAuthenticationProvider(): MemberAuthenticationProvider {
 		return new MemberAuthenticationProvider(
+			mode: $this->getCodeLoginMode(),
 			codeRequests: $this->newRequestCodeUseCase(),
 			codeVerification: $this->newVerifyCodeUseCase(),
 			matcher: $this->newAllowlistMatcher(),
@@ -251,6 +263,7 @@ class MemberAccessExtension {
 
 	public function newRequestCodeUseCase(): RequestCodeUseCase {
 		return new RequestCodeUseCase(
+			mode: $this->getCodeLoginMode(),
 			matcher: $this->newAllowlistMatcher(),
 			members: $this->newMemberRepository(),
 			throttle: $this->newRequestThrottle(),
@@ -373,7 +386,7 @@ class MemberAccessExtension {
 	}
 
 	private function newLogger(): LoggerInterface {
-		return LoggerFactory::getInstance( 'MemberAccess' );
+		return $this->loggerOverride ?? LoggerFactory::getInstance( 'MemberAccess' );
 	}
 
 	private function getStash(): BagOStuff {
@@ -386,6 +399,37 @@ class MemberAccessExtension {
 
 	public function getReaderGroup(): string {
 		return $this->getStringConfig( 'MemberAccessReaderGroup' );
+	}
+
+	public function getCodeLoginMode(): CodeLoginMode {
+		$configured = $this->getStringConfig( 'MemberAccessCodeLogin' );
+		$mode = $this->codeLoginMode;
+
+		if ( $mode === null || $configured !== $this->configuredCodeLogin ) {
+			$mode = $this->readCodeLoginMode( $configured );
+			$this->configuredCodeLogin = $configured;
+			$this->codeLoginMode = $mode;
+		}
+
+		return $mode;
+	}
+
+	/**
+	 * A setting nobody recognises leaves the route working, and working the way the extension
+	 * exists to work. Kept until the setting changes, so the warning is said once rather than on
+	 * every read.
+	 */
+	private function readCodeLoginMode( string $configured ): CodeLoginMode {
+		$mode = CodeLoginMode::tryFrom( $configured );
+
+		if ( $mode === null ) {
+			$this->newLogger()->warning(
+				'$wgMemberAccessCodeLogin holds an unknown value and is read as "allowlisted"',
+				[ 'value' => $configured ]
+			);
+		}
+
+		return $mode ?? CodeLoginMode::Allowlisted;
 	}
 
 	public function newCodeLifetime(): CodeLifetime {

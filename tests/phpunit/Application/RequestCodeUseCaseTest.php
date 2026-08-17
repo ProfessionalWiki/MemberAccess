@@ -9,6 +9,7 @@ use ProfessionalWiki\MemberAccess\Application\AllowlistMatcher;
 use ProfessionalWiki\MemberAccess\Application\AllowlistValue;
 use ProfessionalWiki\MemberAccess\Application\CodeHasher;
 use ProfessionalWiki\MemberAccess\Application\CodeLifetime;
+use ProfessionalWiki\MemberAccess\Application\CodeLoginMode;
 use ProfessionalWiki\MemberAccess\Application\CodeRequestOutcome;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\Application\RequestCodeUseCase;
@@ -31,6 +32,7 @@ class RequestCodeUseCaseTest extends TestCase {
 	private const string IP = '198.51.100.7';
 	private const string LISTED_EMAIL = 'jane@example.com';
 	private const string UNLISTED_EMAIL = 'john@example.net';
+	private const int MEMBER_USER_ID = 1;
 
 	private HashBagOStuff $stash;
 	private InMemoryMemberGroupRepository $groups;
@@ -239,21 +241,81 @@ class RequestCodeUseCaseTest extends TestCase {
 		$this->assertStringNotContainsString( '12345678', $this->logger->getLog() );
 	}
 
+	public function testOpenLoginMailsTheCodeToAnUnlistedAddress(): void {
+		$this->newUseCaseIn( CodeLoginMode::Open )->requestCode( self::UNLISTED_EMAIL, self::IP );
+
+		$this->assertCount( 1, $this->mailer->getSentMails() );
+	}
+
+	public function testOpenLoginSendsNoMailToADeactivatedMember(): void {
+		$this->deactivateTheUnlistedMember();
+
+		$this->newUseCaseIn( CodeLoginMode::Open )->requestCode( self::UNLISTED_EMAIL, self::IP );
+
+		$this->assertSame( [], $this->mailer->getSentMails() );
+	}
+
+	public function testOpenLoginGivesADeactivatedMemberTheSameOutcomeAndAHandle(): void {
+		$this->deactivateTheUnlistedMember();
+
+		$result = $this->newUseCaseIn( CodeLoginMode::Open )->requestCode( self::UNLISTED_EMAIL, self::IP );
+
+		$this->assertSame( CodeRequestOutcome::Accepted, $result->outcome );
+		$this->assertNotNull( $result->handle );
+	}
+
+	public function testOpenLoginIsStillThrottled(): void {
+		$useCase = $this->newUseCaseIn( CodeLoginMode::Open );
+
+		foreach ( range( 1, 3 ) as $ignored ) {
+			$useCase->requestCode( self::UNLISTED_EMAIL, self::IP );
+		}
+
+		$this->assertSame(
+			CodeRequestOutcome::Throttled,
+			$useCase->requestCode( self::UNLISTED_EMAIL, self::IP )->outcome
+		);
+	}
+
+	/**
+	 * The route the use case serves is gone in this mode, so nothing should reach it. Should
+	 * anything still do, a code that admits nobody is the safe answer.
+	 */
+	public function testCodeLoginThatIsOffMailsNothing(): void {
+		$this->newUseCaseIn( CodeLoginMode::Off )->requestCode( self::LISTED_EMAIL, self::IP );
+
+		$this->assertSame( [], $this->mailer->getSentMails() );
+	}
+
 	private function recordTheListedMember(): void {
-		$email = NormalizedEmail::fromString( self::LISTED_EMAIL );
-
-		$this->assertNotNull( $email );
-
-		$this->members->recordMember( userId: 1, email: $email, groupId: 1 );
+		$this->recordMember( self::LISTED_EMAIL, groupId: 1 );
 	}
 
 	private function deactivateTheListedMember(): void {
 		$this->recordTheListedMember();
-		$this->members->deactivateMember( 1 );
+		$this->members->deactivateMember( self::MEMBER_USER_ID );
+	}
+
+	private function deactivateTheUnlistedMember(): void {
+		$this->recordMember( self::UNLISTED_EMAIL, groupId: null );
+		$this->members->deactivateMember( self::MEMBER_USER_ID );
+	}
+
+	private function recordMember( string $email, ?int $groupId ): void {
+		$normalized = NormalizedEmail::fromString( $email );
+
+		$this->assertNotNull( $normalized );
+
+		$this->members->recordMember( userId: self::MEMBER_USER_ID, email: $normalized, groupId: $groupId );
 	}
 
 	private function newUseCase(): RequestCodeUseCase {
+		return $this->newUseCaseIn( CodeLoginMode::Allowlisted );
+	}
+
+	private function newUseCaseIn( CodeLoginMode $mode ): RequestCodeUseCase {
 		return new RequestCodeUseCase(
+			mode: $mode,
 			matcher: new AllowlistMatcher( allowlist: $this->allowlist ),
 			members: $this->members,
 			throttle: new RequestThrottle(

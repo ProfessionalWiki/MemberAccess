@@ -14,6 +14,7 @@ use MediaWiki\User\UserIdentityLookup;
 use MediaWiki\User\UserRigorOptions;
 use ProfessionalWiki\MemberAccess\Application\AllowlistMatcher;
 use ProfessionalWiki\MemberAccess\Application\CodeLifetime;
+use ProfessionalWiki\MemberAccess\Application\CodeLoginMode;
 use ProfessionalWiki\MemberAccess\Application\CodeRequestOutcome;
 use ProfessionalWiki\MemberAccess\Application\CodeVerificationOutcome;
 use ProfessionalWiki\MemberAccess\Application\MemberRepository;
@@ -44,6 +45,7 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	private const HANDLE_SESSION_KEY = 'MemberAccessCodeHandle';
 
 	public function __construct(
+		private readonly CodeLoginMode $mode,
 		private readonly RequestCodeUseCase $codeRequests,
 		private readonly VerifyCodeUseCase $codeVerification,
 		private readonly AllowlistMatcher $matcher,
@@ -56,14 +58,25 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	}
 
 	/**
+	 * A route that is off has no button, which is also what keeps its request out of every
+	 * submission MediaWiki accepts.
+	 *
 	 * @param array<string, mixed> $options
 	 * @return AuthenticationRequest[]
 	 */
 	public function getAuthenticationRequests( $action, array $options ) {
+		if ( $this->mode === CodeLoginMode::Off ) {
+			return [];
+		}
+
 		return $action === AuthManager::ACTION_LOGIN ? [ new LoginCodeRequest() ] : [];
 	}
 
 	public function beginPrimaryAuthentication( array $reqs ) {
+		if ( $this->mode === CodeLoginMode::Off ) {
+			return AuthenticationResponse::newAbstain();
+		}
+
 		$request = AuthenticationRequest::getRequestByClass( $reqs, LoginCodeRequest::class );
 
 		if ( $request === null ) {
@@ -102,6 +115,10 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	 * @param AuthenticationRequest[] $reqs
 	 */
 	public function continuePrimaryAuthentication( array $reqs ) {
+		if ( $this->mode === CodeLoginMode::Off ) {
+			return $this->refuse( 'Code entry continued while the code login route is off' );
+		}
+
 		$request = AuthenticationRequest::getRequestByClass( $reqs, EnterCodeRequest::class );
 		$handle = $this->manager->getAuthenticationSessionData( self::HANDLE_SESSION_KEY );
 
@@ -127,13 +144,16 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	/**
 	 * The address is proven at this point. What remains is whether it is still admitted, and
 	 * whether the account it maps to is really this member's.
+	 *
+	 * The allowlist is asked whatever the route admits, since a matching entry is what attributes a
+	 * member to a group. On an open route, an address no entry matches is admitted without one.
 	 */
 	private function admit( string $verifiedAddress ): AuthenticationResponse {
 		$email = NormalizedEmail::fromString( $verifiedAddress );
 		$group = $email === null ? null : $this->matcher->match( $email );
 
-		if ( $email === null || $group === null ) {
-			$this->auditLogger->info( 'Proven address is not admitted by the allowlist', [
+		if ( $email === null || !$this->mode->admits( $group ) ) {
+			$this->auditLogger->info( 'Proven address is not admitted', [
 				'email' => NormalizedEmail::hashOf( $verifiedAddress )
 			] );
 
@@ -152,7 +172,7 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 
 		$this->manager->setAuthenticationSessionData(
 			self::PROVISIONING_SESSION_KEY,
-			( new PendingProvisioning( username: $username, email: $email, groupId: $group->id ) )->toSessionData()
+			( new PendingProvisioning( username: $username, email: $email, groupId: $group?->id ) )->toSessionData()
 		);
 		$this->manager->setAuthenticationSessionData( AuthManager::REMEMBER_ME, true );
 
