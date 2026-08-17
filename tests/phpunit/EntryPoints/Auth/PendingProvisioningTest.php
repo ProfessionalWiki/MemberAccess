@@ -36,8 +36,13 @@ class PendingProvisioningTest extends TestCase {
 		$this->assertNull( PendingProvisioning::fromSessionData( null ) );
 	}
 
+	/**
+	 * The session holds whatever was put under the key, which need not be an array at all.
+	 * An object is the near miss worth pinning: reading a key off one is an error rather than
+	 * the nothing that reading a key off a string or a number gives.
+	 */
 	public function testValueThatIsNoArrayHoldsNoProvisioning(): void {
-		$this->assertNull( PendingProvisioning::fromSessionData( 'Jane' ) );
+		$this->assertNull( PendingProvisioning::fromSessionData( (object)[ 'username' => 'SsoNewcomer' ] ) );
 	}
 
 	public function testMissingUsernameHoldsNoProvisioning(): void {
