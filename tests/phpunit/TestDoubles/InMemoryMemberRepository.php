@@ -23,7 +23,7 @@ class InMemoryMemberRepository implements MemberRepository {
 
 	private int $addressLookups = 0;
 
-	public function recordMember( int $userId, NormalizedEmail $email, int $groupId ): void {
+	public function recordMember( int $userId, NormalizedEmail $email, ?int $groupId ): void {
 		$this->members[$userId] = new Member(
 			userId: $userId,
 			email: $email->value,
@@ -66,6 +66,10 @@ class InMemoryMemberRepository implements MemberRepository {
 		$perGroup = [];
 
 		foreach ( $this->members as $member ) {
+			if ( $member->groupId === null ) {
+				continue;
+			}
+
 			$count = $perGroup[$member->groupId] ?? new MemberCount( all: 0, active: 0 );
 			$perGroup[$member->groupId] = new MemberCount(
 				all: $count->all + 1,

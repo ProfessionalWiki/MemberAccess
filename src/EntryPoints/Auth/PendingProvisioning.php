@@ -19,7 +19,7 @@ final class PendingProvisioning {
 	public function __construct(
 		public readonly string $username,
 		public readonly NormalizedEmail $email,
-		public readonly int $groupId
+		public readonly ?int $groupId
 	) {
 	}
 
@@ -41,9 +41,15 @@ final class PendingProvisioning {
 
 		$username = $data['username'] ?? null;
 		$email = $data['email'] ?? null;
-		$groupId = $data['groupId'] ?? null;
 
-		if ( !is_string( $username ) || !is_string( $email ) || !is_int( $groupId ) ) {
+		if ( !is_string( $username ) || !is_string( $email ) || !array_key_exists( 'groupId', $data ) ) {
+			return null;
+		}
+
+		// Absent where no allowlist entry admitted the login, which the open code login route allows.
+		$groupId = $data['groupId'];
+
+		if ( $groupId !== null && !is_int( $groupId ) ) {
 			return null;
 		}
 

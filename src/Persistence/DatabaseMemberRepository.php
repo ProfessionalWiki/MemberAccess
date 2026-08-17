@@ -11,10 +11,11 @@ use ProfessionalWiki\MemberAccess\Application\MemberTotals;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
 use stdClass;
+use Wikimedia\Rdbms\SelectQueryBuilder;
 
 class DatabaseMemberRepository extends DatabaseRepository implements MemberRepository {
 
-	public function recordMember( int $userId, NormalizedEmail $email, int $groupId ): void {
+	public function recordMember( int $userId, NormalizedEmail $email, ?int $groupId ): void {
 		$database = $this->connectionProvider->getPrimaryDatabase();
 
 		$database->newInsertQueryBuilder()
@@ -71,6 +72,10 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 		return $members;
 	}
 
+	/**
+	 * Members no group admitted are counted overall and under no group, so the overall count is
+	 * asked for on its own rather than added up from the groups.
+	 */
 	public function getTotals(): MemberTotals {
 		$all = $this->countPerGroup( activeOnly: false );
 		$active = $this->countPerGroup( activeOnly: true );
@@ -82,23 +87,24 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 		}
 
 		return new MemberTotals(
-			overall: new MemberCount( all: array_sum( $all ), active: array_sum( $active ) ),
+			overall: new MemberCount(
+				all: $this->countMembers( activeOnly: false ),
+				active: $this->countMembers( activeOnly: true )
+			),
 			perGroup: $perGroup
 		);
 	}
 
 	/**
-	 * @return array<int, int> Member count per group id
+	 * @return array<int, int> Member count per group id, leaving out the members no group admitted
 	 */
 	private function countPerGroup( bool $activeOnly ): array {
-		$query = $this->connectionProvider->getReplicaDatabase()->newSelectQueryBuilder()
-			->select( [ 'mam_group_id', 'member_count' => 'COUNT(*)' ] )
-			->from( self::MEMBER_TABLE )
-			->groupBy( 'mam_group_id' );
+		$database = $this->connectionProvider->getReplicaDatabase();
 
-		if ( $activeOnly ) {
-			$query->where( [ 'mam_deactivated' => null ] );
-		}
+		$query = $this->newCountQuery( $activeOnly )
+			->select( [ 'mam_group_id', 'member_count' => 'COUNT(*)' ] )
+			->where( $database->expr( 'mam_group_id', '!=', null ) )
+			->groupBy( 'mam_group_id' );
 
 		$counts = [];
 
@@ -107,6 +113,26 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 		}
 
 		return $counts;
+	}
+
+	private function countMembers( bool $activeOnly ): int {
+		return $this->asInt(
+			$this->newCountQuery( $activeOnly )
+				->select( [ 'member_count' => 'COUNT(*)' ] )
+				->caller( __METHOD__ )
+				->fetchField()
+		);
+	}
+
+	private function newCountQuery( bool $activeOnly ): SelectQueryBuilder {
+		$query = $this->connectionProvider->getReplicaDatabase()->newSelectQueryBuilder()
+			->from( self::MEMBER_TABLE );
+
+		if ( $activeOnly ) {
+			$query->where( [ 'mam_deactivated' => null ] );
+		}
+
+		return $query;
 	}
 
 	public function deactivateMember( int $userId ): void {
@@ -155,7 +181,7 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 		return new Member(
 			userId: $this->asInt( $row->mam_user_id ),
 			email: $this->asString( $row->mam_email ),
-			groupId: $this->asInt( $row->mam_group_id ),
+			groupId: $this->asOptionalInt( $row->mam_group_id ),
 			creationTimestamp: $this->asTimestamp( $row->mam_timestamp ),
 			deactivationTimestamp: $this->asOptionalTimestamp( $row->mam_deactivated ),
 			lastLoginTimestamp: $this->asOptionalTimestamp( $row->mam_last_login )

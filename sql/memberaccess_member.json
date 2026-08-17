@@ -22,11 +22,11 @@
 			},
 			{
 				"name": "mam_group_id",
-				"comment": "The memberaccess_group that matched when the account was created",
+				"comment": "The memberaccess_group that matched when the account was created, null when none did",
 				"type": "integer",
 				"options": {
 					"unsigned": true,
-					"notnull": true
+					"notnull": false
 				}
 			},
 			{

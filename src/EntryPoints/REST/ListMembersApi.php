@@ -42,6 +42,8 @@ class ListMembersApi extends MemberAccessApiHandler {
 	}
 
 	/**
+	 * A member no group admitted carries neither a group id nor a name.
+	 *
 	 * @param array<int, string> $groupNames
 	 * @return array<string, mixed>
 	 */
@@ -50,7 +52,7 @@ class ListMembersApi extends MemberAccessApiHandler {
 			'userId' => $member->userId,
 			'email' => $member->email,
 			'groupId' => $member->groupId,
-			'groupName' => $groupNames[$member->groupId] ?? null,
+			'groupName' => $member->groupId === null ? null : ( $groupNames[$member->groupId] ?? null ),
 			'created' => self::toIso8601( $member->creationTimestamp ),
 			'lastLogin' => self::toIso8601( $member->lastLoginTimestamp ),
 			'active' => $member->isActive()

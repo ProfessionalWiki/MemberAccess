@@ -7,6 +7,8 @@ namespace ProfessionalWiki\MemberAccess\Application;
 final class MemberTotals {
 
 	/**
+	 * Members that no group admitted are in the overall count and in no per-group one.
+	 *
 	 * @param array<int, MemberCount> $perGroup Keyed by group id, only groups that have members
 	 */
 	public function __construct(

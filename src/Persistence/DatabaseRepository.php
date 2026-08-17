@@ -40,6 +40,10 @@ abstract class DatabaseRepository {
 		return is_scalar( $value ) ? intval( $value ) : 0;
 	}
 
+	protected function asOptionalInt( mixed $value ): ?int {
+		return $value === null ? null : $this->asInt( $value );
+	}
+
 	protected function asString( mixed $value ): string {
 		return is_scalar( $value ) ? strval( $value ) : '';
 	}

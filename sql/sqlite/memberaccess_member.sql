@@ -5,7 +5,7 @@
 CREATE TABLE /*_*/memberaccess_member (
   mam_user_id INTEGER UNSIGNED NOT NULL,
   mam_email BLOB NOT NULL,
-  mam_group_id INTEGER UNSIGNED NOT NULL,
+  mam_group_id INTEGER UNSIGNED DEFAULT NULL,
   mam_timestamp BLOB NOT NULL,
   mam_deactivated BLOB DEFAULT NULL,
   mam_last_login BLOB DEFAULT NULL,

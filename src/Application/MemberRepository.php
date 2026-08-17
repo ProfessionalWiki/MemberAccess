@@ -6,7 +6,7 @@ namespace ProfessionalWiki\MemberAccess\Application;
 
 interface MemberRepository {
 
-	public function recordMember( int $userId, NormalizedEmail $email, int $groupId ): void;
+	public function recordMember( int $userId, NormalizedEmail $email, ?int $groupId ): void;
 
 	public function getMember( int $userId, ReadConsistency $consistency ): ?Member;
 
