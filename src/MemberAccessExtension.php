@@ -90,6 +90,15 @@ class MemberAccessExtension {
 		$this->loggerOverride = $logger;
 	}
 
+	/**
+	 * Drops the reading of $wgMemberAccessCodeLogin this instance is holding on to, so that a
+	 * setting it has already warned about is read, and warned about, afresh.
+	 */
+	public function forgetCodeLoginMode(): void {
+		$this->codeLoginMode = null;
+		$this->configuredCodeLogin = null;
+	}
+
 	public static function newMemberAuthenticationProvider(): MemberAuthenticationProvider {
 		return self::getInstance()->newAuthenticationProvider();
 	}

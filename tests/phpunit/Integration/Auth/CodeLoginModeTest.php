@@ -45,6 +45,7 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 	private const RETURN_TO_URL = 'https://wiki.example.com/return';
 	private const ADMITTED_ADDRESS = 'jane@example.com';
 	private const UNLISTED_ADDRESS = 'stranger@other.example';
+	private const UNKNOWN_SETTING = 'sometimes';
 
 	private SpyEmailer $emailer;
 
@@ -64,6 +65,9 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 		MemberAccessExtension::getInstance()->setStashOverride( null );
 		MemberAccessExtension::getInstance()->setSecretGeneratorOverride( null );
 		MemberAccessExtension::getInstance()->setLoggerOverride( null );
+		// The extension outlives the test, and with it the setting it has read. Left standing, a
+		// test could be handed a reading, and a warning already said, that another test caused.
+		MemberAccessExtension::getInstance()->forgetCodeLoginMode();
 
 		parent::tearDown();
 	}
@@ -281,7 +285,7 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 	}
 
 	public function testUnknownSettingHoldsTheRouteToTheAllowlist(): void {
-		$this->setCodeLogin( 'sometimes' );
+		$this->setCodeLogin( self::UNKNOWN_SETTING );
 
 		$response = $this->logIn( self::UNLISTED_ADDRESS );
 
@@ -289,7 +293,7 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 	}
 
 	public function testUnknownSettingLeavesTheRouteWorking(): void {
-		$this->setCodeLogin( 'sometimes' );
+		$this->setCodeLogin( self::UNKNOWN_SETTING );
 		$this->allow( self::ADMITTED_ADDRESS );
 
 		$this->assertSame( AuthenticationResponse::PASS, $this->logIn( self::ADMITTED_ADDRESS )->status );
@@ -301,7 +305,7 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 	public function testUnknownSettingIsWarnedAboutOnce(): void {
 		$logger = new SpyLogger();
 		MemberAccessExtension::getInstance()->setLoggerOverride( $logger );
-		$this->setCodeLogin( 'wholly unrecognisable' );
+		$this->setCodeLogin( self::UNKNOWN_SETTING );
 
 		MemberAccessExtension::getInstance()->newAuthenticationProvider();
 		MemberAccessExtension::getInstance()->newAuthenticationProvider();
