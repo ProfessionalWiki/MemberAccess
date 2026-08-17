@@ -99,14 +99,19 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( [], $this->emailer->getSentMails() );
 	}
 
-	public function testCodeLoginThatIsOffRefusesACodeEntrySubmittedAnyway(): void {
+	/**
+	 * A code asked for while the route was still there, entered once it is gone. The route being
+	 * gone is the refusal, reached before the address is considered at all.
+	 */
+	public function testCodeIsRefusedOnceTheRouteIsTakenAway(): void {
+		$this->allow( self::ADMITTED_ADDRESS );
+		$this->requestCode( self::ADMITTED_ADDRESS );
 		$this->setCodeLogin( 'off' );
 
-		$request = new EnterCodeRequest();
-		$request->memberaccessCode = self::CODE;
-		$response = $this->newInitializedProvider()->continuePrimaryAuthentication( [ $request ] );
+		$response = $this->enterCode( self::CODE );
 
 		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		$this->assertSame( 'memberaccess-auth-failed', $response->message?->getKey() );
 	}
 
 	public function testCodeLoginThatIsOffLeavesPasswordLoginAlone(): void {
@@ -164,6 +169,21 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 		$this->logIn( self::ADMITTED_ADDRESS );
 
 		$this->assertSame( $groupId, $this->memberNamed( 'Jane@example.com' )?->groupId );
+	}
+
+	/**
+	 * An open route lets anyone start a login, which is what makes this the defence that matters:
+	 * a proven mailbox may only open the account the roster ties to it.
+	 */
+	public function testOpenCodeLoginStillRefusesAnAccountTheRosterDoesNotTieToTheAddress(): void {
+		$this->setCodeLogin( 'open' );
+		$this->userNamed( 'Stranger@other.example' )->addToDatabase();
+
+		$this->requestCode( self::UNLISTED_ADDRESS );
+		$response = $this->enterCode( self::CODE );
+
+		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		$this->assertSame( 'memberaccess-auth-failed', $response->message?->getKey() );
 	}
 
 	public function testOpenCodeLoginStillRefusesAnAddressThatCannotBecomeAUsername(): void {
