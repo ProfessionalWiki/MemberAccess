@@ -31,14 +31,14 @@ matches is provisioned exactly like a code login. For an account that is already
 address checked is the one recorded when they were admitted, so removing their entry ends this route
 too. Accounts that are not members are exempt, so staff signing in through the identity provider are
 unaffected; when such a login uses an address the allowlist would not admit, it is written to the log
-channel. A refusal is final: no other handler of the same hook can hand the login back. Without
-PluggableAuth the check never runs. A refused login gets PluggableAuth's own
-`pluggableauth-not-authorized` message.
+channel. A refusal is final: no other handler of the same hook can hand the login back. A refused
+login gets PluggableAuth's own `pluggableauth-not-authorized` message. Without PluggableAuth the
+check never runs.
 
 Code requests are rate limited per email address and per client IP, with both a burst and a daily
 limit. Codes are stored hashed and are burned after five wrong entries. Every issue, success,
-failure and rate-limit hit is logged through the `MemberAccess` log channel, with the email address
-hashed rather than in plain text.
+failure and rate-limit hit is logged through the `MemberAccess` log channel, with the email
+address hashed.
 
 Groups, allowlist entries and the member roster live in the extension's own database tables. The
 roster records when each member last logged in, over either route.
@@ -67,7 +67,7 @@ staff who edit: members cannot appear there, since they cannot change anything.
 ## Usernames
 
 The username is the address lowercased and then put through MediaWiki's username rules: the first
-letter is capitalised and underscores become spaces, so `John_Doe@Example.com` logs in as
+letter is capitalized and underscores become spaces, so `John_Doe@Example.com` logs in as
 `John doe@example.com`. Addresses that cannot become a username, and addresses whose username is
 already taken by an account that is not that member, are refused.
 
@@ -135,8 +135,8 @@ wiki's CSRF token in an `X-CSRF-TOKEN` header, unless the session provider is in
 | `POST /members/{userId}/deactivate` | Ends a member's access. Also requires the `block` right, and refuses your own account |
 | `POST /members/{userId}/reactivate` | Restores a member's access. Also requires the `block` right. The response's `blocked` says whether a block placed for another reason is still on the account |
 
-A failure answers with the HTTP status and a body carrying a stable `errorCode` next to a human
-readable `error`: `not_logged_in`, `permission_denied`, `invalid_csrf_token`, `invalid_group_name`,
+A failure answers with the HTTP status and a body carrying a stable `errorCode` next to a
+human-readable `error`: `not_logged_in`, `permission_denied`, `invalid_csrf_token`, `invalid_group_name`,
 `group_name_too_long`, `duplicate_group_name`, `group_not_found`, `group_not_empty`, `group_has_members`,
 `invalid_entry_value`, `entry_value_too_long`, `duplicate_entry`, `entry_not_found`, `not_a_member`,
 `cannot_deactivate_self`, `block_right_required`, `block_failed`, `unblock_failed`. A `duplicate_entry` also carries
@@ -160,7 +160,7 @@ carry its error shape rather than this one.
 | `$wgMemberAccessBlockedApiModules` | string[] | `[ 'allusers', 'users', 'blocks' ]` | Action API query submodules the reader group may not use |
 
 Issued codes and rate-limit counters are held in the main object stash (`$wgMainStash`), which is
-database backed by default. Point it at Redis or Valkey to keep them out of the database.
+database-backed by default. Point it at Redis or Valkey to keep them out of the database.
 
 Route the log channel to keep the audit trail:
 
