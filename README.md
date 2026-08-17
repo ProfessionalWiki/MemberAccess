@@ -35,8 +35,7 @@ We provide [MediaWiki Development], [MediaWiki Hosting], and [MediaWiki Consulti
 
 ## How it works
 
-Both login routes are settable, and what follows is what they do as they come: see
-[Login routes](#login-routes).
+What follows describes the defaults. Two settings change them: see [Login routes](#login-routes).
 
 ### Login codes
 
@@ -107,32 +106,29 @@ staff who edit: members cannot appear there, since they cannot change anything.
 
 ### Login routes
 
-Two settings decide which of the two routes above lets anyone in, and what the allowlist governs.
-Their defaults are the behaviour described above.
+Two settings, one per login route, say what the allowlist governs there, and whether the code route
+is offered at all.
 
 `$wgMemberAccessCodeLogin` says whom the one-time code route admits:
 
 | Value | What the route does |
 |---|---|
 | `allowlisted` | Admits the addresses an allowlist entry matches. The default |
-| `open` | Admits every address. An entry that matches still attributes the member to its group, and a member no entry matches has none |
-| `off` | Is not offered: no button on the login form, and no code is ever issued |
+| `open` | Admits every address. A matching entry still attributes the member to its group; members no entry matches have no group |
+| `off` | Is not offered: no button on the login form, and no code is issued |
 
-`$wgMemberAccessApplyAllowlistToSso` says whether single sign-on logins are held to the allowlist.
-Set to `false`, the extension leaves that route alone: it refuses nobody and makes nobody a member.
+`$wgMemberAccessApplyAllowlistToSso` holds single sign-on logins to the allowlist, and does so by
+default. Set to `false`, it leaves that route alone: no login is refused, and no member is created.
 
-An open route keeps everything the allowlist check is not: the rate limits, the code lifetime and
-attempt limit, the one answer every address gets, the silence towards a deactivated member, the
-audit trail, and the refusal to open an account the roster does not tie to the proven address. The
-allowlist is consulted at every login whatever the setting, so narrowing a route ends the access of
-everyone it no longer admits, at their next login.
+An open route changes only the allowlist check; everything else described above still holds.
+Narrowing a route ends the access of everyone it no longer admits, at their next login.
 
-With the code route off and the allowlist kept off single sign-on, the allowlist governs nothing and
-is only managed, which is a wiki being set up before it lets anyone in.
+With the code route off and single sign-on left alone, the allowlist governs nothing and is only
+managed.
 
 ## What loading the extension changes on the wiki
 
-Loading the extension applies these settings, whatever the login routes are set to. It:
+Whatever the login routes are set to, loading the extension:
 
 * revokes from the reader group everything that would let a reader change the wiki or see behind the
   scenes: editing, commenting, moving, uploading, deleting, protecting, tagging, creating accounts,
@@ -206,7 +202,7 @@ carry its error shape rather than this one.
 | Variable | Type | Default | Description |
 |---|---|---|---|
 | `$wgMemberAccessCodeLogin` | string | `'allowlisted'` | Whom the one-time code route admits: `allowlisted`, `open` or `off`. See [Login routes](#login-routes) |
-| `$wgMemberAccessApplyAllowlistToSso` | bool | `true` | Whether single sign-on logins are held to the allowlist |
+| `$wgMemberAccessApplyAllowlistToSso` | bool | `true` | Whether single sign-on logins are held to the allowlist. See [Login routes](#login-routes) |
 | `$wgMemberAccessReaderGroup` | string | `'reader'` | Name of the user group that members are placed in |
 | `$wgMemberAccessCodeTtlSeconds` | int | `600` | How long an issued login code stays valid, in seconds |
 | `$wgMemberAccessCodeAttemptLimit` | int | `5` | How many times a code may be entered before it is burned |
