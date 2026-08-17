@@ -22,17 +22,14 @@ Created by [Professional Wiki](https://professional.wiki) and released under the
 ### Login codes
 
 A visitor asks for a login code by entering their email address in the login form's username field.
-Whether one is sent depends on the allowlist. An entry names either one address or a whole domain,
-and each entry belongs to exactly one group. A code is eight digits, valid for ten minutes and
-usable once. The response to a code request is the same either way, so it never reveals who is on
-the list.
+Whether one is sent depends on the allowlist, where each entry belongs to exactly one group. A code
+is eight digits, valid for ten minutes and usable once. The response to a code request is the same
+either way, so it never reveals who is on the list.
 
 Entering the right code logs the visitor in, and the first time also creates their account: the
 username is their email address, they are placed in the reader group, and the address is recorded as
 confirmed. The allowlist is consulted again at that point, so removing an entry ends access at the
 next login. A code never opens an account that was created some other way.
-
-Logins are remembered, so a member stays signed in for about a month without fetching a new code.
 
 ### Usernames
 
@@ -56,9 +53,8 @@ matches is provisioned exactly like a code login. For an account that is already
 address checked is the one recorded when they were admitted, so removing their entry ends this route
 too. Accounts that are not members are exempt, so staff signing in through the identity provider are
 unaffected; when such a login uses an address the allowlist would not admit, it is written to the log
-channel. A refusal is final: no other handler of the same hook can hand the login back. A refused
-login gets PluggableAuth's own `pluggableauth-not-authorized` message. Without PluggableAuth the
-check never runs.
+channel. A refusal is final: no other handler of the same hook can hand the login back. Without
+PluggableAuth the check never runs.
 
 ### Deactivation
 
@@ -69,9 +65,8 @@ and the same answer as an address that was never admitted. Reactivating lifts th
 the account otherwise as it was.
 
 A block placed by hand, for some other reason, is neither replaced when the member is deactivated
-nor lifted when they are reactivated. Reactivating then reports the account as still blocked.
-Deactivating is refused while such a block would not keep the member out by itself, because it runs
-out or is only partial.
+nor lifted when they are reactivated. Deactivating is refused while such a block would not keep the
+member out by itself, because it runs out or is only partial.
 
 ### Rate limits and logging
 
@@ -81,9 +76,6 @@ failure and rate-limit hit is logged through the `MemberAccess` log channel, wit
 address hashed.
 
 ### The roster
-
-Groups, allowlist entries and the member roster live in the extension's own database tables. The
-roster records when each member last logged in, over either route.
 
 A member's username is their email address, so anything that names accounts names the roster. The
 action API query modules whose purpose is enumerating accounts are closed to the reader group, and
@@ -114,8 +106,6 @@ Loading the extension is the switch that turns members-only access on. It:
   `@` to `@@`, so that `Special:UserRights` can act on an account named after an address;
 * sets `$wgExtendedLoginCookieExpiration` to `$wgMemberAccessSessionDurationSeconds`, which decides
   how long a remembered login lasts for everyone on the wiki, not only for members.
-
-It does not make the wiki private. Restricting who may read stays a wiki configuration decision.
 
 ## Installation
 
