@@ -1,11 +1,11 @@
 {
-	"name": "MemberAccess",
+	"name": "Member Access",
 	"license-name": "GPL-2.0-or-later",
 	"version": "0.1.0",
 	"author": [
 		"[https://Professional.Wiki/ Professional Wiki]"
 	],
-	"url": "https://professional.wiki",
+	"url": "https://professional.wiki/en/extension/member-access",
 	"descriptionmsg": "memberaccess-description",
 	"manifest_version": 2,
 	"requires": {

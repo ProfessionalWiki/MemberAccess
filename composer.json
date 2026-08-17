@@ -5,15 +5,20 @@
 	"keywords": [
 		"MediaWiki"
 	],
-	"homepage": "https://professional.wiki",
+	"homepage": "https://professional.wiki/en/extension/member-access",
 	"license": "GPL-2.0-or-later",
 	"authors": [
 		{
 			"name": "Professional Wiki",
 			"email": "info@Professional.Wiki",
-			"homepage": "https://Professional.Wiki"
+			"homepage": "https://Professional.Wiki",
+			"role": "Creator"
 		}
 	],
+	"support": {
+		"issues": "https://github.com/ProfessionalWiki/MemberAccess/issues",
+		"source": "https://github.com/ProfessionalWiki/MemberAccess"
+	},
 	"require": {
 		"php": ">=8.3"
 	},
