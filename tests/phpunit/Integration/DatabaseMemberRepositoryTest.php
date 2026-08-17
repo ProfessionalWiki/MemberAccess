@@ -210,6 +210,35 @@ class DatabaseMemberRepositoryTest extends DatabaseRepositoryTestCase {
 		$this->assertSame( 1, $totals->forGroup( 1 )->all );
 	}
 
+	public function testMemberWithoutAGroupGainsTheGroupTheyAreAttributedTo(): void {
+		$this->recordMemberWithoutAGroup( userId: 7, email: 'jane@example.com' );
+
+		$this->members->attributeToGroup( userId: 7, groupId: 3 );
+
+		$this->assertSame( 3, $this->members->getMember( 7, ReadConsistency::UpToDate )?->groupId );
+	}
+
+	/**
+	 * The group a member was admitted by is what the per-group counts are built on, and what
+	 * keeps that group from being deleted. A later login may fill it in, never move it.
+	 */
+	public function testAttributionLeavesTheGroupAMemberAlreadyHas(): void {
+		$this->recordMember( userId: 7, email: 'jane@example.com', groupId: 3 );
+
+		$this->members->attributeToGroup( userId: 7, groupId: 5 );
+
+		$this->assertSame( 3, $this->members->getMember( 7, ReadConsistency::UpToDate )?->groupId );
+	}
+
+	public function testAttributionLeavesOtherMembersWithoutAGroup(): void {
+		$this->recordMemberWithoutAGroup( userId: 7, email: 'jane@example.com' );
+		$this->recordMemberWithoutAGroup( userId: 8, email: 'john@example.com' );
+
+		$this->members->attributeToGroup( userId: 7, groupId: 3 );
+
+		$this->assertNull( $this->members->getMember( 8, ReadConsistency::UpToDate )?->groupId );
+	}
+
 	public function testMemberWithoutAGroupCanBeDeactivated(): void {
 		$this->recordMemberWithoutAGroup( userId: 7, email: 'jane@example.com' );
 

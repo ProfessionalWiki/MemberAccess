@@ -172,6 +172,20 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
+	 * A member the open route admitted has no group until an entry matches them. Their next login
+	 * is where that group is written down, so the roster stops calling them ungrouped.
+	 */
+	public function testMemberAdmittedWithoutAGroupIsAttributedOnceAnEntryMatchesThem(): void {
+		$this->setCodeLogin( 'open' );
+		$this->logIn( self::UNLISTED_ADDRESS );
+		$groupId = $this->allow( self::UNLISTED_ADDRESS );
+
+		$this->logIn( self::UNLISTED_ADDRESS );
+
+		$this->assertSame( $groupId, $this->memberNamed( 'Stranger@other.example' )?->groupId );
+	}
+
+	/**
 	 * An open route lets anyone start a login, which is what makes this the defence that matters:
 	 * a proven mailbox may only open the account the roster ties to it.
 	 */

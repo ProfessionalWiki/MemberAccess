@@ -120,7 +120,10 @@ is offered at all.
 `$wgMemberAccessApplyAllowlistToSso` holds single sign-on logins to the allowlist, and does so by
 default. Set to `false`, it leaves that route alone: no login is refused, and no member is created.
 
-An open route changes only the allowlist check; everything else described above still holds.
+An open route changes only the allowlist check; everything else described above still holds. A
+member no entry matched has no group until one does: their next login, over either route, writes
+that group down. The group a member already has is never moved.
+
 Narrowing a route ends the access of everyone it no longer admits, at their next login.
 
 With the code route off and single sign-on left alone, the allowlist governs nothing and is only

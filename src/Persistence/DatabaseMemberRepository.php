@@ -152,6 +152,19 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 	}
 
 	/**
+	 * The group is part of the condition rather than checked beforehand, so that two logins
+	 * arriving together cannot each read no group and then write a different one.
+	 */
+	public function attributeToGroup( int $userId, int $groupId ): void {
+		$this->connectionProvider->getPrimaryDatabase()->newUpdateQueryBuilder()
+			->update( self::MEMBER_TABLE )
+			->set( [ 'mam_group_id' => $groupId ] )
+			->where( [ 'mam_user_id' => $userId, 'mam_group_id' => null ] )
+			->caller( __METHOD__ )
+			->execute();
+	}
+
+	/**
 	 * @param array<string, ?string> $values
 	 */
 	private function updateMember( int $userId, array $values ): void {

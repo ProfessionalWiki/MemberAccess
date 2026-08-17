@@ -75,6 +75,14 @@ class SsoAuthorizationHandler {
 
 		if ( !$user->isRegistered() ) {
 			$this->markForProvisioning( $user, $address, $group );
+
+			return true;
+		}
+
+		// A member the open code login route admitted has no group. The entry that matches them
+		// now says which group does, and this login is where that is written down.
+		if ( $member !== null && $member->groupId === null ) {
+			$this->members->attributeToGroup( userId: $user->getId(), groupId: $group->id );
 		}
 
 		return true;

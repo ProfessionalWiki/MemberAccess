@@ -105,7 +105,15 @@ class InMemoryMemberRepository implements MemberRepository {
 		}
 	}
 
-	private function replace( int $userId, ?string $deactivation, ?string $login = null ): void {
+	public function attributeToGroup( int $userId, int $groupId ): void {
+		$member = $this->members[$userId] ?? null;
+
+		if ( $member !== null && $member->groupId === null ) {
+			$this->replace( $userId, deactivation: $member->deactivationTimestamp, group: $groupId );
+		}
+	}
+
+	private function replace( int $userId, ?string $deactivation, ?string $login = null, ?int $group = null ): void {
 		$member = $this->members[$userId] ?? null;
 
 		if ( $member === null ) {
@@ -115,7 +123,7 @@ class InMemoryMemberRepository implements MemberRepository {
 		$this->members[$userId] = new Member(
 			userId: $member->userId,
 			email: $member->email,
-			groupId: $member->groupId,
+			groupId: $group ?? $member->groupId,
 			creationTimestamp: $member->creationTimestamp,
 			deactivationTimestamp: $deactivation,
 			lastLoginTimestamp: $login ?? $member->lastLoginTimestamp
