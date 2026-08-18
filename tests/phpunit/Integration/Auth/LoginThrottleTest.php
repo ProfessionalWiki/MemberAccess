@@ -36,6 +36,7 @@ class LoginThrottleTest extends MediaWikiIntegrationTestCase {
 		parent::setUp();
 
 		$this->registerOurAuthenticationProvider();
+		$this->overrideConfigValue( 'MemberAccessCodeLogin', 'allowlisted' );
 		$this->throttleLoginAttemptsAfter( self::ATTEMPTS_ALLOWED );
 
 		MemberAccessExtension::getInstance()->setStashOverride( new HashBagOStuff() );

@@ -44,6 +44,10 @@ class MemberLogVisibilityTest extends ApiTestCase {
 		$this->setService( 'Emailer', new SpyEmailer() );
 		$this->registerOurAuthenticationProvider();
 
+		// The members whose log entries these tests are about are made by logging in over the
+		// code route, which a wiki has to turn on.
+		$this->overrideConfigValue( 'MemberAccessCodeLogin', 'allowlisted' );
+
 		$this->overrideConfigValues( [
 			MainConfigNames::NewUserLog => true,
 			MainConfigNames::GroupPermissions => array_replace_recursive(

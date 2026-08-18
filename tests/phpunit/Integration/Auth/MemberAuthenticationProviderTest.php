@@ -53,6 +53,7 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->emailer = new SpyEmailer();
 		$this->setService( 'Emailer', $this->emailer );
 		$this->registerOurAuthenticationProvider();
+		$this->overrideConfigValue( 'MemberAccessCodeLogin', 'allowlisted' );
 		$this->allowAnonymousAutocreation();
 
 		MemberAccessExtension::getInstance()->setStashOverride( new HashBagOStuff() );
@@ -374,10 +375,13 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * A first single sign-on login: the gate admits the address and marks it for provisioning, and
-	 * the identity provider's plugin then creates the account under a name of its own choosing.
+	 * A first single sign-on login on a wiki that holds that route to the allowlist: the gate admits
+	 * the address and marks it for provisioning, and the identity provider's plugin then creates the
+	 * account under a name of its own choosing.
 	 */
 	private function logInThroughSingleSignOn( string $email ): User {
+		$this->overrideConfigValue( 'MemberAccessApplyAllowlistToSso', true );
+
 		$identity = $this->userNamed( self::SSO_USERNAME );
 		$identity->setEmail( $email );
 
