@@ -65,9 +65,6 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 		MemberAccessExtension::getInstance()->setStashOverride( null );
 		MemberAccessExtension::getInstance()->setSecretGeneratorOverride( null );
 		MemberAccessExtension::getInstance()->setLoggerOverride( null );
-		// The extension outlives the test, and with it the setting it has read. Left standing, a
-		// test could be handed a reading, and a warning already said, that another test caused.
-		MemberAccessExtension::getInstance()->forgetCodeLoginMode();
 
 		parent::tearDown();
 	}
@@ -300,17 +297,19 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * Said once, however often the setting is read, or every login page view would repeat it.
+	 * The route keeps working, so the log is the only place the typo shows up.
 	 */
-	public function testUnknownSettingIsWarnedAboutOnce(): void {
+	public function testUnknownSettingIsWarnedAbout(): void {
 		$logger = new SpyLogger();
 		MemberAccessExtension::getInstance()->setLoggerOverride( $logger );
 		$this->setCodeLogin( self::UNKNOWN_SETTING );
 
 		MemberAccessExtension::getInstance()->newAuthenticationProvider();
-		MemberAccessExtension::getInstance()->newAuthenticationProvider();
 
-		$this->assertCount( 1, $logger->getEntriesAtLevel( 'warning' ) );
+		$this->assertStringContainsString(
+			self::UNKNOWN_SETTING,
+			implode( "\n", $logger->getEntriesAtLevel( 'warning' ) )
+		);
 	}
 
 	private function setCodeLogin( string $mode ): void {

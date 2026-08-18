@@ -67,10 +67,6 @@ class MemberAccessExtension {
 
 	private ?LoggerInterface $loggerOverride = null;
 
-	private ?CodeLoginMode $codeLoginMode = null;
-
-	private ?string $configuredCodeLogin = null;
-
 	public static function getInstance(): self {
 		/** @var ?self $instance */
 		static $instance = null;
@@ -88,15 +84,6 @@ class MemberAccessExtension {
 
 	public function setLoggerOverride( ?LoggerInterface $logger ): void {
 		$this->loggerOverride = $logger;
-	}
-
-	/**
-	 * Drops the reading of $wgMemberAccessCodeLogin this instance is holding on to, so that a
-	 * setting it has already warned about is read, and warned about, afresh.
-	 */
-	public function forgetCodeLoginMode(): void {
-		$this->codeLoginMode = null;
-		$this->configuredCodeLogin = null;
 	}
 
 	public static function newMemberAuthenticationProvider(): MemberAuthenticationProvider {
@@ -411,32 +398,9 @@ class MemberAccessExtension {
 		return $this->getStringConfig( 'MemberAccessReaderGroup' );
 	}
 
-	public function getCodeLoginMode(): CodeLoginMode {
+	private function getCodeLoginMode(): CodeLoginMode {
 		$configured = $this->getStringConfig( 'MemberAccessCodeLogin' );
-		$mode = $this->codeLoginMode;
 
-		if ( $mode === null || $configured !== $this->configuredCodeLogin ) {
-			$mode = $this->readCodeLoginMode( $configured );
-			$this->configuredCodeLogin = $configured;
-			$this->codeLoginMode = $mode;
-		}
-
-		return $mode;
-	}
-
-	/**
-	 * Anything but an explicit false leaves the allowlist governing single sign-on, which is what
-	 * the extension is there to do.
-	 */
-	private function allowlistAppliesToSso(): bool {
-		return $this->getConfigValue( 'MemberAccessApplyAllowlistToSso' ) !== false;
-	}
-
-	/**
-	 * The reading is kept until the setting changes, so the warning is said once rather than on
-	 * every read.
-	 */
-	private function readCodeLoginMode( string $configured ): CodeLoginMode {
 		if ( CodeLoginMode::tryFrom( $configured ) === null ) {
 			$this->newLogger()->warning(
 				'$wgMemberAccessCodeLogin holds an unknown value and is read as "allowlisted"',
@@ -445,6 +409,14 @@ class MemberAccessExtension {
 		}
 
 		return CodeLoginMode::fromSetting( $configured );
+	}
+
+	/**
+	 * Anything but an explicit false leaves the allowlist governing single sign-on, which is what
+	 * the extension is there to do.
+	 */
+	private function allowlistAppliesToSso(): bool {
+		return $this->getConfigValue( 'MemberAccessApplyAllowlistToSso' ) !== false;
 	}
 
 	public function newCodeLifetime(): CodeLifetime {
