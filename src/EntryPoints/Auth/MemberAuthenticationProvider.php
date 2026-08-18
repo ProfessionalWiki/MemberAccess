@@ -221,7 +221,10 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	/**
 	 * A member the open route admitted has no group until an allowlist entry matches them. Their
 	 * login is where that group is written down, since it is what the roster shows them under and
-	 * what the per-group counts add up. The group that admitted a member is never moved.
+	 * what the per-group counts add up.
+	 *
+	 * That a group already given is never moved is the repository's rule, held in the condition it
+	 * writes under. Asking here as well is what keeps an ordinary login from writing at all.
 	 */
 	private function attributeToGroup( Member $member, ?MemberGroup $group ): void {
 		if ( $group !== null && $member->groupId === null ) {

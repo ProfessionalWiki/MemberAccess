@@ -80,7 +80,8 @@ class SsoAuthorizationHandler {
 		}
 
 		// A member the open code login route admitted has no group. The entry that matches them
-		// now says which group does, and this login is where that is written down.
+		// now says which group does, and this login is where that is written down. The repository
+		// is what holds a group already given in place; asking here keeps most logins from writing.
 		if ( $member !== null && $member->groupId === null ) {
 			$this->members->attributeToGroup( userId: $user->getId(), groupId: $group->id );
 		}
