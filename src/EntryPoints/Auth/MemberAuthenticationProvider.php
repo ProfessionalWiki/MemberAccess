@@ -10,12 +10,16 @@ use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\Auth\PasswordAuthenticationRequest;
 use MediaWiki\Auth\TemporaryPasswordAuthenticationRequest;
+use MediaWiki\User\UserIdentity;
 use MediaWiki\User\UserIdentityLookup;
 use MediaWiki\User\UserRigorOptions;
 use ProfessionalWiki\MemberAccess\Application\AllowlistMatcher;
 use ProfessionalWiki\MemberAccess\Application\CodeLifetime;
+use ProfessionalWiki\MemberAccess\Application\CodeLoginMode;
 use ProfessionalWiki\MemberAccess\Application\CodeRequestOutcome;
 use ProfessionalWiki\MemberAccess\Application\CodeVerificationOutcome;
+use ProfessionalWiki\MemberAccess\Application\Member;
+use ProfessionalWiki\MemberAccess\Application\MemberGroup;
 use ProfessionalWiki\MemberAccess\Application\MemberRepository;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
@@ -44,6 +48,7 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	private const HANDLE_SESSION_KEY = 'MemberAccessCodeHandle';
 
 	public function __construct(
+		private readonly CodeLoginMode $mode,
 		private readonly RequestCodeUseCase $codeRequests,
 		private readonly VerifyCodeUseCase $codeVerification,
 		private readonly AllowlistMatcher $matcher,
@@ -56,14 +61,25 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	}
 
 	/**
+	 * A route that is off has no button, which is also what keeps its request out of every
+	 * submission MediaWiki accepts.
+	 *
 	 * @param array<string, mixed> $options
 	 * @return AuthenticationRequest[]
 	 */
 	public function getAuthenticationRequests( $action, array $options ) {
+		if ( $this->mode === CodeLoginMode::Off ) {
+			return [];
+		}
+
 		return $action === AuthManager::ACTION_LOGIN ? [ new LoginCodeRequest() ] : [];
 	}
 
 	public function beginPrimaryAuthentication( array $reqs ) {
+		if ( $this->mode === CodeLoginMode::Off ) {
+			return AuthenticationResponse::newAbstain();
+		}
+
 		$request = AuthenticationRequest::getRequestByClass( $reqs, LoginCodeRequest::class );
 
 		if ( $request === null ) {
@@ -102,6 +118,10 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	 * @param AuthenticationRequest[] $reqs
 	 */
 	public function continuePrimaryAuthentication( array $reqs ) {
+		if ( $this->mode === CodeLoginMode::Off ) {
+			return $this->refuse( 'Code entry continued while the code login route is off' );
+		}
+
 		$request = AuthenticationRequest::getRequestByClass( $reqs, EnterCodeRequest::class );
 		$handle = $this->manager->getAuthenticationSessionData( self::HANDLE_SESSION_KEY );
 
@@ -127,13 +147,16 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	/**
 	 * The address is proven at this point. What remains is whether it is still admitted, and
 	 * whether the account it maps to is really this member's.
+	 *
+	 * The allowlist is asked whatever the route admits, since a matching entry is what attributes a
+	 * member to a group. On an open route, an address no entry matches is admitted without one.
 	 */
 	private function admit( string $verifiedAddress ): AuthenticationResponse {
 		$email = NormalizedEmail::fromString( $verifiedAddress );
 		$group = $email === null ? null : $this->matcher->match( $email );
 
-		if ( $email === null || $group === null ) {
-			$this->auditLogger->info( 'Proven address is not admitted by the allowlist', [
+		if ( $email === null || !$this->mode->admits( $group ) ) {
+			$this->auditLogger->info( 'Proven address is not admitted', [
 				'email' => NormalizedEmail::hashOf( $verifiedAddress )
 			] );
 
@@ -146,13 +169,21 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 			return $this->refuse( 'Proven address cannot be used as a username', $email );
 		}
 
-		if ( $this->accountIsSomeoneElses( $username, $email ) ) {
-			return $this->refuse( 'Derived username belongs to another account', $email );
+		$account = $this->registeredAccountNamed( $username );
+
+		if ( $account !== null ) {
+			$member = $this->members->getMember( $account->getId(), ReadConsistency::UpToDate );
+
+			if ( $member?->email !== $email->value ) {
+				return $this->refuse( 'Derived username belongs to another account', $email );
+			}
+
+			$this->attributeToGroup( $member, $group );
 		}
 
 		$this->manager->setAuthenticationSessionData(
 			self::PROVISIONING_SESSION_KEY,
-			( new PendingProvisioning( username: $username, email: $email, groupId: $group->id ) )->toSessionData()
+			( new PendingProvisioning( username: $username, email: $email, groupId: $group?->id ) )->toSessionData()
 		);
 		$this->manager->setAuthenticationSessionData( AuthManager::REMEMBER_ME, true );
 
@@ -174,19 +205,31 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	}
 
 	/**
-	 * An address proves a mailbox, never an account that was made some other way, so an existing
-	 * account is only this member's when the roster says the two belong together.
+	 * The account the username already names, if any. Read as recently as the account itself was
+	 * written, or a member provisioned moments ago looks like somebody else's account and is
+	 * turned away.
+	 *
+	 * An address proves a mailbox, never an account that was made some other way, so what makes
+	 * such an account this member's is the roster saying the two belong together.
 	 */
-	private function accountIsSomeoneElses( string $username, NormalizedEmail $email ): bool {
+	private function registeredAccountNamed( string $username ): ?UserIdentity {
 		$user = $this->userLookup->getUserIdentityByName( $username, IDBAccessObject::READ_LATEST );
 
-		if ( $user === null || !$user->isRegistered() ) {
-			return false;
-		}
+		return $user !== null && $user->isRegistered() ? $user : null;
+	}
 
-		// Read as recently as the account itself was, or a member provisioned moments ago looks
-		// like somebody else's account and is turned away.
-		return $this->members->getMember( $user->getId(), ReadConsistency::UpToDate )?->email !== $email->value;
+	/**
+	 * A member the open route admitted has no group until an allowlist entry matches them. Their
+	 * login is where that group is written down, since it is what the roster shows them under and
+	 * what the per-group counts add up.
+	 *
+	 * That a group already given is never moved is the repository's rule, held in the condition it
+	 * writes under. Asking here as well is what keeps an ordinary login from writing at all.
+	 */
+	private function attributeToGroup( Member $member, ?MemberGroup $group ): void {
+		if ( $group !== null && $member->groupId === null ) {
+			$this->members->attributeToGroup( userId: $member->userId, groupId: $group->id );
+		}
 	}
 
 	private function refuse( string $reason, ?NormalizedEmail $email = null ): AuthenticationResponse {

@@ -79,12 +79,40 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $GLOBALS['wgGroupPermissions']['*']['autocreateaccount'] );
 	}
 
-	public function testACodeRequestIsNeverMetWithAPerAddressCaptcha(): void {
-		$this->setMwGlobals( 'wgCaptchaTriggers', [ 'badlogin' => true, 'badloginperuser' => true ] );
+	/**
+	 * @dataProvider offeredCodeRouteProvider
+	 */
+	public function testACodeRequestIsNeverMetWithAPerAddressCaptcha( string $codeLogin ): void {
+		$this->setMwGlobals( [
+			'wgCaptchaTriggers' => [ 'badlogin' => true, 'badloginperuser' => true ],
+			'wgMemberAccessCodeLogin' => $codeLogin
+		] );
 
 		RegistrationHandler::onRegistration();
 
 		$this->assertSame( [ 'badlogin' => true, 'badloginperuser' => false ], $GLOBALS['wgCaptchaTriggers'] );
+	}
+
+	public static function offeredCodeRouteProvider(): iterable {
+		yield 'allowlisted' => [ 'allowlisted' ];
+		yield 'open' => [ 'open' ];
+		yield 'a value nobody recognises' => [ 'sometimes' ];
+		yield 'an empty setting' => [ '' ];
+	}
+
+	/**
+	 * Turning the trigger off costs the wiki ConfirmEdit's escalation on every account that does
+	 * have a password, which buys nothing where there is no code request to meet a captcha.
+	 */
+	public function testCodeRouteThatIsOffLeavesThePerAddressCaptchaAlone(): void {
+		$this->setMwGlobals( [
+			'wgCaptchaTriggers' => [ 'badlogin' => true, 'badloginperuser' => true ],
+			'wgMemberAccessCodeLogin' => 'off'
+		] );
+
+		RegistrationHandler::onRegistration();
+
+		$this->assertSame( [ 'badlogin' => true, 'badloginperuser' => true ], $GLOBALS['wgCaptchaTriggers'] );
 	}
 
 	public function testAddressesAreAcceptableUsernames(): void {

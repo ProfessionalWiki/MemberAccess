@@ -182,12 +182,90 @@ class DatabaseMemberRepositoryTest extends DatabaseRepositoryTestCase {
 		$this->assertSame( [], $totals->perGroup );
 	}
 
-	private function recordMember( int $userId, string $email, int $groupId ): void {
+	public function testMemberAdmittedWithoutAGroupHasNone(): void {
+		$this->recordMemberWithoutAGroup( userId: 7, email: 'jane@example.com' );
+
+		$this->assertNull( $this->members->getMember( 7, ReadConsistency::UpToDate )?->groupId );
+	}
+
+	public function testMembersWithoutAGroupCountInTheOverallTotals(): void {
+		$this->recordMember( userId: 1, email: 'first@example.com', groupId: 1 );
+		$this->recordMemberWithoutAGroup( userId: 2, email: 'second@example.com' );
+		$this->recordMemberWithoutAGroup( userId: 3, email: 'third@example.com' );
+		$this->members->deactivateMember( 3 );
+
+		$totals = $this->members->getTotals();
+
+		$this->assertSame( 3, $totals->overall->all );
+		$this->assertSame( 2, $totals->overall->active );
+	}
+
+	public function testMembersWithoutAGroupAreCountedUnderNoGroup(): void {
+		$this->recordMember( userId: 1, email: 'first@example.com', groupId: 1 );
+		$this->recordMemberWithoutAGroup( userId: 2, email: 'second@example.com' );
+
+		$totals = $this->members->getTotals();
+
+		$this->assertSame( [ 1 ], array_keys( $totals->perGroup ) );
+		$this->assertSame( 1, $totals->forGroup( 1 )->all );
+	}
+
+	public function testMemberWithoutAGroupGainsTheGroupTheyAreAttributedTo(): void {
+		$this->recordMemberWithoutAGroup( userId: 7, email: 'jane@example.com' );
+
+		$this->members->attributeToGroup( userId: 7, groupId: 3 );
+
+		$this->assertSame( 3, $this->members->getMember( 7, ReadConsistency::UpToDate )?->groupId );
+	}
+
+	/**
+	 * The group a member was admitted by is what the per-group counts are built on, and what
+	 * keeps that group from being deleted. A later login may fill it in, never move it.
+	 */
+	public function testAttributionLeavesTheGroupAMemberAlreadyHas(): void {
+		$this->recordMember( userId: 7, email: 'jane@example.com', groupId: 3 );
+
+		$this->members->attributeToGroup( userId: 7, groupId: 5 );
+
+		$this->assertSame( 3, $this->members->getMember( 7, ReadConsistency::UpToDate )?->groupId );
+	}
+
+	public function testAttributionLeavesOtherMembersWithoutAGroup(): void {
+		$this->recordMemberWithoutAGroup( userId: 7, email: 'jane@example.com' );
+		$this->recordMemberWithoutAGroup( userId: 8, email: 'john@example.com' );
+
+		$this->members->attributeToGroup( userId: 7, groupId: 3 );
+
+		$this->assertNull( $this->members->getMember( 8, ReadConsistency::UpToDate )?->groupId );
+	}
+
+	public function testMemberWithoutAGroupCanBeDeactivated(): void {
+		$this->recordMemberWithoutAGroup( userId: 7, email: 'jane@example.com' );
+
+		$this->members->deactivateMember( 7 );
+
+		$this->assertFalse( $this->members->getMember( 7, ReadConsistency::UpToDate )?->isActive() );
+	}
+
+	public function testMemberWithoutAGroupCanBeReactivated(): void {
+		$this->recordMemberWithoutAGroup( userId: 7, email: 'jane@example.com' );
+		$this->members->deactivateMember( 7 );
+
+		$this->members->reactivateMember( 7 );
+
+		$this->assertTrue( $this->members->getMember( 7, ReadConsistency::UpToDate )?->isActive() );
+	}
+
+	private function recordMember( int $userId, string $email, ?int $groupId ): void {
 		$this->members->recordMember(
 			userId: $userId,
 			email: $this->normalize( $email ),
 			groupId: $groupId
 		);
+	}
+
+	private function recordMemberWithoutAGroup( int $userId, string $email ): void {
+		$this->recordMember( userId: $userId, email: $email, groupId: null );
 	}
 
 	private function findMember( string $email ): ?Member {

@@ -7,7 +7,9 @@ namespace ProfessionalWiki\MemberAccess\Tests\Integration\Auth;
 use MediaWiki\User\User;
 use MediaWikiIntegrationTestCase;
 use ProfessionalWiki\MemberAccess\Application\AllowlistValue;
+use ProfessionalWiki\MemberAccess\Application\Member;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
+use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\MemberAuthenticationProvider;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\PendingProvisioning;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\SsoAuthorizationHandler;
@@ -157,6 +159,19 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertFalse( $this->authorize( $member ) );
 	}
 
+	/**
+	 * A member the open code route admitted has no group. Once an entry matches the address the
+	 * roster holds for them, this login is where that group is written down.
+	 */
+	public function testMemberWithoutAGroupIsAttributedToTheOneThatAdmitsThemNow(): void {
+		$groupId = $this->allow( '@example.com' );
+		$member = $this->existingMemberWithoutAGroup( 'jane@example.com' );
+
+		$this->authorize( $member );
+
+		$this->assertSame( $groupId, $this->rosterRowOf( $member )?->groupId );
+	}
+
 	public function testIdentityAnotherHandlerAlreadyRefusedStaysRefused(): void {
 		$this->allow( '@example.com' );
 
@@ -201,10 +216,58 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertFalse( $authorized );
 	}
 
+	/**
+	 * A wiki whose single sign-on is not the extension's business: it holds nobody to the
+	 * allowlist, and provisions nobody, while the allowlist itself stays as it is.
+	 */
+	public function testSingleSignOnIsLeftAloneWhenTheAllowlistDoesNotApplyToIt(): void {
+		$this->overrideConfigValue( 'MemberAccessApplyAllowlistToSso', false );
+		$this->allow( '@example.com' );
+
+		$authorized = true;
+		MemberAccessExtension::newSsoAuthorizationHandlerHookHandler()
+			->onPluggableAuthUserAuthorization( $this->newIdentity( 'jane@other.example' ), $authorized );
+
+		$this->assertTrue( $authorized );
+	}
+
+	public function testIdentityTheAllowlistWouldRefuseIsAuthorizedWhenItDoesNotApply(): void {
+		$this->allow( '@example.com' );
+
+		$this->assertTrue( $this->authorizeWithoutTheAllowlist( $this->newIdentity( 'jane@other.example' ) ) );
+	}
+
+	public function testMemberTheAllowlistNoLongerAdmitsIsAuthorizedWhenItDoesNotApply(): void {
+		$this->allow( '@example.com' );
+
+		$this->assertTrue( $this->authorizeWithoutTheAllowlist( $this->existingMember( 'former@other.example' ) ) );
+	}
+
+	public function testAdmittedIdentityIsNotMarkedForProvisioningWhenTheAllowlistDoesNotApply(): void {
+		$this->allow( '@example.com' );
+
+		$this->authorizeWithoutTheAllowlist( $this->newIdentity( 'jane@example.com' ) );
+
+		$this->assertNull( $this->pendingProvisioning() );
+	}
+
+	public function testNothingIsRecordedWhenTheAllowlistDoesNotApply(): void {
+		$this->allow( '@example.com' );
+
+		$this->authorizeWithoutTheAllowlist( $this->existingUser( 'staff@other.example' ) );
+
+		$this->assertSame( [], $this->logger->getEntries() );
+	}
+
 	private function newHandler(): SsoAuthorizationHandler {
+		return $this->newHandlerWith( allowlistApplies: true );
+	}
+
+	private function newHandlerWith( bool $allowlistApplies ): SsoAuthorizationHandler {
 		$extension = MemberAccessExtension::getInstance();
 
 		return new SsoAuthorizationHandler(
+			allowlistApplies: $allowlistApplies,
 			matcher: $extension->newAllowlistMatcher(),
 			members: $extension->newMemberRepository(),
 			authManager: $this->getServiceContainer()->getAuthManager(),
@@ -213,9 +276,17 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	private function authorize( User $user ): bool {
+		return $this->authorizeThrough( $this->newHandler(), $user );
+	}
+
+	private function authorizeWithoutTheAllowlist( User $user ): bool {
+		return $this->authorizeThrough( $this->newHandlerWith( allowlistApplies: false ), $user );
+	}
+
+	private function authorizeThrough( SsoAuthorizationHandler $handler, User $user ): bool {
 		$authorized = true;
 
-		$this->newHandler()->onPluggableAuthUserAuthorization( $user, $authorized );
+		$handler->onPluggableAuthUserAuthorization( $user, $authorized );
 
 		return $authorized;
 	}
@@ -242,6 +313,17 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	private function existingMember( string $email ): User {
+		return $this->recordAsMember( $email, groupId: $this->newGroupId() );
+	}
+
+	/**
+	 * As the open code login route admits people: on the roster, but attributed to nothing.
+	 */
+	private function existingMemberWithoutAGroup( string $email ): User {
+		return $this->recordAsMember( $email, groupId: null );
+	}
+
+	private function recordAsMember( string $email, ?int $groupId ): User {
 		$user = $this->existingUser( $email );
 		$normalized = NormalizedEmail::fromString( $email );
 
@@ -250,10 +332,15 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 		MemberAccessExtension::getInstance()->newMemberRepository()->recordMember(
 			userId: $user->getId(),
 			email: $normalized,
-			groupId: $this->newGroupId()
+			groupId: $groupId
 		);
 
 		return $user;
+	}
+
+	private function rosterRowOf( User $user ): ?Member {
+		return MemberAccessExtension::getInstance()->newMemberRepository()
+			->getMember( $user->getId(), ReadConsistency::UpToDate );
 	}
 
 	private function pendingProvisioning(): ?PendingProvisioning {

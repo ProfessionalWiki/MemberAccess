@@ -42,7 +42,7 @@ abstract class RestApiTestCase extends MediaWikiIntegrationTestCase {
 		return $entry->id;
 	}
 
-	protected function newMember( int $groupId, string $email ): int {
+	protected function newMember( ?int $groupId, string $email ): int {
 		$user = $this->getMutableTestUser()->getUser();
 		$normalized = NormalizedEmail::fromString( $email );
 

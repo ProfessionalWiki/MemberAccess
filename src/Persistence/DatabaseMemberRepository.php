@@ -14,7 +14,13 @@ use stdClass;
 
 class DatabaseMemberRepository extends DatabaseRepository implements MemberRepository {
 
-	public function recordMember( int $userId, NormalizedEmail $email, int $groupId ): void {
+	/**
+	 * The group id the members no group admitted are counted under. No group has it, since the
+	 * ids the database hands out start at one.
+	 */
+	private const int NO_GROUP = 0;
+
+	public function recordMember( int $userId, NormalizedEmail $email, ?int $groupId ): void {
 		$database = $this->connectionProvider->getPrimaryDatabase();
 
 		$database->newInsertQueryBuilder()
@@ -71,6 +77,10 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 		return $members;
 	}
 
+	/**
+	 * Members no group admitted are counted overall and under no group, so the grouped count they
+	 * come back under is added to the overall total and left out of the breakdown.
+	 */
 	public function getTotals(): MemberTotals {
 		$all = $this->countPerGroup( activeOnly: false );
 		$active = $this->countPerGroup( activeOnly: true );
@@ -78,7 +88,9 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 		$perGroup = [];
 
 		foreach ( $all as $groupId => $count ) {
-			$perGroup[$groupId] = new MemberCount( all: $count, active: $active[$groupId] ?? 0 );
+			if ( $groupId !== self::NO_GROUP ) {
+				$perGroup[$groupId] = new MemberCount( all: $count, active: $active[$groupId] ?? 0 );
+			}
 		}
 
 		return new MemberTotals(
@@ -88,6 +100,9 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 	}
 
 	/**
+	 * The members no group admitted come back grouped under {@see self::NO_GROUP}, which is no
+	 * group's id.
+	 *
 	 * @return array<int, int> Member count per group id
 	 */
 	private function countPerGroup( bool $activeOnly ): array {
@@ -103,10 +118,14 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 		$counts = [];
 
 		foreach ( $this->toRows( $query->caller( __METHOD__ )->fetchResultSet() ) as $row ) {
-			$counts[$this->asInt( $row->mam_group_id )] = $this->asInt( $row->member_count );
+			$counts[$this->groupIdOf( $row )] = $this->asInt( $row->member_count );
 		}
 
 		return $counts;
+	}
+
+	private function groupIdOf( stdClass $row ): int {
+		return $row->mam_group_id === null ? self::NO_GROUP : $this->asInt( $row->mam_group_id );
 	}
 
 	public function deactivateMember( int $userId ): void {
@@ -123,6 +142,19 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 		$database = $this->connectionProvider->getPrimaryDatabase();
 
 		$this->updateMember( $userId, [ 'mam_last_login' => $database->timestamp( $this->now() ) ] );
+	}
+
+	/**
+	 * The group is part of the condition rather than checked beforehand, so that two logins
+	 * arriving together cannot each read no group and then write a different one.
+	 */
+	public function attributeToGroup( int $userId, int $groupId ): void {
+		$this->connectionProvider->getPrimaryDatabase()->newUpdateQueryBuilder()
+			->update( self::MEMBER_TABLE )
+			->set( [ 'mam_group_id' => $groupId ] )
+			->where( [ 'mam_user_id' => $userId, 'mam_group_id' => null ] )
+			->caller( __METHOD__ )
+			->execute();
 	}
 
 	/**
@@ -155,7 +187,7 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 		return new Member(
 			userId: $this->asInt( $row->mam_user_id ),
 			email: $this->asString( $row->mam_email ),
-			groupId: $this->asInt( $row->mam_group_id ),
+			groupId: $this->asOptionalInt( $row->mam_group_id ),
 			creationTimestamp: $this->asTimestamp( $row->mam_timestamp ),
 			deactivationTimestamp: $this->asOptionalTimestamp( $row->mam_deactivated ),
 			lastLoginTimestamp: $this->asOptionalTimestamp( $row->mam_last_login )

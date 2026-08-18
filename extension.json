@@ -88,6 +88,14 @@
 			"value": "reader",
 			"description": "Name of the user group that members are placed in."
 		},
+		"MemberAccessCodeLogin": {
+			"value": "allowlisted",
+			"description": "Whom the one-time code login route lets in: \"allowlisted\" for the addresses an allowlist entry matches, \"open\" for every address, or \"off\" to not offer the route at all."
+		},
+		"MemberAccessApplyAllowlistToSso": {
+			"value": true,
+			"description": "Whether single sign-on logins are held to the allowlist. When false, the extension neither refuses nor records them."
+		},
 		"MemberAccessCodeTtlSeconds": {
 			"value": 600,
 			"description": "How long an issued login code stays valid, in seconds."

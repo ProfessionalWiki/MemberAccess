@@ -89,6 +89,62 @@ class MemberApiTest extends RestApiTestCase {
 		$this->assertSame( 0, $perGroup[$this->groupId]['all'] );
 	}
 
+	public function testMemberAdmittedWithoutAGroupIsListedWithoutOne(): void {
+		$this->newMemberWithoutAGroup( 'jane@example.com' );
+
+		$member = $this->roster()['members'][0];
+
+		$this->assertNull( $member['groupId'] );
+		$this->assertNull( $member['groupName'] );
+	}
+
+	public function testMembersWithoutAGroupCountInTheOverallTotals(): void {
+		$this->newMember( $this->groupId, 'jane@example.com' );
+		$this->newMemberWithoutAGroup( 'john@example.com' );
+
+		$this->assertSame( 2, $this->roster()['totals']['all'] );
+	}
+
+	/**
+	 * Two groups and a member outside both, so that a breakdown lumping the ungrouped member in
+	 * with anybody shows up, whichever group it picks.
+	 */
+	public function testMembersWithoutAGroupAreLeftOutOfThePerGroupTotals(): void {
+		$other = $this->newGroup( 'Umbrella' );
+		$this->newMember( $this->groupId, 'jane@example.com' );
+		$this->newMember( $other->id, 'john@example.com' );
+		$this->newMember( $other->id, 'jack@example.com' );
+		$this->newMemberWithoutAGroup( 'stranger@example.com' );
+
+		$perGroup = array_column( $this->roster()['totals']['perGroup'], null, 'groupId' );
+
+		$this->assertSame( 1, $perGroup[$this->groupId]['all'] );
+		$this->assertSame( 2, $perGroup[$other->id]['all'] );
+	}
+
+	public function testMemberWithoutAGroupCanBeDeactivated(): void {
+		$userId = $this->newMemberWithoutAGroup( 'jane@example.com' );
+
+		$response = $this->deactivateThrough( $userId );
+
+		$this->assertSame( 200, $response->getStatusCode() );
+		$this->assertFalse( $this->roster()['members'][0]['active'] );
+	}
+
+	public function testMemberWithoutAGroupCanBeReactivated(): void {
+		$userId = $this->newMemberWithoutAGroup( 'jane@example.com' );
+		$this->deactivateThrough( $userId );
+
+		$response = $this->reactivateThrough( $userId );
+
+		$this->assertSame( 200, $response->getStatusCode() );
+		$this->assertTrue( $this->roster()['members'][0]['active'] );
+	}
+
+	private function newMemberWithoutAGroup( string $email ): int {
+		return $this->newMember( null, $email );
+	}
+
 	public function testDeactivatedMemberIsListedAsInactive(): void {
 		$userId = $this->newMember( $this->groupId, 'jane@example.com' );
 

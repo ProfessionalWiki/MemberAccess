@@ -15,6 +15,9 @@ use RuntimeException;
  * Turns a freshly created account into a member: reader group, roster row, confirmed address.
  *
  * Runs on account creation only, so an account that already existed keeps whatever groups it has.
+ *
+ * The member group is the allowlist group that admitted the account, and is absent when no entry
+ * matched, which only the open code login route allows.
  */
 class MemberProvisioner {
 
@@ -34,7 +37,7 @@ class MemberProvisioner {
 	 *
 	 * @throws RuntimeException
 	 */
-	public function provision( User $user, NormalizedEmail $email, int $groupId ): void {
+	public function provision( User $user, NormalizedEmail $email, ?int $groupId ): void {
 		if ( !$this->userGroups->addUserToGroup( $user, $this->readerGroup ) ) {
 			$this->logger->error( 'Member account not created: the reader group could not be added', [
 				'email' => $email->hash(),

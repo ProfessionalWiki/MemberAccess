@@ -7,7 +7,7 @@ namespace ProfessionalWiki\MemberAccess\Application;
 use Psr\Log\LoggerInterface;
 
 /**
- * Issues a login code, answering the same way whether or not the address is on the allowlist.
+ * Issues a login code, answering the same way whether or not the address is admitted.
  *
  * A code is stored for every accepted request, including for addresses that are not admitted: the
  * mail is what differs, not the state. Skipping the store for unlisted addresses would let anyone
@@ -19,6 +19,7 @@ use Psr\Log\LoggerInterface;
 class RequestCodeUseCase {
 
 	public function __construct(
+		private readonly CodeLoginMode $mode,
 		private readonly AllowlistMatcher $matcher,
 		private readonly MemberRepository $members,
 		private readonly RequestThrottle $throttle,
@@ -58,11 +59,12 @@ class RequestCodeUseCase {
 		);
 
 		// Both are asked whatever the answer to either, so that the work done is the same for an
-		// admitted address, an unlisted one and a deactivated member.
+		// admitted address, an unlisted one and a deactivated member. The group is also what an
+		// admitted address is attributed to, which an open route still records.
 		$group = $this->matcher->match( $email );
 		$member = $this->members->findMemberByEmail( $email );
 
-		if ( $group === null ) {
+		if ( !$this->mode->admits( $group ) ) {
 			$this->logger->info( 'Login code requested for an address that is not admitted', [
 				'email' => $email->hash()
 			] );
@@ -82,7 +84,7 @@ class RequestCodeUseCase {
 
 		$this->logger->info( 'Login code issued', [
 			'email' => $email->hash(),
-			'group' => $group->id
+			'group' => $group?->id
 		] );
 
 		return $handle;

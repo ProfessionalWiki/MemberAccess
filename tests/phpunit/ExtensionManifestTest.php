@@ -20,6 +20,14 @@ class ExtensionManifestTest extends TestCase {
 		$this->assertNull( $this->configDefault( 'MemberAccessSenderAddress' ) );
 	}
 
+	public function testCodeLoginIsHeldToTheAllowlistByDefault(): void {
+		$this->assertSame( 'allowlisted', $this->configDefault( 'MemberAccessCodeLogin' ) );
+	}
+
+	public function testAllowlistAppliesToSingleSignOnByDefault(): void {
+		$this->assertTrue( $this->configDefault( 'MemberAccessApplyAllowlistToSso' ) );
+	}
+
 	/**
 	 * The admin panel gives its section to everyone with panel access, which includes bureaucrats
 	 * who are not sysops, so both groups need the right or the section errors on every call.

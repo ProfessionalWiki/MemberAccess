@@ -14,7 +14,8 @@ admitted by an allowlist of addresses and domains organized into named groups.
   the scenes is revoked.
 * Accounts create themselves at first login. Removing an allowlist entry ends access at the next
   login; deactivating a member blocks them at once.
-* Single sign-on logins through [PluggableAuth] are held to the same allowlist; staff accounts are exempt.
+* Single sign-on logins through [PluggableAuth] are held to the same allowlist by default; staff
+  accounts are exempt.
 * Nothing gives the member list away: code and password-reset requests answer the same for every
   address, and account listings and the logs that record members are restricted.
 * Groups, allowlist entries and the member roster are managed over a REST API.
@@ -34,6 +35,8 @@ Get professional support for this extension via [Professional Wiki], its creator
 We provide [MediaWiki Development], [MediaWiki Hosting], and [MediaWiki Consulting] services.
 
 ## How it works
+
+What follows describes the defaults. Two settings change them: see [Login routes](#login-routes).
 
 ### Login codes
 
@@ -102,9 +105,46 @@ configuration matter, for instance with [Lockdown].
 Page histories and recent changes still name whoever acted, which on a members-only wiki means the
 staff who edit: members cannot appear there, since they cannot change anything.
 
+### Login routes
+
+Two settings, one per login route, say what the allowlist governs there and whether the code route
+is offered at all.
+
+`$wgMemberAccessCodeLogin` says whom the one-time code route admits:
+
+| Value | What the route does |
+|---|---|
+| `allowlisted` | Admits the addresses an allowlist entry matches. The default |
+| `open` | Admits every address. A matching entry still attributes the member to its group; without a match they have no group |
+| `off` | Is not offered: no button on the login form, and no code is issued |
+
+An unrecognized value is read as `allowlisted`, with a warning in the log.
+
+`$wgMemberAccessApplyAllowlistToSso` holds single sign-on logins to the allowlist, and does so by
+default. Set to `false`, it leaves that route alone: no login is refused, none is logged, and the
+accounts that route creates are ordinary accounts rather than members. Setting it back to `true`
+does not reach them. An account that is not a member is exempt, so everyone who signed in while the
+switch was off keeps their account and the rights it carries, outside the allowlist, until an
+administrator deals with the account by hand.
+
+An open route is exactly that: anyone who can receive mail at the address they enter gets an account
+and a roster row, without an administrator having seen the address first. The per-address rate
+limits bound what can be aimed at one mailbox; an attacker who varies the address meets only the IP
+limits. The route suits a wiki with another gate in front of it, an internal network for instance,
+rather than one on the open internet.
+
+The open route changes only the allowlist check; everything else still holds. A member whom no entry
+matched has no group until one does: their next login, over either route, writes that group down.
+The group a member already has is never moved.
+
+Narrowing a route ends the access of everyone it no longer admits, at their next login: everyone on
+the code route, and every member on single sign-on.
+
+With the code route off and single sign-on left alone, the allowlist governs nothing.
+
 ## What loading the extension changes on the wiki
 
-Loading the extension is the switch that turns members-only access on. It:
+Loading the extension:
 
 * revokes from the reader group everything that would let a reader change the wiki or see behind the
   scenes: editing, commenting, moving, uploading, deleting, protecting, tagging, creating accounts,
@@ -113,14 +153,17 @@ Loading the extension is the switch that turns members-only access on. It:
 * sets `$wgBlockDisablesLogin`, so blocking a member keeps them out of a private wiki;
 * restricts the `newusers` and `block` logs to the `memberaccess-manage` right, unless the wiki
   already restricted them;
-* turns off ConfirmEdit's `badloginperuser` captcha trigger, so failed logins no longer escalate to a
-  captcha for the account they name, for everyone on the wiki and not only for members; the per-IP
-  `badlogin` trigger is left alone;
+* turns off ConfirmEdit's `badloginperuser` captcha trigger unless the code route is off, so failed
+  logins no longer escalate to a captcha for the account they name, for everyone on the wiki and not
+  only for members; the per-IP `badlogin` trigger is left alone;
 * grants `autocreateaccount` to anonymous visitors, since a member's account is created by logging in;
 * removes `@` from `$wgInvalidUsernameCharacters`, and changes `$wgUserrightsInterwikiDelimiter` from
   `@` to `@@`, so that `Special:UserRights` can act on an account named after an address;
 * sets `$wgExtendedLoginCookieExpiration` to `$wgMemberAccessSessionDurationSeconds`, which decides
   how long a remembered login lasts for everyone on the wiki, not only for members.
+
+Apart from the captcha trigger, none of this depends on the login routes: setting the code route to `off`
+narrows that route and nothing else.
 
 ## Installation
 
@@ -177,6 +220,8 @@ carry its error shape rather than this one.
 
 | Variable | Type | Default | Description |
 |---|---|---|---|
+| `$wgMemberAccessCodeLogin` | string | `'allowlisted'` | Whom the one-time code route admits: `allowlisted`, `open` or `off`. See [Login routes](#login-routes) |
+| `$wgMemberAccessApplyAllowlistToSso` | bool | `true` | Whether single sign-on logins are held to the allowlist. See [Login routes](#login-routes) |
 | `$wgMemberAccessReaderGroup` | string | `'reader'` | Name of the user group that members are placed in |
 | `$wgMemberAccessCodeTtlSeconds` | int | `600` | How long an issued login code stays valid, in seconds |
 | `$wgMemberAccessCodeAttemptLimit` | int | `5` | How many times a code may be entered before it is burned |
@@ -230,7 +275,10 @@ Initial version for MediaWiki 1.43+ with these features:
   once, requested from the login form's username field
 * An allowlist of email addresses and domains, organized into named groups, decides who is admitted
 * Accounts create themselves at first login, into a reader group that may read and nothing else
-* Single sign-on logins through [PluggableAuth] held to the same allowlist, with staff accounts exempt
+* Single sign-on logins through [PluggableAuth] held to the same allowlist by default, with staff
+  accounts exempt
+* Settable login routes: the code route admits the addresses an allowlist entry matches, every
+  address, or is not offered at all; single sign-on can be left outside the allowlist
 * Members never have a password: setting one and having a temporary one mailed are both refused
 * Deactivation blocks a member's account sitewide, reactivation lifts that block again
 * Code requests rate limited per email address and per client IP, with a burst and a daily limit,
