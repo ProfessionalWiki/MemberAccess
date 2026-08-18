@@ -6,19 +6,23 @@ namespace ProfessionalWiki\MemberAccess\Tests\Integration\REST;
 
 use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Deferred\DeferredUpdates;
-use MediaWiki\MainConfigNames;
 use MediaWiki\RenameUser\RenameuserSQL;
 use MediaWiki\Rest\ResponseInterface;
-use ProfessionalWiki\MemberAccess\Application\AllowlistValue;
 use ProfessionalWiki\MemberAccess\Application\Member;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
+use ProfessionalWiki\MemberAccess\Application\RemovalResult;
+use ProfessionalWiki\MemberAccess\Application\RemoveMemberUseCase;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\EnterCodeRequest;
+use ProfessionalWiki\MemberAccess\EntryPoints\REST\RemoveMemberApi;
 use ProfessionalWiki\MemberAccess\MemberAccessExtension;
 use ProfessionalWiki\MemberAccess\Tests\Integration\Auth\AuthenticationProviderRegistration;
 use ProfessionalWiki\MemberAccess\Tests\Integration\Auth\CodeRequestSubmission;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\FixedSecretGenerator;
+use ProfessionalWiki\MemberAccess\Tests\TestDoubles\InMemoryMemberRepository;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\SpyEmailer;
+use ProfessionalWiki\MemberAccess\Tests\TestDoubles\SpyMemberRemover;
+use Psr\Log\NullLogger;
 use Wikimedia\ObjectCache\HashBagOStuff;
 use Wikimedia\Rdbms\IDBAccessObject;
 
@@ -143,6 +147,46 @@ class RemoveMemberApiTest extends RestApiTestCase {
 
 		$this->assertError( 'permission_denied', 403, $response );
 		$this->assertNotNull( $this->rosterRowOf( $userId ) );
+	}
+
+	public function testRemovingWithoutACsrfTokenIsRefused(): void {
+		$userId = $this->newMember( $this->groupId, 'jane@example.com' );
+
+		$response = $this->runHandler(
+			MemberAccessExtension::newRemoveMemberApi(),
+			$this->newRequest( 'DELETE', [], [ 'userId' => (string)$userId ] ),
+			null,
+			$this->getSession( false )
+		);
+
+		$this->assertError( 'invalid_csrf_token', 403, $response );
+		$this->assertNotNull( $this->rosterRowOf( $userId ) );
+	}
+
+	public function testRefusedRenameAnswersRemovalFailed(): void {
+		$members = new InMemoryMemberRepository();
+		$members->recordMember( userId: 7, email: $this->normalizedEmail( 'jane@example.com' ), groupId: null );
+
+		$handler = new RemoveMemberApi(
+			$this->csrfTokens(),
+			new RemoveMemberUseCase(
+				members: $members,
+				remover: new SpyMemberRemover( RemovalResult::RemovalFailed ),
+				logger: new NullLogger()
+			)
+		);
+
+		$response = $this->runHandler( $handler, $this->newRequest( 'DELETE', [], [ 'userId' => '7' ] ) );
+
+		$this->assertError( 'removal_failed', 500, $response );
+	}
+
+	private function normalizedEmail( string $email ): NormalizedEmail {
+		$normalized = NormalizedEmail::fromString( $email );
+
+		$this->assertNotNull( $normalized );
+
+		return $normalized;
 	}
 
 	/**
@@ -278,21 +322,12 @@ class RemoveMemberApiTest extends RestApiTestCase {
 	}
 
 	private function recordAsMember( int $userId, string $email ): void {
-		$normalized = NormalizedEmail::fromString( $email );
-
-		$this->assertNotNull( $normalized );
-
 		MemberAccessExtension::getInstance()->newMemberRepository()
-			->recordMember( userId: $userId, email: $normalized, groupId: $this->groupId );
+			->recordMember( userId: $userId, email: $this->normalizedEmail( $email ), groupId: $this->groupId );
 	}
 
 	private function admitTheDomain(): void {
-		$value = AllowlistValue::fromString( '@example.com' );
-
-		$this->assertNotNull( $value );
-
-		MemberAccessExtension::getInstance()->newAllowlistRepository()
-			->addEntry( groupId: $this->groupId, value: $value, actorId: 1 );
+		$this->newEntry( $this->groupId, '@example.com' );
 
 		$this->setService( 'Emailer', new SpyEmailer() );
 		$this->registerOurAuthenticationProvider();
@@ -301,10 +336,7 @@ class RemoveMemberApiTest extends RestApiTestCase {
 		// turn on.
 		$this->overrideConfigValue( 'MemberAccessCodeLogin', 'allowlisted' );
 
-		$this->overrideConfigValue( MainConfigNames::GroupPermissions, array_replace_recursive(
-			$this->getConfVar( MainConfigNames::GroupPermissions ),
-			[ '*' => [ 'autocreateaccount' => true ] ]
-		) );
+		$this->setGroupPermissions( '*', 'autocreateaccount', true );
 
 		MemberAccessExtension::getInstance()->setStashOverride( new HashBagOStuff() );
 		MemberAccessExtension::getInstance()->setSecretGeneratorOverride( new FixedSecretGenerator( self::CODE ) );
