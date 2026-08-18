@@ -21,6 +21,11 @@ class InMemoryMemberRepository implements MemberRepository {
 	 */
 	private array $members = [];
 
+	/**
+	 * @var array<int, Member> Members the primary database holds that a replica has not seen
+	 */
+	private array $unreplicatedMembers = [];
+
 	private int $addressLookups = 0;
 
 	public function recordMember( int $userId, NormalizedEmail $email, ?int $groupId ): void {
@@ -34,8 +39,36 @@ class InMemoryMemberRepository implements MemberRepository {
 		);
 	}
 
+	/**
+	 * Records the member the way the primary database holds them while a replica has not caught
+	 * up, so that a stale read does not see them and an up to date one does.
+	 */
+	public function recordMemberBehindTheReplica( int $userId, NormalizedEmail $email, ?int $groupId ): void {
+		$this->unreplicatedMembers[$userId] = new Member(
+			userId: $userId,
+			email: $email->value,
+			groupId: $groupId,
+			creationTimestamp: self::CREATION_TIMESTAMP,
+			deactivationTimestamp: null,
+			lastLoginTimestamp: null
+		);
+	}
+
 	public function getMember( int $userId, ReadConsistency $consistency = ReadConsistency::UpToDate ): ?Member {
-		return $this->members[$userId] ?? null;
+		$members = $consistency === ReadConsistency::UpToDate
+			? $this->members + $this->unreplicatedMembers
+			: $this->members;
+
+		return $members[$userId] ?? null;
+	}
+
+	public function groupHasMembers( int $groupId ): bool {
+		$members = $this->members + $this->unreplicatedMembers;
+
+		return array_filter(
+			$members,
+			static fn ( Member $member ): bool => $member->groupId === $groupId
+		) !== [];
 	}
 
 	public function findMemberByEmail( NormalizedEmail $email ): ?Member {
@@ -87,6 +120,10 @@ class InMemoryMemberRepository implements MemberRepository {
 			),
 			perGroup: $perGroup
 		);
+	}
+
+	public function forgetMember( int $userId ): void {
+		unset( $this->members[$userId], $this->unreplicatedMembers[$userId] );
 	}
 
 	public function deactivateMember( int $userId ): void {

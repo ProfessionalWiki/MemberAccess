@@ -11,6 +11,11 @@ namespace ProfessionalWiki\MemberAccess\Application;
  * admits what it looks like it admits. A value belongs to exactly one group, so adding one another
  * group already holds is refused rather than moved: that would silently change who is billed for
  * whoever it admits.
+ *
+ * The group is held for the length of the addition, so that a deletion running at the same time
+ * either waits and then finds the entry, or goes first and leaves nothing to add the entry to. An
+ * entry that outlived its group would admit nobody while still holding the only slot its address
+ * has.
  */
 class AddEntryUseCase {
 
@@ -29,7 +34,7 @@ class AddEntryUseCase {
 				: AddEntryResult::invalidValue();
 		}
 
-		if ( $this->groups->getGroup( $groupId ) === null ) {
+		if ( $this->groups->lockGroup( $groupId ) === null ) {
 			return AddEntryResult::groupNotFound();
 		}
 

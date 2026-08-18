@@ -21,7 +21,7 @@ class RegistrationHandler {
 	private const REPLACEMENT_USERRIGHTS_DELIMITER = '@@';
 	private const MANAGE_RIGHT = 'memberaccess-manage';
 	private const PUBLIC_LOG = '*';
-	private const LOGS_THAT_NAME_MEMBERS = [ 'newusers', 'block' ];
+	private const LOGS_THAT_NAME_MEMBERS = [ 'newusers', 'block', 'renameuser' ];
 	private const PER_ADDRESS_CAPTCHA_TRIGGER = 'badloginperuser';
 
 	public static function onRegistration(): void {
@@ -38,9 +38,10 @@ class RegistrationHandler {
 
 	/**
 	 * A member's username is their address, so the logs that name accounts name the whole roster:
-	 * account creations in the new user log, deactivations in the block log. Both are closed to
-	 * everyone who cannot manage members, which also keeps them out of recent changes, since a
-	 * restricted log type is never written there.
+	 * account creations in the new user log, deactivations in the block log, and the address a
+	 * removed member held in the rename log. All are closed to everyone who cannot manage members,
+	 * which also keeps them out of recent changes, since a restricted log type is never written
+	 * there.
 	 *
 	 * A wiki that restricted one of them further keeps its own setting.
 	 */

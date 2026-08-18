@@ -25,6 +25,7 @@
 	"memberaccess-api-module-denied": "Action API error shown when a member asks for a query module that lists the wiki's accounts.\n\nParameters:\n* $1 - the name of the query submodule, for example allusers",
 	"memberaccess-block-reason": "Reason recorded in the block log when a member is deactivated. Reactivation recognises the extension's own block by this text in the wiki's content language: after a rewording, blocks placed under the old wording are reported as foreign instead of lifted.",
 	"memberaccess-unblock-reason": "Reason recorded in the block log when a member is reactivated.",
+	"memberaccess-rename-reason": "Reason recorded in the rename log when a member is removed.",
 	"right-memberaccess-manage": "{{doc-right|memberaccess-manage}}",
 	"action-memberaccess-manage": "{{doc-action|memberaccess-manage}}",
 	"group-reader": "{{doc-group|reader}}",

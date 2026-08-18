@@ -16,16 +16,26 @@ final class NormalizedEmail {
 	) {
 	}
 
+	/**
+	 * Whitespace of any kind is refused, and so are bytes that are no text: MediaWiki folds the
+	 * first away when it makes a username out of the address, and lowercasing replaces the second
+	 * with a question mark. Either way two addresses that differ would arrive as one.
+	 *
+	 * The check comes before lowercasing, which is what would hide the bytes that are no text.
+	 */
 	public static function fromString( string $email ): ?self {
-		$normalized = mb_strtolower( trim( $email ) );
+		$trimmed = trim( $email );
+
+		// Anything but a zero: one is a match, and false is input that is not valid text.
+		if ( preg_match( '/\s/u', $trimmed ) !== 0 ) {
+			return null;
+		}
+
+		$normalized = mb_strtolower( $trimmed );
 
 		[ $localPart, $domain ] = self::split( $normalized );
 
 		if ( $localPart === '' || $domain === '' ) {
-			return null;
-		}
-
-		if ( preg_match( '/\s/', $normalized ) === 1 ) {
 			return null;
 		}
 

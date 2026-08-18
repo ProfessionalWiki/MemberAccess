@@ -164,6 +164,22 @@ class DatabaseAllowlistRepositoryTest extends DatabaseRepositoryTestCase {
 		$this->assertSame( 0, $this->allowlist->countEntries( $this->newGroupId() ) );
 	}
 
+	/**
+	 * What decides whether a group may be deleted has to see an entry added moments ago.
+	 */
+	public function testGroupHoldingAFreshlyAddedEntryIsSaidToHaveEntries(): void {
+		$groupId = $this->newGroupId();
+		$this->addEntry( $groupId, 'jane@example.com' );
+
+		$this->assertTrue( $this->allowlist->groupHasEntries( $groupId ) );
+	}
+
+	public function testGroupOnlyOtherGroupsEntriesBelongToHasNone(): void {
+		$this->addEntry( $this->newGroupId(), 'jane@example.com' );
+
+		$this->assertFalse( $this->allowlist->groupHasEntries( $this->newGroupId() ) );
+	}
+
 	public function testGroupOfAValueIsFoundByName(): void {
 		$this->addEntry( $this->newGroupId(), 'other@example.com' );
 		$this->addEntry( $this->groups->createGroup( 'Acme' )->id, 'jane@example.com' );

@@ -128,6 +128,29 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 		return $row->mam_group_id === null ? self::NO_GROUP : $this->asInt( $row->mam_group_id );
 	}
 
+	/**
+	 * One row at most, and held rather than counted: a locking read sees what was committed a
+	 * moment ago, where a plain one answers from the snapshot the transaction started with.
+	 */
+	public function groupHasMembers( int $groupId ): bool {
+		return $this->connectionProvider->getPrimaryDatabase()->newSelectQueryBuilder()
+			->select( 'mam_user_id' )
+			->from( self::MEMBER_TABLE )
+			->where( [ 'mam_group_id' => $groupId ] )
+			->forUpdate()
+			->limit( 1 )
+			->caller( __METHOD__ )
+			->fetchRow() !== false;
+	}
+
+	public function forgetMember( int $userId ): void {
+		$this->connectionProvider->getPrimaryDatabase()->newDeleteQueryBuilder()
+			->deleteFrom( self::MEMBER_TABLE )
+			->where( [ 'mam_user_id' => $userId ] )
+			->caller( __METHOD__ )
+			->execute();
+	}
+
 	public function deactivateMember( int $userId ): void {
 		$database = $this->connectionProvider->getPrimaryDatabase();
 

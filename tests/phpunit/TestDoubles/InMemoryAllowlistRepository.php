@@ -17,6 +17,11 @@ class InMemoryAllowlistRepository implements AllowlistRepository {
 	 */
 	private array $entries = [];
 
+	/**
+	 * @var array<int, AllowlistEntry> Entries the primary database holds that a replica has not seen
+	 */
+	private array $unreplicatedEntries = [];
+
 	private int $nextId = 1;
 
 	public function __construct(
@@ -50,17 +55,47 @@ class InMemoryAllowlistRepository implements AllowlistRepository {
 		unset( $this->entries[$entryId] );
 	}
 
-	public function listEntries( int $groupId ): array {
-		return array_values(
-			array_filter(
-				$this->entries,
-				static fn ( AllowlistEntry $entry ): bool => $entry->groupId === $groupId
-			)
+	/**
+	 * Adds the entry the way the primary database holds it while a replica has not caught up, so
+	 * that a stale read does not see it and an up to date one does.
+	 */
+	public function addEntryBehindTheReplica( int $groupId, AllowlistValue $value ): void {
+		$id = $this->nextId++;
+
+		$this->unreplicatedEntries[$id] = new AllowlistEntry(
+			id: $id,
+			groupId: $groupId,
+			value: $value,
+			actorId: 1,
+			creationTimestamp: '20260101000000'
 		);
+	}
+
+	public function listEntries( int $groupId ): array {
+		return $this->entriesOfGroup( $this->entries, $groupId );
 	}
 
 	public function countEntries( int $groupId ): int {
 		return count( $this->listEntries( $groupId ) );
+	}
+
+	public function groupHasEntries( int $groupId ): bool {
+		$entries = $this->entries + $this->unreplicatedEntries;
+
+		return $this->entriesOfGroup( $entries, $groupId ) !== [];
+	}
+
+	/**
+	 * @param AllowlistEntry[] $entries
+	 * @return AllowlistEntry[]
+	 */
+	private function entriesOfGroup( array $entries, int $groupId ): array {
+		return array_values(
+			array_filter(
+				$entries,
+				static fn ( AllowlistEntry $entry ): bool => $entry->groupId === $groupId
+			)
+		);
 	}
 
 	public function findGroupForValue( AllowlistValue $value ): ?MemberGroup {

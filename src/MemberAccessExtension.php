@@ -23,8 +23,10 @@ use ProfessionalWiki\MemberAccess\Application\DeactivateMemberUseCase;
 use ProfessionalWiki\MemberAccess\Application\DeleteGroupUseCase;
 use ProfessionalWiki\MemberAccess\Application\MemberBlocker;
 use ProfessionalWiki\MemberAccess\Application\MemberGroupRepository;
+use ProfessionalWiki\MemberAccess\Application\MemberRemover;
 use ProfessionalWiki\MemberAccess\Application\MemberRepository;
 use ProfessionalWiki\MemberAccess\Application\ReactivateMemberUseCase;
+use ProfessionalWiki\MemberAccess\Application\RemoveMemberUseCase;
 use ProfessionalWiki\MemberAccess\Application\RenameGroupUseCase;
 use ProfessionalWiki\MemberAccess\Application\RandomSecretGenerator;
 use ProfessionalWiki\MemberAccess\Application\RequestCodeUseCase;
@@ -44,6 +46,7 @@ use ProfessionalWiki\MemberAccess\EntryPoints\REST\ListGroupsApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\ListMembersApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\ReactivateMemberApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\RemoveEntryApi;
+use ProfessionalWiki\MemberAccess\EntryPoints\REST\RemoveMemberApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\RenameGroupApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\SsoAuthorizationHandler;
 use ProfessionalWiki\MemberAccess\EntryPoints\UserListApiHandler;
@@ -53,6 +56,7 @@ use ProfessionalWiki\MemberAccess\Persistence\DatabaseMemberRepository;
 use ProfessionalWiki\MemberAccess\Persistence\DeferredCodeMailer;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiCodeMailer;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiMemberBlocker;
+use ProfessionalWiki\MemberAccess\Persistence\MediaWikiMemberRemover;
 use ProfessionalWiki\MemberAccess\Persistence\StashCodeRepository;
 use ProfessionalWiki\MemberAccess\Persistence\StashCounterStore;
 use Psr\Log\LoggerInterface;
@@ -208,6 +212,15 @@ class MemberAccessExtension {
 		);
 	}
 
+	public static function newRemoveMemberApi(): RemoveMemberApi {
+		$instance = self::getInstance();
+
+		return new RemoveMemberApi(
+			csrfTokens: $instance->newCsrfTokenSet(),
+			useCase: $instance->newRemoveMemberUseCase()
+		);
+	}
+
 	public static function newReactivateMemberApi(): ReactivateMemberApi {
 		$instance = self::getInstance();
 
@@ -300,6 +313,26 @@ class MemberAccessExtension {
 		return new DeactivateMemberUseCase(
 			members: $this->newMemberRepository(),
 			blocker: $this->newMemberBlocker(),
+			logger: $this->newLogger()
+		);
+	}
+
+	public function newRemoveMemberUseCase(): RemoveMemberUseCase {
+		return new RemoveMemberUseCase(
+			members: $this->newMemberRepository(),
+			remover: $this->newMemberRemover(),
+			logger: $this->newLogger()
+		);
+	}
+
+	private function newMemberRemover(): MemberRemover {
+		$services = MediaWikiServices::getInstance();
+
+		return new MediaWikiMemberRemover(
+			connectionProvider: $this->getConnectionProvider(),
+			members: $this->newMemberRepository(),
+			userFactory: $services->getUserFactory(),
+			userLookup: $services->getUserIdentityLookup(),
 			logger: $this->newLogger()
 		);
 	}

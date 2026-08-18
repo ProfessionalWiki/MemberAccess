@@ -14,6 +14,11 @@ class InMemoryMemberGroupRepository implements MemberGroupRepository {
 	 */
 	private array $groups = [];
 
+	/**
+	 * @var array<int, MemberGroup> Groups gone from the primary that a replica still shows
+	 */
+	private array $deletedBehindTheReplica = [];
+
 	private int $nextId = 1;
 
 	public function createGroup( string $name ): MemberGroup {
@@ -44,7 +49,24 @@ class InMemoryMemberGroupRepository implements MemberGroupRepository {
 		unset( $this->groups[$groupId] );
 	}
 
+	/**
+	 * Deletes the group the way the primary database has it while a replica has not caught up, so
+	 * that a stale read still finds it and an up to date one does not.
+	 */
+	public function deleteGroupBehindTheReplica( int $groupId ): void {
+		$group = $this->groups[$groupId] ?? null;
+
+		if ( $group !== null ) {
+			$this->deletedBehindTheReplica[$groupId] = $group;
+			$this->deleteGroup( $groupId );
+		}
+	}
+
 	public function getGroup( int $groupId ): ?MemberGroup {
+		return $this->groups[$groupId] ?? $this->deletedBehindTheReplica[$groupId] ?? null;
+	}
+
+	public function lockGroup( int $groupId ): ?MemberGroup {
 		return $this->groups[$groupId] ?? null;
 	}
 
