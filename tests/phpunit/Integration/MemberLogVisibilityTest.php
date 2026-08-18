@@ -106,6 +106,7 @@ class MemberLogVisibilityTest extends ApiTestCase {
 
 		$this->assertSame( [ 'User:' . self::MEMBER_NAME ], array_column( $entries, 'title' ) );
 		$this->assertSame( [ 'Member removed' ], array_column( $entries, 'comment' ) );
+		$this->assertSame( [ $this->getTestSysop()->getUser()->getName() ], array_column( $entries, 'user' ) );
 	}
 
 	public function testRenameLogIsClosedToAMember(): void {

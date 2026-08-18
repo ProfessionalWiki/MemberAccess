@@ -46,7 +46,7 @@ class UserListApiHandler implements ApiCheckCanExecuteHook {
 
 		$blocked = $this->firstBlockedSubmodule( $module );
 
-		if ( $blocked === null || !$this->isMember( $user ) ) {
+		if ( $blocked === null || !$this->holdsTheReaderGroup( $user ) ) {
 			return true;
 		}
 
@@ -100,7 +100,7 @@ class UserListApiHandler implements ApiCheckCanExecuteHook {
 		return $names;
 	}
 
-	private function isMember( UserIdentity $user ): bool {
+	private function holdsTheReaderGroup( UserIdentity $user ): bool {
 		return in_array( $this->readerGroup, $this->userGroups->getUserGroups( $user ), true );
 	}
 

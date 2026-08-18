@@ -127,6 +127,50 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( [], $this->logger->getEntriesAtLevel( 'info' ) );
 	}
 
+	/**
+	 * An account holding the reader group without a roster row is one the allowlist once created
+	 * and has since forgotten: a removed member's parked account, or one left behind by a failed
+	 * provisioning. An identity provider that recorded the account can hand its logins back to it
+	 * for good, so admitting it as staff would put a forgotten account permanently outside the
+	 * allowlist.
+	 */
+	public function testAccountThatWasProvisionedButLeftTheRosterIsRefused(): void {
+		$this->allow( '@example.com' );
+
+		$this->assertFalse( $this->authorize( $this->provisionedUserOffTheRoster( 'jane@example.com' ) ) );
+	}
+
+	public function testRefusalOfAProvisionedAccountStopsTheOtherHandlersOfTheHook(): void {
+		$this->allow( '@example.com' );
+
+		$authorized = true;
+		$continue = $this->newHandler()->onPluggableAuthUserAuthorization(
+			$this->provisionedUserOffTheRoster( 'jane@example.com' ),
+			$authorized
+		);
+
+		$this->assertFalse( $continue );
+	}
+
+	/**
+	 * The account a removal parks keeps the reader group on purpose: it is what marks the account
+	 * as one of ours, and what an identity provider that still points at it is refused by.
+	 */
+	public function testRemovedMembersParkedAccountIsRefused(): void {
+		$this->allow( '@example.com' );
+		$member = $this->existingMember( 'jane@example.com' );
+		$this->addToReaderGroup( $member );
+
+		MemberAccessExtension::getInstance()->newRemoveMemberUseCase()->remove(
+			$member->getId(),
+			$this->getTestSysop()->getUser()->getId()
+		);
+
+		$parked = $this->getServiceContainer()->getUserFactory()->newFromId( $member->getId() );
+
+		$this->assertFalse( $this->authorize( $parked ) );
+	}
+
 	public function testMemberWhoseAddressIsNoLongerAdmittedIsRefused(): void {
 		$this->allow( '@example.com' );
 
@@ -287,8 +331,10 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 			allowlistApplies: $allowlistApplies,
 			matcher: $extension->newAllowlistMatcher(),
 			members: $extension->newMemberRepository(),
+			userGroups: $this->getServiceContainer()->getUserGroupManager(),
 			authManager: $this->getServiceContainer()->getAuthManager(),
-			logger: $this->logger
+			logger: $this->logger,
+			readerGroup: 'reader'
 		);
 	}
 
@@ -327,6 +373,17 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 		$user->saveSettings();
 
 		return $user;
+	}
+
+	private function provisionedUserOffTheRoster( string $email ): User {
+		$user = $this->existingUser( $email );
+		$this->addToReaderGroup( $user );
+
+		return $user;
+	}
+
+	private function addToReaderGroup( User $user ): void {
+		$this->getServiceContainer()->getUserGroupManager()->addUserToGroup( $user, 'reader' );
 	}
 
 	private function existingMember( string $email ): User {

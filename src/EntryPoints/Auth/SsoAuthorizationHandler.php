@@ -6,6 +6,7 @@ namespace ProfessionalWiki\MemberAccess\EntryPoints\Auth;
 
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\User\User;
+use MediaWiki\User\UserGroupManager;
 use MediaWiki\User\UserIdentity;
 use ProfessionalWiki\MemberAccess\Application\AllowlistMatcher;
 use ProfessionalWiki\MemberAccess\Application\MemberGroup;
@@ -26,6 +27,12 @@ use Psr\Log\LoggerInterface;
  * Accounts that are no members are exempt: staff who prefer to sign in through the identity
  * provider were never admitted by the allowlist and are not meant to be on the member list. Every
  * such login of an address the allowlist would not admit is recorded.
+ *
+ * The exemption does not extend to an account that carries the reader group without a roster row.
+ * The group is the mark of an account the allowlist created — provisioning adds it before the
+ * roster row, and a removal leaves it on the parked account — so such an account is one the roster
+ * forgot: admitting it as staff would put it outside the allowlist for good, on a route whose
+ * identity provider can keep handing logins back to it.
  */
 class SsoAuthorizationHandler {
 
@@ -33,8 +40,10 @@ class SsoAuthorizationHandler {
 		private readonly bool $allowlistApplies,
 		private readonly AllowlistMatcher $matcher,
 		private readonly MemberRepository $members,
+		private readonly UserGroupManager $userGroups,
 		private readonly AuthManager $authManager,
-		private readonly LoggerInterface $logger
+		private readonly LoggerInterface $logger,
+		private readonly string $readerGroup
 	) {
 	}
 
@@ -52,7 +61,7 @@ class SsoAuthorizationHandler {
 		$member = $user->isRegistered() ? $this->members->getMember( $user->getId(), ReadConsistency::UpToDate ) : null;
 
 		if ( $user->isRegistered() && $member === null ) {
-			return $this->admitAccountThatIsNoMember( $user );
+			return $this->authorizeAccountThatIsNoMember( $user, $authorized );
 		}
 
 		// The address the roster recorded is the one the allowlist admitted, so it is what removing
@@ -87,6 +96,32 @@ class SsoAuthorizationHandler {
 		}
 
 		return true;
+	}
+
+	/**
+	 * The reader group is what tells a staff account from one the roster forgot: it is the mark of
+	 * an account the allowlist created, so carrying it without a roster row means the roster forgot
+	 * the account rather than never knew it.
+	 */
+	private function authorizeAccountThatIsNoMember( UserIdentity $user, bool &$authorized ): bool {
+		if ( $this->holdsTheReaderGroup( $user ) ) {
+			return $this->refuseAccountTheRosterForgot( $user, $authorized );
+		}
+
+		return $this->admitAccountThatIsNoMember( $user );
+	}
+
+	private function holdsTheReaderGroup( UserIdentity $user ): bool {
+		return in_array( $this->readerGroup, $this->userGroups->getUserGroups( $user ), true );
+	}
+
+	private function refuseAccountTheRosterForgot( UserIdentity $user, bool &$authorized ): bool {
+		$authorized = false;
+		$this->logger->info( 'Single sign-on login refused: the account was provisioned through the allowlist but is no longer on the roster', [
+			'user' => $user->getId()
+		] );
+
+		return false;
 	}
 
 	private function admitAccountThatIsNoMember( UserIdentity $user ): bool {

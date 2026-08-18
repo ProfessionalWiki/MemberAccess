@@ -98,6 +98,13 @@ class RemoveMemberUseCaseTest extends TestCase {
 		$this->assertNotSame( [], $this->logger->getEntriesAtLevel( 'error' ) );
 	}
 
+	public function testFailedRemovalIsLoggedWithoutTheAddress(): void {
+		$this->newUseCase( new SpyMemberRemover( RemovalResult::RemovalFailed ) )
+			->remove( self::MEMBER_ID, self::ADMIN_ID );
+
+		$this->assertStringNotContainsString( self::EMAIL, $this->logger->getLog() );
+	}
+
 	private function newUseCase( SpyMemberRemover $remover ): RemoveMemberUseCase {
 		return new RemoveMemberUseCase(
 			members: $this->members,

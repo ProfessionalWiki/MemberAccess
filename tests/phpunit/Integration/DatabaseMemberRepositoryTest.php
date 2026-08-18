@@ -143,6 +143,23 @@ class DatabaseMemberRepositoryTest extends DatabaseRepositoryTestCase {
 		$this->assertTrue( $this->members->getMember( 7, ReadConsistency::UpToDate )?->isActive() );
 	}
 
+	public function testForgottenMemberIsGone(): void {
+		$this->recordMember( userId: 7, email: 'jane@example.com', groupId: 3 );
+
+		$this->members->forgetMember( 7 );
+
+		$this->assertNull( $this->members->getMember( 7, ReadConsistency::UpToDate ) );
+	}
+
+	public function testForgettingAMemberLeavesOtherMembersAlone(): void {
+		$this->recordMember( userId: 7, email: 'jane@example.com', groupId: 3 );
+		$this->recordMember( userId: 8, email: 'john@example.com', groupId: 3 );
+
+		$this->members->forgetMember( 7 );
+
+		$this->assertNotNull( $this->members->getMember( 8, ReadConsistency::UpToDate ) );
+	}
+
 	public function testTotalsCountEveryMemberAcrossGroups(): void {
 		$this->recordMember( userId: 1, email: 'first@example.com', groupId: 1 );
 		$this->recordMember( userId: 2, email: 'second@example.com', groupId: 1 );
