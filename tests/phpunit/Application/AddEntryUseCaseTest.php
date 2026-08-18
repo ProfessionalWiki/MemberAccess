@@ -82,6 +82,19 @@ class AddEntryUseCaseTest extends TestCase {
 		$this->assertSame( AddEntryOutcome::GroupNotFound, $result->outcome );
 	}
 
+	/**
+	 * A group deleted while the entry is being added has not gone from a replica yet, and an entry
+	 * that outlived its group admits nobody while still holding the only slot its address has.
+	 */
+	public function testGroupThatIsAlreadyGoneOnThePrimaryTakesNoEntry(): void {
+		$this->groups->deleteGroupBehindTheReplica( $this->groupId );
+
+		$result = $this->addEntry( 'jane@example.com' );
+
+		$this->assertSame( AddEntryOutcome::GroupNotFound, $result->outcome );
+		$this->assertSame( [], $this->allowlist->listEntries( $this->groupId ) );
+	}
+
 	public function testValueThatIsAlreadyInTheSameGroupIsRefused(): void {
 		$this->addEntry( 'jane@example.com' );
 

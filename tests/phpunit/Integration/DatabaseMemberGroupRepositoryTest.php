@@ -124,6 +124,22 @@ class DatabaseMemberGroupRepositoryTest extends DatabaseRepositoryTestCase {
 		$this->assertNull( $repository->findGroupByName( 'Umbrella' ) );
 	}
 
+	public function testLockedGroupIsTheStoredGroup(): void {
+		$repository = $this->newRepository();
+		$repository->createGroup( 'Before' );
+		$created = $repository->createGroup( 'Acme' );
+		$repository->createGroup( 'After' );
+
+		$this->assertEquals( $created, $repository->lockGroup( $created->id ) );
+	}
+
+	public function testGroupThatIsNotThereCannotBeLocked(): void {
+		$repository = $this->newRepository();
+		$repository->createGroup( 'Acme' );
+
+		$this->assertNull( $repository->lockGroup( 404 ) );
+	}
+
 	private function newRepository(): DatabaseMemberGroupRepository {
 		return new DatabaseMemberGroupRepository( connectionProvider: $this->newConnectionProvider() );
 	}

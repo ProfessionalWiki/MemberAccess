@@ -92,6 +92,25 @@ class MemberLogVisibilityTest extends ApiTestCase {
 	}
 
 	/**
+	 * Removing a member renames their account away from their address, and the rename log records
+	 * the address it renamed away from, with the removal as the recorded reason.
+	 */
+	public function testRenameLogNamesTheRemovedMemberToAnAdmin(): void {
+		$this->remove( $this->admitAMember() );
+
+		$entries = $this->logEventsFor( $this->admin(), 'renameuser' );
+
+		$this->assertSame( [ 'User:' . self::MEMBER_NAME ], array_column( $entries, 'title' ) );
+		$this->assertSame( [ 'Member removed' ], array_column( $entries, 'comment' ) );
+	}
+
+	public function testRenameLogIsClosedToAMember(): void {
+		$this->remove( $this->admitAMember() );
+
+		$this->assertSame( [], $this->logEventsFor( $this->member(), 'renameuser' ) );
+	}
+
+	/**
 	 * Log entries of a restricted type are kept out of recent changes when they are written, so
 	 * there is nothing there for the query to filter.
 	 */
@@ -142,7 +161,7 @@ class MemberLogVisibilityTest extends ApiTestCase {
 			'action' => 'query',
 			'list' => 'logevents',
 			'letype' => $type,
-			'leprop' => 'user|title|type'
+			'leprop' => 'user|title|type|comment'
 		], null, false, $performer );
 
 		return $result['query']['logevents'];
@@ -205,6 +224,15 @@ class MemberLogVisibilityTest extends ApiTestCase {
 		$response = $this->getServiceContainer()->getAuthManager()->continueAuthentication( [ $codeEntry ] );
 
 		$this->assertSame( AuthenticationResponse::PASS, $response->status );
+
+		DeferredUpdates::doUpdates();
+	}
+
+	private function remove( User $member ): void {
+		MemberAccessExtension::getInstance()->newRemoveMemberUseCase()->remove(
+			$member->getId(),
+			$this->getTestSysop()->getUser()->getId()
+		);
 
 		DeferredUpdates::doUpdates();
 	}

@@ -22,6 +22,13 @@ interface AllowlistRepository {
 
 	public function countEntries( int $groupId ): int;
 
+	/**
+	 * Whether the group still holds an entry, read from the primary database with what it read
+	 * held, so that an entry added while the answer is acted on is either seen or made to wait.
+	 * A count read without holding anything answers from a snapshot that can predate the entry.
+	 */
+	public function groupHasEntries( int $groupId ): bool;
+
 	public function findGroupForValue( AllowlistValue $value ): ?MemberGroup;
 
 }

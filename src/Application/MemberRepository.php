@@ -31,6 +31,18 @@ interface MemberRepository {
 
 	public function getTotals(): MemberTotals;
 
+	/**
+	 * Whether the group still has a member attributed to it, active or not, read from the primary
+	 * database with what it read held. Same reason as {@see AllowlistRepository::groupHasEntries}.
+	 */
+	public function groupHasMembers( int $groupId ): bool;
+
+	/**
+	 * Forgets the member. The account itself is left alone: freeing the username it holds is the
+	 * other half of removing a member, and belongs to the remover.
+	 */
+	public function forgetMember( int $userId ): void;
+
 	public function deactivateMember( int $userId ): void;
 
 	public function reactivateMember( int $userId ): void;

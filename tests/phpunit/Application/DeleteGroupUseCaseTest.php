@@ -85,6 +85,41 @@ class DeleteGroupUseCaseTest extends TestCase {
 		$this->assertSame( DeleteGroupResult::GroupNotFound, $this->newUseCase()->deleteGroup( 404 ) );
 	}
 
+	/**
+	 * An entry added while the deletion runs has not reached a replica yet, and an entry that
+	 * outlived its group admits nobody while still holding the only slot its address has.
+	 */
+	public function testGroupIsKeptWhenAnEntryHasNotReachedTheReplica(): void {
+		$groupId = $this->groups->createGroup( 'Populated' )->id;
+		$this->addEntryBehindTheReplica( $groupId, '@example.com' );
+
+		$this->assertSame( DeleteGroupResult::GroupNotEmpty, $this->newUseCase()->deleteGroup( $groupId ) );
+		$this->assertNotNull( $this->groups->getGroup( $groupId ) );
+	}
+
+	public function testGroupIsKeptWhenAMemberHasNotReachedTheReplica(): void {
+		$groupId = $this->groups->createGroup( 'Populated' )->id;
+		$this->members->recordMemberBehindTheReplica( 1, $this->normalize( 'jane@example.com' ), $groupId );
+
+		$this->assertSame( DeleteGroupResult::GroupHasMembers, $this->newUseCase()->deleteGroup( $groupId ) );
+		$this->assertNotNull( $this->groups->getGroup( $groupId ) );
+	}
+
+	public function testGroupThatIsAlreadyGoneOnThePrimaryIsReportedAsNotFound(): void {
+		$groupId = $this->groups->createGroup( 'Doomed' )->id;
+		$this->groups->deleteGroupBehindTheReplica( $groupId );
+
+		$this->assertSame( DeleteGroupResult::GroupNotFound, $this->newUseCase()->deleteGroup( $groupId ) );
+	}
+
+	private function addEntryBehindTheReplica( int $groupId, string $value ): void {
+		$allowlistValue = AllowlistValue::fromString( $value );
+
+		$this->assertNotNull( $allowlistValue );
+
+		$this->allowlist->addEntryBehindTheReplica( groupId: $groupId, value: $allowlistValue );
+	}
+
 	private function addEntry( int $groupId, string $value ): void {
 		$allowlistValue = AllowlistValue::fromString( $value );
 
@@ -94,11 +129,19 @@ class DeleteGroupUseCaseTest extends TestCase {
 	}
 
 	private function addMember( int $groupId, string $email ): void {
+		$this->members->recordMember(
+			userId: count( $this->members->listMembers() ) + 1,
+			email: $this->normalize( $email ),
+			groupId: $groupId
+		);
+	}
+
+	private function normalize( string $email ): NormalizedEmail {
 		$normalized = NormalizedEmail::fromString( $email );
 
 		$this->assertNotNull( $normalized );
 
-		$this->members->recordMember( userId: count( $this->members->listMembers() ) + 1, email: $normalized, groupId: $groupId );
+		return $normalized;
 	}
 
 	private function newUseCase(): DeleteGroupUseCase {

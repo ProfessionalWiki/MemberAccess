@@ -25,6 +25,7 @@
 	"memberaccess-api-module-denied": "The \"$1\" API module is not available to members.",
 	"memberaccess-block-reason": "Membership ended",
 	"memberaccess-unblock-reason": "Membership resumed",
+	"memberaccess-rename-reason": "Member removed",
 	"right-memberaccess-manage": "Manage the member allowlist and roster",
 	"action-memberaccess-manage": "manage the member allowlist and roster",
 	"group-reader": "Readers",

@@ -74,7 +74,7 @@ unaffected; when such a login uses an address the allowlist would not admit, it 
 channel. A refusal is final: no other handler of the same hook can hand the login back. Without
 PluggableAuth the check never runs.
 
-### Deactivation
+### Deactivation and removal
 
 Deactivating a member blocks their account sitewide and indefinitely; removing their allowlist entry
 alone leaves the account and its open session intact. The block is an ordinary one, so it appears in
@@ -85,6 +85,12 @@ the account otherwise as it was.
 A block placed by hand, for some other reason, is neither replaced when the member is deactivated
 nor lifted when they are reactivated. Deactivating is refused while such a block would not keep the
 member out by itself, because it runs out or is only partial.
+
+Removing a member makes the roster forget them and renames their account to
+`Removed member <userId>`, so their address is free again and reaches a new account at the next
+login. The rename ends the account's open sessions, but not the member's admission: the allowlist
+entry that admits them stays, and a deactivation block stays behind on the renamed account rather
+than reaching the new one.
 
 ### Rate limits and logging
 
@@ -97,10 +103,11 @@ address hashed.
 
 A member's username is their email address, so anything that names accounts names the roster. The
 action API query modules whose purpose is enumerating accounts are closed to the reader group, and
-two logs are closed to anyone who cannot manage members: the new user log, where every member's
-account creation is recorded, and the block log, where every deactivation is. Restricting a log type
-also keeps it out of recent changes. Hiding the matching special pages beyond that is a wiki
-configuration matter, for instance with [Lockdown].
+three logs are closed to anyone who cannot manage members: the new user log, where every member's
+account creation is recorded, the block log, where every deactivation is, and the rename log, which
+names what a removed member was called. Restricting a log type also keeps it out of recent changes.
+Hiding the matching special pages beyond that is a wiki configuration matter, for instance with
+[Lockdown].
 
 Page histories and recent changes still name whoever acted, which on a members-only wiki means the
 staff who edit: members cannot appear there, since they cannot change anything.
@@ -151,8 +158,8 @@ Loading the extension:
   sending email, reading the abuse filters and their log, and reading or changing their own private
   information or preferences, which closes `Special:ChangeEmail` to them;
 * sets `$wgBlockDisablesLogin`, so blocking a member keeps them out of a private wiki;
-* restricts the `newusers` and `block` logs to the `memberaccess-manage` right, unless the wiki
-  already restricted them;
+* restricts the `newusers`, `block` and `renameuser` logs to the `memberaccess-manage` right, unless
+  the wiki already restricted them;
 * turns off ConfirmEdit's `badloginperuser` captcha trigger unless the code route is off, so failed
   logins no longer escalate to a captcha for the account they name, for everyone on the wiki and not
   only for members; the per-IP `badlogin` trigger is left alone;
@@ -206,12 +213,14 @@ wiki's CSRF token in an `X-CSRF-TOKEN` header, unless the session provider is in
 | `GET /members` | The roster: each member's address, group, creation, last login and active flag, plus the totals overall and per group |
 | `POST /members/{userId}/deactivate` | Ends a member's access. Also requires the `block` right, and refuses your own account |
 | `POST /members/{userId}/reactivate` | Restores a member's access. Also requires the `block` right. The response's `blocked` says whether a block placed for another reason is still on the account |
+| `DELETE /members/{userId}` | Removes a member, freeing their address for a new account. Refuses your own account |
 
 A failure answers with the HTTP status and a body carrying a stable `errorCode` next to a
 human-readable `error`: `not_logged_in`, `permission_denied`, `invalid_csrf_token`, `invalid_group_name`,
 `group_name_too_long`, `duplicate_group_name`, `group_not_found`, `group_not_empty`, `group_has_members`,
 `invalid_entry_value`, `entry_value_too_long`, `duplicate_entry`, `entry_not_found`, `not_a_member`,
-`cannot_deactivate_self`, `block_right_required`, `block_failed`, `unblock_failed`. A `duplicate_entry` also carries
+`cannot_deactivate_self`, `block_right_required`, `block_failed`, `unblock_failed`,
+`cannot_remove_self`, `reserved_name_taken`, `removal_failed`. A `duplicate_entry` also carries
 `conflictingGroupId` and `conflictingGroupName`, naming the group that already admits the value.
 Malformed requests are refused by MediaWiki's REST framework before reaching the extension, and
 carry its error shape rather than this one.
@@ -280,11 +289,12 @@ Initial version for MediaWiki 1.43+ with these features:
 * Settable login routes: the code route admits the addresses an allowlist entry matches, every
   address, or is not offered at all; single sign-on can be left outside the allowlist
 * Members never have a password: setting one and having a temporary one mailed are both refused
-* Deactivation blocks a member's account sitewide, reactivation lifts that block again
+* Deactivation blocks a member's account sitewide, reactivation lifts that block again, and
+  removal frees their address for a new account
 * Code requests rate limited per email address and per client IP, with a burst and a daily limit,
   and codes stored hashed and burned after five wrong entries
-* Uniform responses, restricted account-listing API modules, and restricted new user and block logs,
-  so the member list is not given away
+* Uniform responses, restricted account-listing API modules, and restricted new user, block and
+  rename logs, so the member list is not given away
 * Every code issue, login success, failure and rate-limit hit logged through the `MemberAccess` log
   channel, with the email address hashed
 * A REST API under `/rest.php/member-access/v0/` for managing groups, allowlist entries and the roster

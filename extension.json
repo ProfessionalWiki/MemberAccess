@@ -183,6 +183,11 @@
 			"path": "/member-access/v0/members/{userId}/reactivate",
 			"method": [ "POST" ],
 			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newReactivateMemberApi"
+		},
+		{
+			"path": "/member-access/v0/members/{userId}",
+			"method": [ "DELETE" ],
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newRemoveMemberApi"
 		}
 	],
 	"AvailableRights": [

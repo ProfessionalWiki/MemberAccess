@@ -256,6 +256,26 @@ class DatabaseMemberRepositoryTest extends DatabaseRepositoryTestCase {
 		$this->assertTrue( $this->members->getMember( 7, ReadConsistency::UpToDate )?->isActive() );
 	}
 
+	public function testGroupWithAFreshlyRecordedMemberIsSaidToHaveMembers(): void {
+		$this->recordMember( userId: 7, email: 'jane@example.com', groupId: 3 );
+
+		$this->assertTrue( $this->members->groupHasMembers( 3 ) );
+	}
+
+	public function testGroupOnlyOtherGroupsMembersBelongToHasNone(): void {
+		$this->recordMember( userId: 7, email: 'jane@example.com', groupId: 2 );
+		$this->recordMemberWithoutAGroup( userId: 8, email: 'stranger@example.com' );
+
+		$this->assertFalse( $this->members->groupHasMembers( 3 ) );
+	}
+
+	public function testDeactivatedMemberStillCountsTowardsTheirGroup(): void {
+		$this->recordMember( userId: 7, email: 'jane@example.com', groupId: 3 );
+		$this->members->deactivateMember( 7 );
+
+		$this->assertTrue( $this->members->groupHasMembers( 3 ) );
+	}
+
 	private function recordMember( int $userId, string $email, ?int $groupId ): void {
 		$this->members->recordMember(
 			userId: $userId,

@@ -90,6 +90,21 @@ class DatabaseAllowlistRepository extends DatabaseRepository implements Allowlis
 			->fetchRowCount();
 	}
 
+	/**
+	 * One row at most, and held rather than counted: a locking read sees what was committed a
+	 * moment ago, where a plain one answers from the snapshot the transaction started with.
+	 */
+	public function groupHasEntries( int $groupId ): bool {
+		return $this->connectionProvider->getPrimaryDatabase()->newSelectQueryBuilder()
+			->select( 'mae_id' )
+			->from( self::ENTRY_TABLE )
+			->where( [ 'mae_group_id' => $groupId ] )
+			->forUpdate()
+			->limit( 1 )
+			->caller( __METHOD__ )
+			->fetchRow() !== false;
+	}
+
 	public function findGroupForValue( AllowlistValue $value ): ?MemberGroup {
 		$row = $this->connectionProvider->getReplicaDatabase()->newSelectQueryBuilder()
 			->select( $this->groupFields() )

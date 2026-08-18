@@ -56,6 +56,18 @@ class DatabaseMemberGroupRepository extends DatabaseRepository implements Member
 		return $row === false ? null : $this->newGroupFromRow( $row );
 	}
 
+	public function lockGroup( int $groupId ): ?MemberGroup {
+		$row = $this->connectionProvider->getPrimaryDatabase()->newSelectQueryBuilder()
+			->select( $this->groupFields() )
+			->from( self::GROUP_TABLE )
+			->where( [ 'mag_id' => $groupId ] )
+			->forUpdate()
+			->caller( __METHOD__ )
+			->fetchRow();
+
+		return $row === false ? null : $this->newGroupFromRow( $row );
+	}
+
 	/**
 	 * Compared in PHP rather than in SQL, because case insensitive comparison of a binary column
 	 * differs per database type. A wiki has one group per party it admits members for, so the list

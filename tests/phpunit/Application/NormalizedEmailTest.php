@@ -40,6 +40,30 @@ class NormalizedEmailTest extends TestCase {
 		$this->assertNull( NormalizedEmail::fromString( 'ja ne@example.com' ) );
 	}
 
+	/**
+	 * Whitespace MediaWiki's title normalisation folds away: two addresses telling each other
+	 * apart only by it would arrive at one username, and the second one at that name is refused.
+	 *
+	 * @dataProvider unicodeWhitespaceProvider
+	 */
+	public function testAddressWithUnicodeWhitespaceIsRejected( string $address ): void {
+		$this->assertNull( NormalizedEmail::fromString( $address ) );
+	}
+
+	public static function unicodeWhitespaceProvider(): iterable {
+		yield 'no-break space in the local part' => [ "ja\u{00A0}ne@example.com" ];
+		yield 'no-break space at the end, which trim() leaves' => [ "jane@example.com\u{00A0}" ];
+		yield 'line separator' => [ "ja\u{2028}ne@example.com" ];
+	}
+
+	/**
+	 * Bytes that are no text are no address either. Lowercasing replaces them with a question
+	 * mark, which would turn every such address into the same one.
+	 */
+	public function testAddressThatIsNotValidTextIsRejected(): void {
+		$this->assertNull( NormalizedEmail::fromString( "ja\xFFne@example.com" ) );
+	}
+
 	public function testEmptyStringIsRejected(): void {
 		$this->assertNull( NormalizedEmail::fromString( '' ) );
 	}
