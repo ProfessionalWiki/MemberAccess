@@ -103,6 +103,9 @@ class MediaWikiMemberRemover implements MemberRemover {
 			$this->stripAddress( $userId );
 			$renamed = $this->newRename( $currentName, $reservedName, $userId, $performerId )->rename();
 		} catch ( Throwable $failure ) {
+			// The REST framework answers the rethrown failure with an error response, after which
+			// the request's transaction round commits as usual: without this cancel, the forgotten
+			// row and the stripped address would be committed without their rename.
 			$database->cancelAtomic( __METHOD__, $section );
 
 			throw $failure;
