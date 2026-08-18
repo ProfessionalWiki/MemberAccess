@@ -1,4 +1,4 @@
-# MemberAccess
+# Member Access
 
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ProfessionalWiki/MemberAccess/ci.yml?branch=master)](https://github.com/ProfessionalWiki/MemberAccess/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/ProfessionalWiki/MemberAccess/branch/master/graph/badge.svg)](https://codecov.io/gh/ProfessionalWiki/MemberAccess)
@@ -9,19 +9,29 @@
 MediaWiki extension for members-only wikis: readers log in with an email one-time code,
 admitted by an allowlist of addresses and domains organized into named groups.
 
-Created by [Professional Wiki](https://professional.wiki) and released under the [GNU GPL v2 or later](LICENSE).
-
 * A member never has a password, and a login is remembered for about a month.
 * Members can read and nothing else: everything that would let them change the wiki or see behind
   the scenes is revoked.
 * Accounts create themselves at first login. Removing an allowlist entry ends access at the next
   login; deactivating a member blocks them at once.
-* Single sign-on logins through [PluggableAuth](https://www.mediawiki.org/wiki/Extension:PluggableAuth)
-  are held to the same allowlist; staff accounts are exempt.
+* Single sign-on logins through [PluggableAuth] are held to the same allowlist; staff accounts are exempt.
 * Nothing gives the member list away: code and password-reset requests answer the same for every
   address, and account listings and the logs that record members are restricted.
 * Groups, allowlist entries and the member roster are managed over a REST API.
 * It does not make the wiki private: restricting who may read stays a wiki configuration decision.
+
+- [Introduction to the extension](https://professional.wiki/en/extension/member-access#Overview)
+- [Usage documentation](https://professional.wiki/en/extension/member-access#Usage)
+- [How it works](#how-it-works)
+- [What loading the extension changes on the wiki](#what-loading-the-extension-changes-on-the-wiki)
+- [Installation](#installation)
+- [Management API](#management-api)
+- [Configuration](#configuration)
+- [Development](#development)
+- [Release notes](#release-notes)
+
+Get professional support for this extension via [Professional Wiki], its creators and maintainers.
+We provide [MediaWiki Development], [MediaWiki Hosting], and [MediaWiki Consulting] services.
 
 ## How it works
 
@@ -52,9 +62,8 @@ a reset of a member's address answers exactly as it does for an address that was
 
 ### Single sign-on
 
-Single sign-on logins are held to the same allowlist. With
-[PluggableAuth](https://www.mediawiki.org/wiki/Extension:PluggableAuth) configured, the address the
-identity provider returns has to match an entry or the login is refused, and a first login that
+Single sign-on logins are held to the same allowlist. With [PluggableAuth] configured, the address
+the identity provider returns has to match an entry or the login is refused, and a first login that
 matches is provisioned exactly like a code login. For an account that is already a member, the
 address checked is the one recorded when they were admitted, so removing their entry ends this route
 too. Accounts that are not members are exempt, so staff signing in through the identity provider are
@@ -88,7 +97,7 @@ action API query modules whose purpose is enumerating accounts are closed to the
 two logs are closed to anyone who cannot manage members: the new user log, where every member's
 account creation is recorded, and the block log, where every deactivation is. Restricting a log type
 also keeps it out of recent changes. Hiding the matching special pages beyond that is a wiki
-configuration matter, for instance with [Lockdown](https://www.mediawiki.org/wiki/Extension:Lockdown).
+configuration matter, for instance with [Lockdown].
 
 Page histories and recent changes still name whoever acted, which on a members-only wiki means the
 staff who edit: members cannot appear there, since they cannot change anything.
@@ -117,8 +126,8 @@ Loading the extension is the switch that turns members-only access on. It:
 
 Platform requirements:
 
-* [PHP](https://www.php.net/) 8.3 or later
-* [MediaWiki](https://www.mediawiki.org/) 1.43 or later
+* [PHP] 8.3 or later
+* [MediaWiki] 1.43 or later
 * MySQL, MariaDB or SQLite. No PostgreSQL schema is shipped
 * Working outgoing email, since login codes are sent by mail
 
@@ -210,3 +219,33 @@ php maintenance/run.php generateSchemaSql --json extensions/MemberAccess/sql/<ta
 php maintenance/run.php generateSchemaSql --json extensions/MemberAccess/sql/<table>.json \
 	--sql extensions/MemberAccess/sql/sqlite/<table>.sql --type sqlite
 ```
+
+## Release notes
+
+### Version 0.1.0 (unreleased)
+
+Initial version for MediaWiki 1.43+ with these features:
+
+* Login with an eight-digit code mailed to the member's address, valid for ten minutes and usable
+  once, requested from the login form's username field
+* An allowlist of email addresses and domains, organized into named groups, decides who is admitted
+* Accounts create themselves at first login, into a reader group that may read and nothing else
+* Single sign-on logins through [PluggableAuth] held to the same allowlist, with staff accounts exempt
+* Members never have a password: setting one and having a temporary one mailed are both refused
+* Deactivation blocks a member's account sitewide, reactivation lifts that block again
+* Code requests rate limited per email address and per client IP, with a burst and a daily limit,
+  and codes stored hashed and burned after five wrong entries
+* Uniform responses, restricted account-listing API modules, and restricted new user and block logs,
+  so the member list is not given away
+* Every code issue, login success, failure and rate-limit hit logged through the `MemberAccess` log
+  channel, with the email address hashed
+* A REST API under `/rest.php/member-access/v0/` for managing groups, allowlist entries and the roster
+
+[MediaWiki]: https://www.mediawiki.org
+[Professional Wiki]: https://professional.wiki
+[MediaWiki Development]: https://professional.wiki/en/mediawiki-development
+[MediaWiki Hosting]: https://pro.wiki
+[MediaWiki Consulting]: https://professional.wiki/en/mediawiki-consulting-services
+[PHP]: https://www.php.net
+[PluggableAuth]: https://www.mediawiki.org/wiki/Extension:PluggableAuth
+[Lockdown]: https://www.mediawiki.org/wiki/Extension:Lockdown
