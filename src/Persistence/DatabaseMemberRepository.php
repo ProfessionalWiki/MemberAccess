@@ -11,9 +11,14 @@ use ProfessionalWiki\MemberAccess\Application\MemberTotals;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
 use stdClass;
-use Wikimedia\Rdbms\SelectQueryBuilder;
 
 class DatabaseMemberRepository extends DatabaseRepository implements MemberRepository {
+
+	/**
+	 * The group id the members no group admitted are counted under. No group has it, since the
+	 * ids the database hands out start at one.
+	 */
+	private const int NO_GROUP = 0;
 
 	public function recordMember( int $userId, NormalizedEmail $email, ?int $groupId ): void {
 		$database = $this->connectionProvider->getPrimaryDatabase();
@@ -73,8 +78,8 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 	}
 
 	/**
-	 * Members no group admitted are counted overall and under no group, so the overall count is
-	 * asked for on its own rather than added up from the groups.
+	 * Members no group admitted are counted overall and under no group, so the grouped count they
+	 * come back under is added to the overall total and left out of the breakdown.
 	 */
 	public function getTotals(): MemberTotals {
 		$all = $this->countPerGroup( activeOnly: false );
@@ -83,56 +88,44 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 		$perGroup = [];
 
 		foreach ( $all as $groupId => $count ) {
-			$perGroup[$groupId] = new MemberCount( all: $count, active: $active[$groupId] ?? 0 );
+			if ( $groupId !== self::NO_GROUP ) {
+				$perGroup[$groupId] = new MemberCount( all: $count, active: $active[$groupId] ?? 0 );
+			}
 		}
 
 		return new MemberTotals(
-			overall: new MemberCount(
-				all: $this->countMembers( activeOnly: false ),
-				active: $this->countMembers( activeOnly: true )
-			),
+			overall: new MemberCount( all: array_sum( $all ), active: array_sum( $active ) ),
 			perGroup: $perGroup
 		);
 	}
 
 	/**
-	 * @return array<int, int> Member count per group id, leaving out the members no group admitted
+	 * The members no group admitted come back grouped under {@see self::NO_GROUP}, which is no
+	 * group's id.
+	 *
+	 * @return array<int, int> Member count per group id
 	 */
 	private function countPerGroup( bool $activeOnly ): array {
-		$database = $this->connectionProvider->getReplicaDatabase();
-
-		$query = $this->newCountQuery( $activeOnly )
-			->select( [ 'mam_group_id', 'member_count' => 'COUNT(*)' ] )
-			->where( $database->expr( 'mam_group_id', '!=', null ) )
-			->groupBy( 'mam_group_id' );
-
-		$counts = [];
-
-		foreach ( $this->toRows( $query->caller( __METHOD__ )->fetchResultSet() ) as $row ) {
-			$counts[$this->asInt( $row->mam_group_id )] = $this->asInt( $row->member_count );
-		}
-
-		return $counts;
-	}
-
-	private function countMembers( bool $activeOnly ): int {
-		return $this->asInt(
-			$this->newCountQuery( $activeOnly )
-				->select( [ 'member_count' => 'COUNT(*)' ] )
-				->caller( __METHOD__ )
-				->fetchField()
-		);
-	}
-
-	private function newCountQuery( bool $activeOnly ): SelectQueryBuilder {
 		$query = $this->connectionProvider->getReplicaDatabase()->newSelectQueryBuilder()
-			->from( self::MEMBER_TABLE );
+			->select( [ 'mam_group_id', 'member_count' => 'COUNT(*)' ] )
+			->from( self::MEMBER_TABLE )
+			->groupBy( 'mam_group_id' );
 
 		if ( $activeOnly ) {
 			$query->where( [ 'mam_deactivated' => null ] );
 		}
 
-		return $query;
+		$counts = [];
+
+		foreach ( $this->toRows( $query->caller( __METHOD__ )->fetchResultSet() ) as $row ) {
+			$counts[$this->groupIdOf( $row )] = $this->asInt( $row->member_count );
+		}
+
+		return $counts;
+	}
+
+	private function groupIdOf( stdClass $row ): int {
+		return $row->mam_group_id === null ? self::NO_GROUP : $this->asInt( $row->mam_group_id );
 	}
 
 	public function deactivateMember( int $userId ): void {
