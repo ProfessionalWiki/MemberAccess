@@ -256,7 +256,7 @@ class DatabaseMemberRepositoryTest extends DatabaseRepositoryTestCase {
 		$this->assertTrue( $this->members->getMember( 7, ReadConsistency::UpToDate )?->isActive() );
 	}
 
-	private function recordMember( int $userId, string $email, int $groupId ): void {
+	private function recordMember( int $userId, string $email, ?int $groupId ): void {
 		$this->members->recordMember(
 			userId: $userId,
 			email: $this->normalize( $email ),
@@ -265,11 +265,7 @@ class DatabaseMemberRepositoryTest extends DatabaseRepositoryTestCase {
 	}
 
 	private function recordMemberWithoutAGroup( int $userId, string $email ): void {
-		$this->members->recordMember(
-			userId: $userId,
-			email: $this->normalize( $email ),
-			groupId: null
-		);
+		$this->recordMember( userId: $userId, email: $email, groupId: null );
 	}
 
 	private function findMember( string $email ): ?Member {

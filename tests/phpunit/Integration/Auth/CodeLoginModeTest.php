@@ -431,10 +431,7 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 	}
 
 	private function allowAnonymousAutocreation(): void {
-		$this->overrideConfigValue( MainConfigNames::GroupPermissions, array_replace_recursive(
-			$this->getConfVar( MainConfigNames::GroupPermissions ),
-			[ '*' => [ 'autocreateaccount' => true ] ]
-		) );
+		$this->setGroupPermissions( '*', 'autocreateaccount', true );
 	}
 
 }
