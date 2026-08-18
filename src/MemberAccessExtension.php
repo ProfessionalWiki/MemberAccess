@@ -117,8 +117,10 @@ class MemberAccessExtension {
 			allowlistApplies: $this->allowlistAppliesToSso(),
 			matcher: $this->newAllowlistMatcher(),
 			members: $this->newMemberRepository(),
+			userGroups: MediaWikiServices::getInstance()->getUserGroupManager(),
 			authManager: MediaWikiServices::getInstance()->getAuthManager(),
-			logger: $this->newLogger()
+			logger: $this->newLogger(),
+			readerGroup: $this->getReaderGroup()
 		);
 	}
 

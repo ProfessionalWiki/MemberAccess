@@ -72,8 +72,10 @@ matches is provisioned exactly like a code login. For an account that is already
 address checked is the one recorded when they were admitted, so removing their entry ends this route
 too. Accounts that are not members are exempt, so staff signing in through the identity provider are
 unaffected; when such a login uses an address the allowlist would not admit, it is written to the log
-channel. A refusal is final: no other handler of the same hook can hand the login back. Without
-PluggableAuth the check never runs.
+channel. An account that carries the reader group without being on the roster is no staff account
+but a forgotten member account — a removed member's parked account, or one left behind by a failed
+provisioning — and is refused rather than exempted. A refusal is final: no other handler of the same
+hook can hand the login back. Without PluggableAuth the check never runs.
 
 ### Deactivation and removal
 
@@ -89,9 +91,11 @@ member out by itself, because it runs out or is only partial.
 
 Removing a member makes the roster forget them and renames their account to
 `Removed member <userId>`, so their address is free again and reaches a new account at the next
-login. The rename ends the account's open sessions, but not the member's admission: the allowlist
-entry that admits them stays, and a deactivation block stays behind on the renamed account rather
-than reaching the new one.
+code login. The rename ends the account's open sessions, but not the member's admission: the
+allowlist entry that admits them stays, and a deactivation block stays behind on the renamed
+account rather than reaching the new one. An identity provider that recorded the account still
+points at the parked one, so a removed member's single sign-on logins arrive there and are refused
+rather than reaching a fresh account.
 
 ### Rate limits and logging
 
