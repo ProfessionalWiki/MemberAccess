@@ -275,7 +275,10 @@ Initial version for MediaWiki 1.43+ with these features:
   once, requested from the login form's username field
 * An allowlist of email addresses and domains, organized into named groups, decides who is admitted
 * Accounts create themselves at first login, into a reader group that may read and nothing else
-* Single sign-on logins through [PluggableAuth] held to the same allowlist, with staff accounts exempt
+* Single sign-on logins through [PluggableAuth] held to the same allowlist by default, with staff
+  accounts exempt
+* Settable login routes: the code route admits the addresses an allowlist entry matches, every
+  address, or is not offered at all; single sign-on can be left outside the allowlist
 * Members never have a password: setting one and having a temporary one mailed are both refused
 * Deactivation blocks a member's account sitewide, reactivation lifts that block again
 * Code requests rate limited per email address and per client IP, with a burst and a daily limit,
