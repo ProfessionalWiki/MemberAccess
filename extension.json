@@ -89,12 +89,12 @@
 			"description": "Name of the user group that members are placed in."
 		},
 		"MemberAccessCodeLogin": {
-			"value": "allowlisted",
+			"value": "off",
 			"description": "Whom the one-time code login route lets in: \"allowlisted\" for the addresses an allowlist entry matches, \"open\" for every address, or \"off\" to not offer the route at all."
 		},
 		"MemberAccessApplyAllowlistToSso": {
-			"value": true,
-			"description": "Whether single sign-on logins are held to the allowlist. When false, the extension neither refuses nor records them."
+			"value": false,
+			"description": "Whether single sign-on logins are held to the allowlist. Only true holds them; with anything else the extension neither refuses nor records them."
 		},
 		"MemberAccessCodeTtlSeconds": {
 			"value": 600,
@@ -126,7 +126,7 @@
 		},
 		"MemberAccessSessionDurationSeconds": {
 			"value": 2592000,
-			"description": "How long a remembered login lasts, in seconds. Sets $wgExtendedLoginCookieExpiration, so it applies to everyone on the wiki, not only to members. Set to 0 to leave that setting alone."
+			"description": "How long a remembered login lasts, in seconds. Sets $wgExtendedLoginCookieExpiration while a route can log a member in, so it applies to everyone on the wiki, not only to members. Set to 0 to leave that setting alone."
 		},
 		"MemberAccessBlockedApiModules": {
 			"value": [ "allusers", "users", "blocks" ],

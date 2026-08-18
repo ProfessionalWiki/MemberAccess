@@ -434,9 +434,11 @@ class MemberAccessExtension {
 	private function getCodeLoginMode(): CodeLoginMode {
 		$configured = $this->getStringConfig( 'MemberAccessCodeLogin' );
 
-		if ( CodeLoginMode::tryFrom( $configured ) === null ) {
+		// Only null and other non-scalars read as an empty string, since the default is "off", so
+		// empty means unset-ish rather than a typo worth warning about.
+		if ( $configured !== '' && CodeLoginMode::tryFrom( $configured ) === null ) {
 			$this->newLogger()->warning(
-				'$wgMemberAccessCodeLogin holds an unknown value and is read as "allowlisted"',
+				'$wgMemberAccessCodeLogin holds an unknown value and is read as "off"',
 				[ 'value' => $configured ]
 			);
 		}
@@ -445,11 +447,11 @@ class MemberAccessExtension {
 	}
 
 	/**
-	 * Anything but an explicit false leaves the allowlist governing single sign-on, which is what
-	 * the extension is there to do.
+	 * Only an explicit true holds single sign-on to the allowlist. A wiki that set nothing has that
+	 * route left alone, like every other route here: admitting anybody is a setting, never a default.
 	 */
 	private function allowlistAppliesToSso(): bool {
-		return $this->getConfigValue( 'MemberAccessApplyAllowlistToSso' ) !== false;
+		return $this->getConfigValue( 'MemberAccessApplyAllowlistToSso' ) === true;
 	}
 
 	public function newCodeLifetime(): CodeLifetime {

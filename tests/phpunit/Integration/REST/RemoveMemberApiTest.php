@@ -296,6 +296,11 @@ class RemoveMemberApiTest extends RestApiTestCase {
 
 		$this->setService( 'Emailer', new SpyEmailer() );
 		$this->registerOurAuthenticationProvider();
+
+		// The colliding members are made by logging in over the code route, which a wiki has to
+		// turn on.
+		$this->overrideConfigValue( 'MemberAccessCodeLogin', 'allowlisted' );
+
 		$this->overrideConfigValue( MainConfigNames::GroupPermissions, array_replace_recursive(
 			$this->getConfVar( MainConfigNames::GroupPermissions ),
 			[ '*' => [ 'autocreateaccount' => true ] ]

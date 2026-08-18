@@ -191,6 +191,7 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	public function testHandlerBuiltFromTheManifestFactoryWorks(): void {
+		$this->overrideConfigValue( 'MemberAccessApplyAllowlistToSso', true );
 		$this->allow( '@example.com' );
 
 		$authorized = true;
@@ -205,6 +206,7 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 	 * covered as well: an unregistered handler would admit every single sign-on login.
 	 */
 	public function testHookRegistrationHoldsSingleSignOnLoginsToTheAllowlist(): void {
+		$this->overrideConfigValue( 'MemberAccessApplyAllowlistToSso', true );
 		$this->allow( '@example.com' );
 
 		$authorized = true;
@@ -222,6 +224,21 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testSingleSignOnIsLeftAloneWhenTheAllowlistDoesNotApplyToIt(): void {
 		$this->overrideConfigValue( 'MemberAccessApplyAllowlistToSso', false );
+		$this->allow( '@example.com' );
+
+		$authorized = true;
+		MemberAccessExtension::newSsoAuthorizationHandlerHookHandler()
+			->onPluggableAuthUserAuthorization( $this->newIdentity( 'jane@other.example' ), $authorized );
+
+		$this->assertTrue( $authorized );
+	}
+
+	/**
+	 * Only an explicit true holds the route, here as in the registration handler, so that a wiki
+	 * which set something else has single sign-on left alone rather than half held to the list.
+	 */
+	public function testSingleSignOnIsLeftAloneWhenTheSettingIsNoExplicitTrue(): void {
+		$this->overrideConfigValue( 'MemberAccessApplyAllowlistToSso', 1 );
 		$this->allow( '@example.com' );
 
 		$authorized = true;

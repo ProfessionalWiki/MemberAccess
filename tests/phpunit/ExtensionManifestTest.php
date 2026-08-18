@@ -20,12 +20,16 @@ class ExtensionManifestTest extends TestCase {
 		$this->assertNull( $this->configDefault( 'MemberAccessSenderAddress' ) );
 	}
 
-	public function testCodeLoginIsHeldToTheAllowlistByDefault(): void {
-		$this->assertSame( 'allowlisted', $this->configDefault( 'MemberAccessCodeLogin' ) );
+	/**
+	 * A wiki that loaded the extension and set nothing admits nobody: every route is an explicit
+	 * setting, so that loading alone does nothing an administrator did not ask for.
+	 */
+	public function testTheCodeRouteIsNotOfferedByDefault(): void {
+		$this->assertSame( 'off', $this->configDefault( 'MemberAccessCodeLogin' ) );
 	}
 
-	public function testAllowlistAppliesToSingleSignOnByDefault(): void {
-		$this->assertTrue( $this->configDefault( 'MemberAccessApplyAllowlistToSso' ) );
+	public function testSingleSignOnIsLeftAloneByDefault(): void {
+		$this->assertFalse( $this->configDefault( 'MemberAccessApplyAllowlistToSso' ) );
 	}
 
 	/**

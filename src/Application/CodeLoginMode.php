@@ -19,11 +19,11 @@ enum CodeLoginMode: string {
 	case Open = 'open';
 
 	/**
-	 * A setting nobody recognises leaves the route working, and working the way the extension
-	 * exists to work.
+	 * A setting nobody recognises names no route, and neither does an empty one: offering a route is
+	 * an explicit decision, so a typo must not make one.
 	 */
 	public static function fromSetting( string $setting ): self {
-		return self::tryFrom( $setting ) ?? self::Allowlisted;
+		return self::tryFrom( $setting ) ?? self::Off;
 	}
 
 	public function admits( ?MemberGroup $group ): bool {

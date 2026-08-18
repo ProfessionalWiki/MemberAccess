@@ -69,7 +69,9 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 		parent::tearDown();
 	}
 
-	public function testLoginFormOffersTheCodeButtonByDefault(): void {
+	public function testCodeLoginHeldToTheAllowlistPutsTheButtonOnTheLoginForm(): void {
+		$this->setCodeLogin( 'allowlisted' );
+
 		$this->assertTrue( $this->loginFormOffersTheCodeButton() );
 	}
 
@@ -105,6 +107,7 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 	 * gone is the refusal, reached before the address is considered at all.
 	 */
 	public function testCodeIsRefusedOnceTheRouteIsTakenAway(): void {
+		$this->setCodeLogin( 'allowlisted' );
 		$this->allow( self::ADMITTED_ADDRESS );
 		$this->requestCode( self::ADMITTED_ADDRESS );
 		$this->setCodeLogin( 'off' );
@@ -269,35 +272,39 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 	 * and the code route has to stand on its own then.
 	 */
 	public function testCodeLoginIsOfferedWithoutThePasswordProviders(): void {
+		$this->setCodeLogin( 'allowlisted' );
 		$this->removeThePasswordProviders();
 
 		$this->assertTrue( $this->loginFormOffersTheCodeButton() );
 	}
 
 	public function testCodeLoginWorksWithoutThePasswordProviders(): void {
+		$this->setCodeLogin( 'allowlisted' );
 		$this->removeThePasswordProviders();
 		$this->allow( self::ADMITTED_ADDRESS );
 
 		$this->assertSame( AuthenticationResponse::PASS, $this->logIn( self::ADMITTED_ADDRESS )->status );
 	}
 
-	public function testUnknownSettingHoldsTheRouteToTheAllowlist(): void {
+	public function testUnknownSettingTakesTheButtonOffTheLoginForm(): void {
 		$this->setCodeLogin( self::UNKNOWN_SETTING );
 
-		$response = $this->logIn( self::UNLISTED_ADDRESS );
-
-		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		$this->assertFalse( $this->loginFormOffersTheCodeButton() );
 	}
 
-	public function testUnknownSettingLeavesTheRouteWorking(): void {
+	public function testUnknownSettingMailsNoCodeToAnAddressAnEntryMatches(): void {
 		$this->setCodeLogin( self::UNKNOWN_SETTING );
 		$this->allow( self::ADMITTED_ADDRESS );
 
-		$this->assertSame( AuthenticationResponse::PASS, $this->logIn( self::ADMITTED_ADDRESS )->status );
+		$this->newInitializedProvider()
+			->beginPrimaryAuthentication( $this->submittedCodeRequest( self::ADMITTED_ADDRESS ) );
+		DeferredUpdates::doUpdates();
+
+		$this->assertSame( [], $this->emailer->getSentMails() );
 	}
 
 	/**
-	 * The route keeps working, so the log is the only place the typo shows up.
+	 * The route is off, and a wiki that meant to offer one has only the log to tell it why not.
 	 */
 	public function testUnknownSettingIsWarnedAbout(): void {
 		$logger = new SpyLogger();
@@ -310,6 +317,25 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 			self::UNKNOWN_SETTING,
 			implode( "\n", $logger->getEntriesAtLevel( 'warning' ) )
 		);
+	}
+
+	/**
+	 * An empty setting is what a wiki that never set one has, which is no mistake to warn about.
+	 */
+	public function testEmptySettingIsNotWarnedAbout(): void {
+		$logger = new SpyLogger();
+		MemberAccessExtension::getInstance()->setLoggerOverride( $logger );
+		$this->setCodeLogin( '' );
+
+		MemberAccessExtension::getInstance()->newAuthenticationProvider();
+
+		$this->assertSame( [], $logger->getEntriesAtLevel( 'warning' ) );
+	}
+
+	public function testEmptySettingOffersNoCodeRoute(): void {
+		$this->setCodeLogin( '' );
+
+		$this->assertFalse( $this->loginFormOffersTheCodeButton() );
 	}
 
 	private function setCodeLogin( string $mode ): void {
