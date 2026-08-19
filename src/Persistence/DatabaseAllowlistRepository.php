@@ -9,6 +9,7 @@ use ProfessionalWiki\MemberAccess\Application\AllowlistRepository;
 use ProfessionalWiki\MemberAccess\Application\AllowlistValue;
 use ProfessionalWiki\MemberAccess\Application\EntryKind;
 use ProfessionalWiki\MemberAccess\Application\MemberGroup;
+use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
 use stdClass;
 
 class DatabaseAllowlistRepository extends DatabaseRepository implements AllowlistRepository {
@@ -105,8 +106,8 @@ class DatabaseAllowlistRepository extends DatabaseRepository implements Allowlis
 			->fetchRow() !== false;
 	}
 
-	public function findGroupForValue( AllowlistValue $value ): ?MemberGroup {
-		$row = $this->connectionProvider->getReplicaDatabase()->newSelectQueryBuilder()
+	public function findGroupForValue( AllowlistValue $value, ReadConsistency $consistency ): ?MemberGroup {
+		$row = $this->databaseFor( $consistency )->newSelectQueryBuilder()
 			->select( $this->groupFields() )
 			->from( self::ENTRY_TABLE )
 			->join( self::GROUP_TABLE, null, 'mag_id = mae_group_id' )

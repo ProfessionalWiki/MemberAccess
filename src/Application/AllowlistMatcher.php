@@ -25,8 +25,11 @@ class AllowlistMatcher {
 	}
 
 	public function match( NormalizedEmail $email ): ?MemberGroup {
-		return $this->allowlist->findGroupForValue( AllowlistValue::forEmail( $email ) )
-			?? $this->allowlist->findGroupForValue( AllowlistValue::forDomainOf( $email ) );
+		return $this->allowlist->findGroupForValue( AllowlistValue::forEmail( $email ), ReadConsistency::MayBeStale )
+			?? $this->allowlist->findGroupForValue(
+				AllowlistValue::forDomainOf( $email ),
+				ReadConsistency::MayBeStale
+			);
 	}
 
 }

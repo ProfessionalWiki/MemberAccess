@@ -235,22 +235,51 @@ wiki's CSRF token in an `X-CSRF-TOKEN` header, unless the session provider is in
 | `PUT /groups/{id}` | Renames a group. Body: `name` |
 | `DELETE /groups/{id}` | Deletes a group. Refused while it still holds entries, or while members are attributed to it |
 | `GET /groups/{id}/entries` | The group's allowlist entries |
-| `POST /groups/{id}/entries` | Adds an entry. Body: `value`, an email address or `@domain` |
+| `POST /groups/{id}/entries` | Adds entries, at most 500 per request. Body: `values`, a list of email addresses and `@domain`s |
 | `DELETE /entries/{id}` | Removes an allowlist entry |
 | `GET /members` | The roster: each member's address, group, creation, last login and active flag, plus the totals overall and per group |
 | `POST /members/{userId}/deactivate` | Ends a member's access. Also requires the `block` right, and refuses your own account |
 | `POST /members/{userId}/reactivate` | Restores a member's access. Also requires the `block` right. The response's `blocked` says whether a block placed for another reason is still on the account |
 | `DELETE /members/{userId}` | Removes a member, freeing their address for a new account. Refuses your own account |
 
-A failure answers with the HTTP status and a body carrying a stable `errorCode` next to a
+Adding entries answers `200` with one result per value, in the order the values were given, each
+echoing its value as sent and saying in `added` whether it was added. A refused value neither stops
+the values after it nor undoes the ones before it, and says why in `errorCode` and `error`:
+`invalid_entry_value`, `entry_value_too_long`, or `duplicate_entry`, which also names the group that
+already admits the value.
+
+```json
+{
+	"results": [
+		{
+			"value": "jane@example.com",
+			"added": true,
+			"entry": { "id": 7, "value": "jane@example.com", "kind": "email", "created": "2026-05-04T09:12:33Z" }
+		},
+		{
+			"value": "john@example.net",
+			"added": false,
+			"errorCode": "duplicate_entry",
+			"error": "A group already admits that address or domain",
+			"conflictingGroupId": 2,
+			"conflictingGroupName": "Umbrella"
+		}
+	]
+}
+```
+
+What concerns the request as a whole answers as a failed request instead, and adds nothing: no such
+group (`group_not_found`), a body without a `values` list or with a value that is not text
+(`invalid_request_body`), and more values than one request may carry (`too_many_entry_values`).
+
+A failed request answers with the HTTP status and a body carrying a stable `errorCode` next to a
 human-readable `error`: `not_logged_in`, `permission_denied`, `invalid_csrf_token`, `schema_missing`,
-`invalid_group_name`, `group_name_too_long`, `duplicate_group_name`, `group_not_found`, `group_not_empty`,
-`group_has_members`, `invalid_entry_value`, `entry_value_too_long`, `duplicate_entry`, `entry_not_found`,
+`invalid_request_body`, `invalid_group_name`, `group_name_too_long`, `duplicate_group_name`,
+`group_not_found`, `group_not_empty`, `group_has_members`, `too_many_entry_values`, `entry_not_found`,
 `not_a_member`, `cannot_deactivate_self`, `block_right_required`, `block_failed`, `unblock_failed`,
-`cannot_remove_self`, `reserved_name_taken`, `removal_failed`. A `duplicate_entry` also carries
-`conflictingGroupId` and `conflictingGroupName`, naming the group that already admits the value.
-Malformed requests are refused by MediaWiki's REST framework before reaching the extension, and
-carry its error shape rather than this one.
+`cannot_remove_self`, `reserved_name_taken`, `removal_failed`. A request the REST framework refuses
+first — an id that is not a number, a body it cannot read — carries MediaWiki's error shape rather
+than this one.
 
 ## Configuration
 
