@@ -7,6 +7,7 @@ namespace ProfessionalWiki\MemberAccess\EntryPoints;
 use MediaWiki\Auth\Hook\UserLoggedInHook;
 use MediaWiki\User\User;
 use ProfessionalWiki\MemberAccess\Application\MemberRepository;
+use ProfessionalWiki\MemberAccess\Application\Schema;
 
 /**
  * Records when a member last logged in.
@@ -17,14 +18,22 @@ use ProfessionalWiki\MemberAccess\Application\MemberRepository;
 class MemberLoginHandler implements UserLoggedInHook {
 
 	public function __construct(
-		private readonly MemberRepository $members
+		private readonly MemberRepository $members,
+		private readonly Schema $schema
 	) {
 	}
 
 	/**
+	 * This runs for every login on the wiki, so a wiki without a roster to record in has to be let
+	 * through rather than have its logins fail.
+	 *
 	 * @param User $user
 	 */
 	public function onUserLoggedIn( $user ): void {
+		if ( $this->schema->isMissing() ) {
+			return;
+		}
+
 		$this->members->recordLogin( $user->getId() );
 	}
 

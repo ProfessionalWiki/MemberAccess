@@ -214,7 +214,8 @@ $wgMemberAccessCodeLogin = 'allowlisted';
 Loading alone admits nobody: the second line turns on the code login route, held to the allowlist.
 See [Login routes](#login-routes) for what each route setting admits.
 
-Run `php maintenance/run.php update --quick` to create the extension's tables.
+Run `php maintenance/run.php update --quick` to create the extension's tables. Until it has run, no
+login route admits anybody and the management API answers `schema_missing`, with a warning in the log.
 
 ## Management API
 
@@ -237,10 +238,10 @@ wiki's CSRF token in an `X-CSRF-TOKEN` header, unless the session provider is in
 | `DELETE /members/{userId}` | Removes a member, freeing their address for a new account. Refuses your own account |
 
 A failure answers with the HTTP status and a body carrying a stable `errorCode` next to a
-human-readable `error`: `not_logged_in`, `permission_denied`, `invalid_csrf_token`, `invalid_group_name`,
-`group_name_too_long`, `duplicate_group_name`, `group_not_found`, `group_not_empty`, `group_has_members`,
-`invalid_entry_value`, `entry_value_too_long`, `duplicate_entry`, `entry_not_found`, `not_a_member`,
-`cannot_deactivate_self`, `block_right_required`, `block_failed`, `unblock_failed`,
+human-readable `error`: `not_logged_in`, `permission_denied`, `invalid_csrf_token`, `schema_missing`,
+`invalid_group_name`, `group_name_too_long`, `duplicate_group_name`, `group_not_found`, `group_not_empty`,
+`group_has_members`, `invalid_entry_value`, `entry_value_too_long`, `duplicate_entry`, `entry_not_found`,
+`not_a_member`, `cannot_deactivate_self`, `block_right_required`, `block_failed`, `unblock_failed`,
 `cannot_remove_self`, `reserved_name_taken`, `removal_failed`. A `duplicate_entry` also carries
 `conflictingGroupId` and `conflictingGroupName`, naming the group that already admits the value.
 Malformed requests are refused by MediaWiki's REST framework before reaching the extension, and

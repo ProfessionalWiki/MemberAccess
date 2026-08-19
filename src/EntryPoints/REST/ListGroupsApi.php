@@ -11,6 +11,7 @@ use ProfessionalWiki\MemberAccess\Application\MemberGroup;
 use ProfessionalWiki\MemberAccess\Application\MemberGroupRepository;
 use ProfessionalWiki\MemberAccess\Application\MemberRepository;
 use ProfessionalWiki\MemberAccess\Application\MemberTotals;
+use ProfessionalWiki\MemberAccess\Application\Schema;
 
 /**
  * The groups with what they hold: how many entries admit people into them, and how many members
@@ -20,11 +21,12 @@ class ListGroupsApi extends MemberAccessApiHandler {
 
 	public function __construct(
 		CsrfTokenSet $csrfTokens,
+		Schema $schema,
 		private readonly MemberGroupRepository $groups,
 		private readonly AllowlistRepository $allowlist,
 		private readonly MemberRepository $members
 	) {
-		parent::__construct( $csrfTokens );
+		parent::__construct( $csrfTokens, $schema );
 	}
 
 	public function run(): Response {

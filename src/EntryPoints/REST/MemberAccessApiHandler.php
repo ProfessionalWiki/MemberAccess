@@ -7,6 +7,7 @@ namespace ProfessionalWiki\MemberAccess\EntryPoints\REST;
 use MediaWiki\Rest\Response;
 use MediaWiki\Rest\SimpleHandler;
 use MediaWiki\Session\CsrfTokenSet;
+use ProfessionalWiki\MemberAccess\Application\Schema;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\Timestamp\ConvertibleTimestamp;
 
@@ -28,7 +29,8 @@ abstract class MemberAccessApiHandler extends SimpleHandler {
 	private const string CSRF_HEADER = 'X-CSRF-TOKEN';
 
 	public function __construct(
-		private readonly CsrfTokenSet $csrfTokens
+		private readonly CsrfTokenSet $csrfTokens,
+		private readonly Schema $schema
 	) {
 	}
 
@@ -53,6 +55,16 @@ abstract class MemberAccessApiHandler extends SimpleHandler {
 
 		if ( $this->changesState() && !$this->hasValidCsrfToken() ) {
 			return $this->newErrorResponse( 'invalid_csrf_token', 'This endpoint requires a CSRF token', 403 );
+		}
+
+		// Last, so that a wiki which has not created the tables yet still answers who may call
+		// exactly as it will once it has.
+		if ( $this->schema->isMissing() ) {
+			return $this->newErrorResponse(
+				'schema_missing',
+				'This wiki has no member data yet: run update.php to create the tables',
+				503
+			);
 		}
 
 		return null;

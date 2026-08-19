@@ -8,6 +8,7 @@ use MediaWiki\User\Hook\SpecialPasswordResetOnSubmitHook;
 use MediaWiki\User\User;
 use ProfessionalWiki\MemberAccess\Application\MemberRepository;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
+use ProfessionalWiki\MemberAccess\Application\Schema;
 use Wikimedia\Message\MessageSpecifier;
 
 /**
@@ -23,16 +24,24 @@ use Wikimedia\Message\MessageSpecifier;
 class PasswordResetHandler implements SpecialPasswordResetOnSubmitHook {
 
 	public function __construct(
-		private readonly MemberRepository $members
+		private readonly MemberRepository $members,
+		private readonly Schema $schema
 	) {
 	}
 
 	/**
+	 * A wiki without a roster has no members to keep out of the reset, and the accounts it does
+	 * have are none of the extension's business.
+	 *
 	 * @param User[] &$users
 	 * @param array{Username:?string, Email:?string} $data
 	 * @param string|array<mixed>|MessageSpecifier &$error
 	 */
 	public function onSpecialPasswordResetOnSubmit( &$users, $data, &$error ): void {
+		if ( $this->schema->isMissing() ) {
+			return;
+		}
+
 		$users = array_values(
 			array_filter( $users, fn ( User $user ): bool => !$this->isMember( $user ) )
 		);

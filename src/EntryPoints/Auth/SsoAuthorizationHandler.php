@@ -13,6 +13,7 @@ use ProfessionalWiki\MemberAccess\Application\MemberGroup;
 use ProfessionalWiki\MemberAccess\Application\MemberRepository;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
+use ProfessionalWiki\MemberAccess\Application\Schema;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -43,7 +44,8 @@ class SsoAuthorizationHandler {
 		private readonly UserGroupManager $userGroups,
 		private readonly AuthManager $authManager,
 		private readonly LoggerInterface $logger,
-		private readonly string $readerGroup
+		private readonly string $readerGroup,
+		private readonly Schema $schema
 	) {
 	}
 
@@ -52,9 +54,7 @@ class SsoAuthorizationHandler {
 	 * back. Nothing else this returns matters to PluggableAuth, which reads only $authorized.
 	 */
 	public function onPluggableAuthUserAuthorization( UserIdentity $user, bool &$authorized ): bool {
-		// A wiki can keep the allowlist off this route, and single sign-on is then somebody else's
-		// business entirely: nobody to refuse, and nobody to make a member.
-		if ( !$this->allowlistApplies || !$authorized ) {
+		if ( $this->leavesTheLoginAlone( $authorized ) ) {
 			return true;
 		}
 
@@ -96,6 +96,19 @@ class SsoAuthorizationHandler {
 		}
 
 		return true;
+	}
+
+	/**
+	 * A wiki can keep the allowlist off this route, and single sign-on is then somebody else's
+	 * business entirely: nobody to refuse, and nobody to make a member. So is a login another
+	 * handler has already refused.
+	 *
+	 * A wiki that has not created the tables yet is left alone too: with no allowlist to hold
+	 * anybody to and no roster to tell a member from staff, refusing every login would shut a
+	 * working identity provider out of the wiki.
+	 */
+	private function leavesTheLoginAlone( bool $authorized ): bool {
+		return !$this->allowlistApplies || !$authorized || $this->schema->isMissing();
 	}
 
 	/**

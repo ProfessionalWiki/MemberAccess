@@ -24,6 +24,7 @@ use ProfessionalWiki\MemberAccess\Application\MemberRepository;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
 use ProfessionalWiki\MemberAccess\Application\RequestCodeUseCase;
+use ProfessionalWiki\MemberAccess\Application\Schema;
 use ProfessionalWiki\MemberAccess\Application\VerifyCodeUseCase;
 use Psr\Log\LoggerInterface;
 use StatusValue;
@@ -56,7 +57,8 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 		private readonly MemberProvisioner $provisioner,
 		private readonly UserIdentityLookup $userLookup,
 		private readonly LoggerInterface $auditLogger,
-		private readonly CodeLifetime $codeLifetime
+		private readonly CodeLifetime $codeLifetime,
+		private readonly Schema $schema
 	) {
 	}
 
@@ -68,15 +70,23 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	 * @return AuthenticationRequest[]
 	 */
 	public function getAuthenticationRequests( $action, array $options ) {
-		if ( $this->mode === CodeLoginMode::Off ) {
+		if ( $this->codeRouteIsOff() ) {
 			return [];
 		}
 
 		return $action === AuthManager::ACTION_LOGIN ? [ new LoginCodeRequest() ] : [];
 	}
 
+	/**
+	 * The route is off where the wiki turned it off, and on a wiki that has not created the tables
+	 * yet: without an allowlist to ask and a roster to write to, there is no route to offer.
+	 */
+	private function codeRouteIsOff(): bool {
+		return $this->mode === CodeLoginMode::Off || $this->schema->isMissing();
+	}
+
 	public function beginPrimaryAuthentication( array $reqs ) {
-		if ( $this->mode === CodeLoginMode::Off ) {
+		if ( $this->codeRouteIsOff() ) {
 			return AuthenticationResponse::newAbstain();
 		}
 
@@ -118,7 +128,7 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	 * @param AuthenticationRequest[] $reqs
 	 */
 	public function continuePrimaryAuthentication( array $reqs ) {
-		if ( $this->mode === CodeLoginMode::Off ) {
+		if ( $this->codeRouteIsOff() ) {
 			return $this->refuse( 'Code entry continued while the code login route is off' );
 		}
 
@@ -260,7 +270,15 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 		$this->manager->removeAuthenticationSessionData( self::PROVISIONING_SESSION_KEY );
 	}
 
+	/**
+	 * Asked of every account a login or a password change names, whatever the route is set to, so a
+	 * wiki without a roster answers that it has no members rather than reaching for the table.
+	 */
 	public function testUserExists( $username, $flags = IDBAccessObject::READ_NORMAL ) {
+		if ( $this->schema->isMissing() ) {
+			return false;
+		}
+
 		$user = $this->userLookup->getUserIdentityByName( $username, $flags );
 
 		return $user !== null
