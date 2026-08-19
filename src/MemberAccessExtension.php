@@ -113,8 +113,10 @@ class MemberAccessExtension {
 			members: $this->newMemberRepository(),
 			provisioner: $this->newMemberProvisioner(),
 			userLookup: MediaWikiServices::getInstance()->getUserIdentityLookup(),
+			userGroups: MediaWikiServices::getInstance()->getUserGroupManager(),
 			auditLogger: $this->newLogger(),
 			codeLifetime: $this->newCodeLifetime(),
+			readerGroup: $this->getReaderGroup(),
 			schema: $this->getSchema()
 		);
 	}
@@ -284,7 +286,12 @@ class MemberAccessExtension {
 	}
 
 	private function newPasswordResetHandler(): PasswordResetHandler {
-		return new PasswordResetHandler( members: $this->newMemberRepository(), schema: $this->getSchema() );
+		return new PasswordResetHandler(
+			members: $this->newMemberRepository(),
+			userGroups: MediaWikiServices::getInstance()->getUserGroupManager(),
+			readerGroup: $this->getReaderGroup(),
+			schema: $this->getSchema()
+		);
 	}
 
 	private function newMemberProvisioner(): MemberProvisioner {

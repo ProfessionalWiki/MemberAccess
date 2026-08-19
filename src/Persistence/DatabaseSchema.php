@@ -40,7 +40,8 @@ class DatabaseSchema implements Schema {
 
 		if ( $missing ) {
 			$this->logger->warning(
-				'The MemberAccess tables do not exist, so the extension does nothing. '
+				'The MemberAccess tables do not exist, so the extension offers no login route and '
+					. 'refuses a password to the accounts carrying its reader group. '
 					. 'Run update.php to create them.'
 			);
 		}

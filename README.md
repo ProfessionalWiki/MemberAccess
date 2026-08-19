@@ -215,8 +215,10 @@ Loading alone admits nobody: the second line turns on the code login route, held
 See [Login routes](#login-routes) for what each route setting admits.
 
 Run `php maintenance/run.php update --quick` to create the extension's tables. Until it has run, the
-code login route is not offered, single sign-on is left alone, and the management API answers
-`schema_missing`, with a warning on the `MemberAccess` log channel.
+code login route is not offered and the management API answers `schema_missing`, with a warning on
+the `MemberAccess` log channel. Accounts in the reader group are refused a password meanwhile, and
+where the allowlist governs single sign-on they are refused a login as well, since the roster that
+would clear them is exactly what cannot be read. Every other account is left alone.
 
 ## Management API
 

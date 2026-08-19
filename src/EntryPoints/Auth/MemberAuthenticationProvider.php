@@ -10,6 +10,7 @@ use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\Auth\PasswordAuthenticationRequest;
 use MediaWiki\Auth\TemporaryPasswordAuthenticationRequest;
+use MediaWiki\User\UserGroupManager;
 use MediaWiki\User\UserIdentity;
 use MediaWiki\User\UserIdentityLookup;
 use MediaWiki\User\UserRigorOptions;
@@ -56,8 +57,10 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 		private readonly MemberRepository $members,
 		private readonly MemberProvisioner $provisioner,
 		private readonly UserIdentityLookup $userLookup,
+		private readonly UserGroupManager $userGroups,
 		private readonly LoggerInterface $auditLogger,
 		private readonly CodeLifetime $codeLifetime,
+		private readonly string $readerGroup,
 		private readonly Schema $schema
 	) {
 	}
@@ -301,7 +304,7 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	 * with one of those whether resetting is possible on this wiki at all.
 	 */
 	public function providerAllowsAuthenticationDataChange( AuthenticationRequest $req, $checkData = true ) {
-		if ( $this->isPasswordRequest( $req ) && $this->isMemberName( $req->username ) ) {
+		if ( $this->isPasswordRequest( $req ) && $this->isRefusedAPassword( $req->username ) ) {
 			return StatusValue::newFatal( 'memberaccess-auth-password-refused' );
 		}
 
@@ -313,12 +316,46 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 			|| $req instanceof TemporaryPasswordAuthenticationRequest;
 	}
 
-	private function isMemberName( ?string $username ): bool {
+	/**
+	 * The roster says who the members are. Where it cannot be read, the reader group says it
+	 * instead: provisioning puts it on a member's account before the roster row, so every member
+	 * carries it, and refusing them a password is the rule that must not lapse while the tables are
+	 * away. It is the wider answer of the two — an account can be put in the group by hand — which
+	 * is the way round to err while the roster cannot say which accounts those are.
+	 */
+	private function isRefusedAPassword( ?string $username ): bool {
 		$canonical = $username === null
 			? false
 			: $this->userNameUtils->getCanonical( $username, UserRigorOptions::RIGOR_USABLE );
 
-		return $canonical !== false && $this->testUserExists( $canonical, IDBAccessObject::READ_LATEST );
+		if ( $canonical === false ) {
+			return false;
+		}
+
+		if ( $this->schema->isMissing() ) {
+			return $this->accountNamedHoldsTheReaderGroup( $canonical );
+		}
+
+		return $this->testUserExists( $canonical, IDBAccessObject::READ_LATEST );
+	}
+
+	/**
+	 * Both reads are as recent as the account and its group can have been written, the way the
+	 * roster is read on the other branch: a group given moments ago that read as absent would let a
+	 * password through.
+	 */
+	private function accountNamedHoldsTheReaderGroup( string $username ): bool {
+		$user = $this->userLookup->getUserIdentityByName( $username, IDBAccessObject::READ_LATEST );
+
+		return $user !== null && $user->isRegistered() && $this->holdsTheReaderGroup( $user );
+	}
+
+	private function holdsTheReaderGroup( UserIdentity $user ): bool {
+		return in_array(
+			$this->readerGroup,
+			$this->userGroups->getUserGroups( $user, IDBAccessObject::READ_LATEST ),
+			true
+		);
 	}
 
 	public function providerChangeAuthenticationData( AuthenticationRequest $req ): void {
