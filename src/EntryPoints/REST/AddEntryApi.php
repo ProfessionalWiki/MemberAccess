@@ -11,17 +11,19 @@ use ProfessionalWiki\MemberAccess\Application\AddEntryOutcome;
 use ProfessionalWiki\MemberAccess\Application\AddEntryResult;
 use ProfessionalWiki\MemberAccess\Application\AddEntryUseCase;
 use ProfessionalWiki\MemberAccess\Application\AllowlistValue;
+use ProfessionalWiki\MemberAccess\Application\Schema;
 use Wikimedia\Rdbms\IConnectionProvider;
 
 class AddEntryApi extends MemberAccessApiHandler {
 
 	public function __construct(
 		CsrfTokenSet $csrfTokens,
+		Schema $schema,
 		private readonly AddEntryUseCase $useCase,
 		private readonly ActorNormalization $actors,
 		private readonly IConnectionProvider $connectionProvider
 	) {
-		parent::__construct( $csrfTokens );
+		parent::__construct( $csrfTokens, $schema );
 	}
 
 	public function run( int $id ): Response {

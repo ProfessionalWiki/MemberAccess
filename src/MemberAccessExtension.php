@@ -31,6 +31,7 @@ use ProfessionalWiki\MemberAccess\Application\RenameGroupUseCase;
 use ProfessionalWiki\MemberAccess\Application\RandomSecretGenerator;
 use ProfessionalWiki\MemberAccess\Application\RequestCodeUseCase;
 use ProfessionalWiki\MemberAccess\Application\RequestThrottle;
+use ProfessionalWiki\MemberAccess\Application\Schema;
 use ProfessionalWiki\MemberAccess\Application\SecretGenerator;
 use ProfessionalWiki\MemberAccess\Application\VerifyCodeUseCase;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\MemberAuthenticationProvider;
@@ -53,6 +54,7 @@ use ProfessionalWiki\MemberAccess\EntryPoints\UserListApiHandler;
 use ProfessionalWiki\MemberAccess\Persistence\DatabaseAllowlistRepository;
 use ProfessionalWiki\MemberAccess\Persistence\DatabaseMemberGroupRepository;
 use ProfessionalWiki\MemberAccess\Persistence\DatabaseMemberRepository;
+use ProfessionalWiki\MemberAccess\Persistence\DatabaseSchema;
 use ProfessionalWiki\MemberAccess\Persistence\DeferredCodeMailer;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiCodeMailer;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiMemberBlocker;
@@ -70,6 +72,10 @@ class MemberAccessExtension {
 	private ?SecretGenerator $secretGeneratorOverride = null;
 
 	private ?LoggerInterface $loggerOverride = null;
+
+	private ?Schema $schemaOverride = null;
+
+	private ?Schema $schema = null;
 
 	public static function getInstance(): self {
 		/** @var ?self $instance */
@@ -90,6 +96,10 @@ class MemberAccessExtension {
 		$this->loggerOverride = $logger;
 	}
 
+	public function setSchemaOverride( ?Schema $schema ): void {
+		$this->schemaOverride = $schema;
+	}
+
 	public static function newMemberAuthenticationProvider(): MemberAuthenticationProvider {
 		return self::getInstance()->newAuthenticationProvider();
 	}
@@ -103,8 +113,11 @@ class MemberAccessExtension {
 			members: $this->newMemberRepository(),
 			provisioner: $this->newMemberProvisioner(),
 			userLookup: MediaWikiServices::getInstance()->getUserIdentityLookup(),
+			userGroups: MediaWikiServices::getInstance()->getUserGroupManager(),
 			auditLogger: $this->newLogger(),
-			codeLifetime: $this->newCodeLifetime()
+			codeLifetime: $this->newCodeLifetime(),
+			readerGroup: $this->getReaderGroup(),
+			schema: $this->getSchema()
 		);
 	}
 
@@ -120,7 +133,8 @@ class MemberAccessExtension {
 			userGroups: MediaWikiServices::getInstance()->getUserGroupManager(),
 			authManager: MediaWikiServices::getInstance()->getAuthManager(),
 			logger: $this->newLogger(),
-			readerGroup: $this->getReaderGroup()
+			readerGroup: $this->getReaderGroup(),
+			schema: $this->getSchema()
 		);
 	}
 
@@ -129,6 +143,7 @@ class MemberAccessExtension {
 
 		return new ListGroupsApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
+			schema: $instance->getSchema(),
 			groups: $instance->newMemberGroupRepository(),
 			allowlist: $instance->newAllowlistRepository(),
 			members: $instance->newMemberRepository()
@@ -140,6 +155,7 @@ class MemberAccessExtension {
 
 		return new CreateGroupApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
+			schema: $instance->getSchema(),
 			useCase: new CreateGroupUseCase( groups: $instance->newMemberGroupRepository() )
 		);
 	}
@@ -149,6 +165,7 @@ class MemberAccessExtension {
 
 		return new RenameGroupApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
+			schema: $instance->getSchema(),
 			useCase: new RenameGroupUseCase( groups: $instance->newMemberGroupRepository() )
 		);
 	}
@@ -158,6 +175,7 @@ class MemberAccessExtension {
 
 		return new DeleteGroupApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
+			schema: $instance->getSchema(),
 			useCase: $instance->newDeleteGroupUseCase()
 		);
 	}
@@ -167,6 +185,7 @@ class MemberAccessExtension {
 
 		return new ListEntriesApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
+			schema: $instance->getSchema(),
 			groups: $instance->newMemberGroupRepository(),
 			allowlist: $instance->newAllowlistRepository()
 		);
@@ -177,6 +196,7 @@ class MemberAccessExtension {
 
 		return new AddEntryApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
+			schema: $instance->getSchema(),
 			useCase: new AddEntryUseCase(
 				groups: $instance->newMemberGroupRepository(),
 				allowlist: $instance->newAllowlistRepository()
@@ -191,6 +211,7 @@ class MemberAccessExtension {
 
 		return new RemoveEntryApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
+			schema: $instance->getSchema(),
 			allowlist: $instance->newAllowlistRepository()
 		);
 	}
@@ -200,6 +221,7 @@ class MemberAccessExtension {
 
 		return new ListMembersApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
+			schema: $instance->getSchema(),
 			members: $instance->newMemberRepository(),
 			groups: $instance->newMemberGroupRepository()
 		);
@@ -210,6 +232,7 @@ class MemberAccessExtension {
 
 		return new DeactivateMemberApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
+			schema: $instance->getSchema(),
 			useCase: $instance->newDeactivateMemberUseCase()
 		);
 	}
@@ -219,6 +242,7 @@ class MemberAccessExtension {
 
 		return new RemoveMemberApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
+			schema: $instance->getSchema(),
 			useCase: $instance->newRemoveMemberUseCase()
 		);
 	}
@@ -228,6 +252,7 @@ class MemberAccessExtension {
 
 		return new ReactivateMemberApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
+			schema: $instance->getSchema(),
 			useCase: $instance->newReactivateMemberUseCase()
 		);
 	}
@@ -253,7 +278,7 @@ class MemberAccessExtension {
 	}
 
 	private function newMemberLoginHandler(): MemberLoginHandler {
-		return new MemberLoginHandler( members: $this->newMemberRepository() );
+		return new MemberLoginHandler( members: $this->newMemberRepository(), schema: $this->getSchema() );
 	}
 
 	public static function newPasswordResetHookHandler(): PasswordResetHandler {
@@ -261,7 +286,12 @@ class MemberAccessExtension {
 	}
 
 	private function newPasswordResetHandler(): PasswordResetHandler {
-		return new PasswordResetHandler( members: $this->newMemberRepository() );
+		return new PasswordResetHandler(
+			members: $this->newMemberRepository(),
+			userGroups: MediaWikiServices::getInstance()->getUserGroupManager(),
+			readerGroup: $this->getReaderGroup(),
+			schema: $this->getSchema()
+		);
 	}
 
 	private function newMemberProvisioner(): MemberProvisioner {
@@ -427,6 +457,23 @@ class MemberAccessExtension {
 
 	private function getConnectionProvider(): IConnectionProvider {
 		return MediaWikiServices::getInstance()->getConnectionProvider();
+	}
+
+	/**
+	 * Held on to rather than built anew, so that the one question every entry point asks is asked
+	 * of the database once per request, and answered from memory after that.
+	 */
+	private function getSchema(): Schema {
+		if ( $this->schemaOverride !== null ) {
+			return $this->schemaOverride;
+		}
+
+		$this->schema ??= new DatabaseSchema(
+			connectionProvider: $this->getConnectionProvider(),
+			logger: $this->newLogger()
+		);
+
+		return $this->schema;
 	}
 
 	public function getReaderGroup(): string {

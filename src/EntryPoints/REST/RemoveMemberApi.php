@@ -8,14 +8,16 @@ use MediaWiki\Rest\Response;
 use MediaWiki\Session\CsrfTokenSet;
 use ProfessionalWiki\MemberAccess\Application\RemovalResult;
 use ProfessionalWiki\MemberAccess\Application\RemoveMemberUseCase;
+use ProfessionalWiki\MemberAccess\Application\Schema;
 
 class RemoveMemberApi extends MemberAccessApiHandler {
 
 	public function __construct(
 		CsrfTokenSet $csrfTokens,
+		Schema $schema,
 		private readonly RemoveMemberUseCase $useCase
 	) {
-		parent::__construct( $csrfTokens );
+		parent::__construct( $csrfTokens, $schema );
 	}
 
 	public function run( int $userId ): Response {

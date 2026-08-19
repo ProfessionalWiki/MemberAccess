@@ -13,6 +13,7 @@ use ProfessionalWiki\MemberAccess\Application\MemberGroup;
 use ProfessionalWiki\MemberAccess\Application\MemberRepository;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
+use ProfessionalWiki\MemberAccess\Application\Schema;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -43,7 +44,8 @@ class SsoAuthorizationHandler {
 		private readonly UserGroupManager $userGroups,
 		private readonly AuthManager $authManager,
 		private readonly LoggerInterface $logger,
-		private readonly string $readerGroup
+		private readonly string $readerGroup,
+		private readonly Schema $schema
 	) {
 	}
 
@@ -52,12 +54,58 @@ class SsoAuthorizationHandler {
 	 * back. Nothing else this returns matters to PluggableAuth, which reads only $authorized.
 	 */
 	public function onPluggableAuthUserAuthorization( UserIdentity $user, bool &$authorized ): bool {
-		// A wiki can keep the allowlist off this route, and single sign-on is then somebody else's
-		// business entirely: nobody to refuse, and nobody to make a member.
-		if ( !$this->allowlistApplies || !$authorized ) {
+		if ( $this->leavesTheLoginAlone( $authorized ) ) {
 			return true;
 		}
 
+		if ( $this->schema->isMissing() ) {
+			return $this->authorizeWithoutARoster( $user, $authorized );
+		}
+
+		return $this->authorizeAgainstTheAllowlist( $user, $authorized );
+	}
+
+	/**
+	 * A wiki can keep the allowlist off this route, and single sign-on is then somebody else's
+	 * business entirely: nobody to refuse, and nobody to make a member. So is a login another
+	 * handler has already refused. Asked before anything else, so that a route the extension does
+	 * not govern is not so much as a question to the database.
+	 */
+	private function leavesTheLoginAlone( bool $authorized ): bool {
+		return !$this->allowlistApplies || !$authorized;
+	}
+
+	/**
+	 * A wiki that has not created the tables yet has its single sign-on left alone as well: with no
+	 * allowlist to hold anybody to, refusing every login would shut a working identity provider out
+	 * of the wiki.
+	 *
+	 * Except for the accounts carrying the reader group. The roster is what clears such an account,
+	 * by holding a row for it, and the roster is precisely what cannot be read here — so the login
+	 * is refused for as long as that stays true, rather than admitted as staff's.
+	 */
+	private function authorizeWithoutARoster( UserIdentity $user, bool &$authorized ): bool {
+		if ( $this->holdsTheReaderGroup( $user ) ) {
+			return $this->refuseAccountTheRosterCannotClear( $user, $authorized );
+		}
+
+		return true;
+	}
+
+	private function refuseAccountTheRosterCannotClear( UserIdentity $user, bool &$authorized ): bool {
+		$authorized = false;
+		$this->logger->warning( 'Single sign-on login refused: the account carries the reader group and the tables the roster is in are missing', [
+			'user' => $user->getId()
+		] );
+
+		return false;
+	}
+
+	/**
+	 * What a wiki with its tables does with a login the allowlist governs: the case the two above
+	 * are the exceptions to.
+	 */
+	private function authorizeAgainstTheAllowlist( UserIdentity $user, bool &$authorized ): bool {
 		$member = $user->isRegistered() ? $this->members->getMember( $user->getId(), ReadConsistency::UpToDate ) : null;
 
 		if ( $user->isRegistered() && $member === null ) {

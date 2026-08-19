@@ -101,9 +101,13 @@ class RegistrationHandler {
 	}
 
 	/**
-	 * What a login route needs to work, applied only where that route is offered. Each of these
-	 * widens what the wiki allows or changes it for everyone on it, and the settings are read afresh
-	 * on every request, so taking the last route away takes them with it.
+	 * What a login route needs to work, applied only where a setting turns that route on. Each of
+	 * these widens what the wiki allows or changes it for everyone on it, and the settings are read
+	 * afresh on every request, so taking the last route away takes them with it.
+	 *
+	 * Registration runs before services exist, so whether the tables are there cannot be asked:
+	 * these follow the settings alone, and a turned-on route brings them even while missing tables
+	 * keep it from being offered.
 	 */
 	private static function applyWhatTheLoginRoutesNeed(): void {
 		$codeRouteIsOffered = self::codeLoginMode() !== CodeLoginMode::Off;
@@ -128,7 +132,7 @@ class RegistrationHandler {
 	 * the anonymous visitor logging in.
 	 *
 	 * This is the one thing here that widens what an anonymous visitor may do, so it follows the
-	 * member routes exactly. Single sign-on outside the allowlist is plain PluggableAuth, and what
+	 * route settings exactly. Single sign-on outside the allowlist is plain PluggableAuth, and what
 	 * that needs stays the wiki's to grant.
 	 */
 	private static function allowLoggingInToCreateTheAccount(): void {
@@ -152,7 +156,7 @@ class RegistrationHandler {
 	 * address it was reached with.
 	 *
 	 * That price buys nothing where there is no code request to meet a captcha, which is why it is
-	 * paid only while the code route is offered.
+	 * paid only while the code route is turned on.
 	 */
 	private static function keepTheCaptchaFromTellingMembersApart(): void {
 		$triggers = self::globalArray( 'wgCaptchaTriggers' );

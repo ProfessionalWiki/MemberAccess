@@ -10,6 +10,7 @@ use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\Auth\PasswordAuthenticationRequest;
 use MediaWiki\Auth\TemporaryPasswordAuthenticationRequest;
+use MediaWiki\User\UserGroupManager;
 use MediaWiki\User\UserIdentity;
 use MediaWiki\User\UserIdentityLookup;
 use MediaWiki\User\UserRigorOptions;
@@ -24,6 +25,7 @@ use ProfessionalWiki\MemberAccess\Application\MemberRepository;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
 use ProfessionalWiki\MemberAccess\Application\RequestCodeUseCase;
+use ProfessionalWiki\MemberAccess\Application\Schema;
 use ProfessionalWiki\MemberAccess\Application\VerifyCodeUseCase;
 use Psr\Log\LoggerInterface;
 use StatusValue;
@@ -55,8 +57,11 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 		private readonly MemberRepository $members,
 		private readonly MemberProvisioner $provisioner,
 		private readonly UserIdentityLookup $userLookup,
+		private readonly UserGroupManager $userGroups,
 		private readonly LoggerInterface $auditLogger,
-		private readonly CodeLifetime $codeLifetime
+		private readonly CodeLifetime $codeLifetime,
+		private readonly string $readerGroup,
+		private readonly Schema $schema
 	) {
 	}
 
@@ -64,19 +69,31 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	 * A route that is off has no button, which is also what keeps its request out of every
 	 * submission MediaWiki accepts.
 	 *
+	 * Only the login form is offered one, so every other action is answered before the route is
+	 * asked about at all: the answer is the same either way, and an account creation render has no
+	 * reason to put the schema question to the database.
+	 *
 	 * @param array<string, mixed> $options
 	 * @return AuthenticationRequest[]
 	 */
 	public function getAuthenticationRequests( $action, array $options ) {
-		if ( $this->mode === CodeLoginMode::Off ) {
+		if ( $action !== AuthManager::ACTION_LOGIN ) {
 			return [];
 		}
 
-		return $action === AuthManager::ACTION_LOGIN ? [ new LoginCodeRequest() ] : [];
+		return $this->codeRouteIsOff() ? [] : [ new LoginCodeRequest() ];
+	}
+
+	/**
+	 * The route is off where the wiki turned it off, and on a wiki that has not created the tables
+	 * yet: without an allowlist to ask and a roster to write to, there is no route to offer.
+	 */
+	private function codeRouteIsOff(): bool {
+		return $this->mode === CodeLoginMode::Off || $this->schema->isMissing();
 	}
 
 	public function beginPrimaryAuthentication( array $reqs ) {
-		if ( $this->mode === CodeLoginMode::Off ) {
+		if ( $this->codeRouteIsOff() ) {
 			return AuthenticationResponse::newAbstain();
 		}
 
@@ -118,7 +135,7 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	 * @param AuthenticationRequest[] $reqs
 	 */
 	public function continuePrimaryAuthentication( array $reqs ) {
-		if ( $this->mode === CodeLoginMode::Off ) {
+		if ( $this->codeRouteIsOff() ) {
 			return $this->refuse( 'Code entry continued while the code login route is off' );
 		}
 
@@ -260,7 +277,15 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 		$this->manager->removeAuthenticationSessionData( self::PROVISIONING_SESSION_KEY );
 	}
 
+	/**
+	 * Asked of every account a login or a password change names, whatever the route is set to, so a
+	 * wiki without a roster answers that it has no members rather than reaching for the table.
+	 */
 	public function testUserExists( $username, $flags = IDBAccessObject::READ_NORMAL ) {
+		if ( $this->schema->isMissing() ) {
+			return false;
+		}
+
 		$user = $this->userLookup->getUserIdentityByName( $username, $flags );
 
 		return $user !== null
@@ -283,7 +308,7 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	 * with one of those whether resetting is possible on this wiki at all.
 	 */
 	public function providerAllowsAuthenticationDataChange( AuthenticationRequest $req, $checkData = true ) {
-		if ( $this->isPasswordRequest( $req ) && $this->isMemberName( $req->username ) ) {
+		if ( $this->isPasswordRequest( $req ) && $this->isRefusedAPassword( $req->username ) ) {
 			return StatusValue::newFatal( 'memberaccess-auth-password-refused' );
 		}
 
@@ -295,12 +320,46 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 			|| $req instanceof TemporaryPasswordAuthenticationRequest;
 	}
 
-	private function isMemberName( ?string $username ): bool {
+	/**
+	 * The roster says who the members are. Where it cannot be read, the reader group says it
+	 * instead: provisioning puts it on a member's account before the roster row, so every member
+	 * carries it, and refusing them a password is the rule that must not lapse while the tables are
+	 * away. It is the wider answer of the two — an account can be put in the group by hand — which
+	 * is the way round to err while the roster cannot say which accounts those are.
+	 */
+	private function isRefusedAPassword( ?string $username ): bool {
 		$canonical = $username === null
 			? false
 			: $this->userNameUtils->getCanonical( $username, UserRigorOptions::RIGOR_USABLE );
 
-		return $canonical !== false && $this->testUserExists( $canonical, IDBAccessObject::READ_LATEST );
+		if ( $canonical === false ) {
+			return false;
+		}
+
+		if ( $this->schema->isMissing() ) {
+			return $this->accountNamedHoldsTheReaderGroup( $canonical );
+		}
+
+		return $this->testUserExists( $canonical, IDBAccessObject::READ_LATEST );
+	}
+
+	/**
+	 * Both reads are as recent as the account and its group can have been written, the way the
+	 * roster is read on the other branch: a group given moments ago that read as absent would let a
+	 * password through.
+	 */
+	private function accountNamedHoldsTheReaderGroup( string $username ): bool {
+		$user = $this->userLookup->getUserIdentityByName( $username, IDBAccessObject::READ_LATEST );
+
+		return $user !== null && $user->isRegistered() && $this->holdsTheReaderGroup( $user );
+	}
+
+	private function holdsTheReaderGroup( UserIdentity $user ): bool {
+		return in_array(
+			$this->readerGroup,
+			$this->userGroups->getUserGroups( $user, IDBAccessObject::READ_LATEST ),
+			true
+		);
 	}
 
 	public function providerChangeAuthenticationData( AuthenticationRequest $req ): void {
