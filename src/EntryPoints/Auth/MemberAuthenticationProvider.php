@@ -69,15 +69,19 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	 * A route that is off has no button, which is also what keeps its request out of every
 	 * submission MediaWiki accepts.
 	 *
+	 * Only the login form is offered one, so every other action is answered before the route is
+	 * asked about at all: the answer is the same either way, and an account creation render has no
+	 * reason to put the schema question to the database.
+	 *
 	 * @param array<string, mixed> $options
 	 * @return AuthenticationRequest[]
 	 */
 	public function getAuthenticationRequests( $action, array $options ) {
-		if ( $this->codeRouteIsOff() ) {
+		if ( $action !== AuthManager::ACTION_LOGIN ) {
 			return [];
 		}
 
-		return $action === AuthManager::ACTION_LOGIN ? [ new LoginCodeRequest() ] : [];
+		return $this->codeRouteIsOff() ? [] : [ new LoginCodeRequest() ];
 	}
 
 	/**
