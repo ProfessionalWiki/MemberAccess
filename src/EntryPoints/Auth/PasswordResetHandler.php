@@ -11,6 +11,7 @@ use ProfessionalWiki\MemberAccess\Application\MemberRepository;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
 use ProfessionalWiki\MemberAccess\Application\Schema;
 use Wikimedia\Message\MessageSpecifier;
+use Wikimedia\Rdbms\IDBAccessObject;
 
 /**
  * Keeps the accounts that are refused a password out of a password reset, so that asking for one
@@ -57,7 +58,11 @@ class PasswordResetHandler implements SpecialPasswordResetOnSubmitHook {
 	}
 
 	private function holdsTheReaderGroup( User $user ): bool {
-		return in_array( $this->readerGroup, $this->userGroups->getUserGroups( $user ), true );
+		return in_array(
+			$this->readerGroup,
+			$this->userGroups->getUserGroups( $user, IDBAccessObject::READ_LATEST ),
+			true
+		);
 	}
 
 	private function isMember( User $user ): bool {
