@@ -134,6 +134,20 @@ class MissingSchemaTest extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $allowed->hasMessage( 'memberaccess-auth-password-refused' ) );
 	}
 
+	/**
+	 * The row is right there to be read — the test database has the tables — which is what makes
+	 * this a test: while the schema is missing the group alone must answer, because on a real wiki
+	 * the roster read this row invites is a database error.
+	 */
+	public function testARosterRowAloneDoesNotRefuseAPassword(): void {
+		$request = new PasswordAuthenticationRequest();
+		$request->username = $this->newMember()->getName();
+
+		$allowed = $this->newInitializedProvider()->providerAllowsAuthenticationDataChange( $request );
+
+		$this->assertTrue( $allowed->isGood() );
+	}
+
 	public function testSingleSignOnLoginIsNotRefused(): void {
 		$this->allow( self::ADMITTED_ADDRESS );
 
@@ -192,6 +206,18 @@ class MissingSchemaTest extends MediaWikiIntegrationTestCase {
 		$this->submitPasswordReset( $users );
 
 		$this->assertSame( [], $users );
+	}
+
+	/**
+	 * The same rule on the reset: the group alone decides here, so a roster row alone drops nobody.
+	 */
+	public function testARosterRowAloneDoesNotDropAnAccountFromAPasswordReset(): void {
+		$member = $this->newMember();
+		$users = [ $member ];
+
+		$this->submitPasswordReset( $users );
+
+		$this->assertSame( [ $member ], $users );
 	}
 
 	/**
