@@ -172,11 +172,11 @@ Whatever the login routes are set to, loading the extension:
 * removes `@` from `$wgInvalidUsernameCharacters`, and changes `$wgUserrightsInterwikiDelimiter` from
   `@` to `@@`, so that `Special:UserRights` can act on an account named after an address.
 
-While the code route is offered, it also turns off ConfirmEdit's `badloginperuser` captcha trigger,
+While the code route is turned on, it also turns off ConfirmEdit's `badloginperuser` captcha trigger,
 so failed logins no longer escalate to a captcha for the account they name, for everyone on the wiki
 and not only for members; the per-IP `badlogin` trigger is left alone.
 
-While any route can log a member in — the code route offered, or the allowlist governing single
+While any route can log a member in — the code route turned on, or the allowlist governing single
 sign-on — it also:
 
 * grants `autocreateaccount` to anonymous visitors, since a member's account is created by logging
@@ -218,7 +218,9 @@ Run `php maintenance/run.php update --quick` to create the extension's tables. U
 code login route is not offered and the management API answers `schema_missing`, with a warning on
 the `MemberAccess` log channel. Accounts in the reader group are refused a password meanwhile, and
 where the allowlist governs single sign-on they are refused a login as well, since the roster that
-would clear them is exactly what cannot be read. Every other account is left alone.
+would clear them is exactly what cannot be read. Every other account is left alone. The settings
+described under [What loading the extension changes on the wiki](#what-loading-the-extension-changes-on-the-wiki)
+follow the route settings alone, so a turned-on route brings them before the tables exist.
 
 ## Management API
 
