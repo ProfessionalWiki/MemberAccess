@@ -125,6 +125,23 @@ class MemberAccessApiHandlerTest extends RestApiTestCase {
 		$this->assertError( 'permission_denied', 403, $response );
 	}
 
+	/**
+	 * The token is answered before the tables as well: a write carrying none is refused for that,
+	 * and told nothing about a wiki it has not shown it meant to call.
+	 */
+	public function testWriteWithoutACsrfTokenIsRefusedWhenTheWikiHasNoTablesYet(): void {
+		MemberAccessExtension::getInstance()->setSchemaOverride( new MissingSchema() );
+
+		$response = $this->runHandler(
+			MemberAccessExtension::newCreateGroupApi(),
+			$this->newRequest( 'POST', [ 'name' => 'Acme' ] ),
+			null,
+			$this->getSession( false )
+		);
+
+		$this->assertError( 'invalid_csrf_token', 403, $response );
+	}
+
 	public function testBodyWithoutTheExpectedFieldIsTreatedAsEmpty(): void {
 		$response = $this->runHandler(
 			MemberAccessExtension::newCreateGroupApi(),
