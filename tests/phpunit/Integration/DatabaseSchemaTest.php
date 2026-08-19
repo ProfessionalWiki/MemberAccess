@@ -91,6 +91,18 @@ class DatabaseSchemaTest extends MediaWikiIntegrationTestCase {
 		$this->assertFalse( $this->newSchema( $this->connectionsThatCannotBeAsked() )->isMissing() );
 	}
 
+	/**
+	 * Which is the answer a real wiki would get for the wrong reason, were its connection ever to
+	 * stop being one that can be asked: the question is not on the interface the provider promises,
+	 * so nothing but this says the object behind it still answers it.
+	 */
+	public function testTheWikiConnectionCanBeAskedWhetherATableExists(): void {
+		$this->assertInstanceOf(
+			IMaintainableDatabase::class,
+			$this->wikiConnections()->getReplicaDatabase()
+		);
+	}
+
 	private function newSchema( IConnectionProvider $connections ): DatabaseSchema {
 		return new DatabaseSchema( connectionProvider: $connections, logger: $this->logger );
 	}
