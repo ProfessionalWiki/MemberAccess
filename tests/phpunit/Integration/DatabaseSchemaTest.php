@@ -64,6 +64,15 @@ class DatabaseSchemaTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
+	 * Every request builds the entry points, and most of them go on to do nothing with the tables.
+	 */
+	public function testTheDatabaseIsNotAskedUntilTheQuestionIsPut(): void {
+		$this->newSchema( $this->connectionsReporting( tablesExist: true ) );
+
+		$this->assertSame( 0, $this->probes );
+	}
+
+	/**
 	 * Everything the extension does asks first, so the answer has to cost at most one query.
 	 */
 	public function testTheDatabaseIsAskedOnlyOnce(): void {
