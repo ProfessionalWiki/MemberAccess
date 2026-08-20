@@ -9,7 +9,7 @@ use MediaWiki\Context\RequestContext;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Session\CsrfTokenSet;
-use ProfessionalWiki\MemberAccess\Application\AddEntryUseCase;
+use ProfessionalWiki\MemberAccess\Application\AddEntriesUseCase;
 use ProfessionalWiki\MemberAccess\Application\AllowlistMatcher;
 use ProfessionalWiki\MemberAccess\Application\AllowlistRepository;
 use ProfessionalWiki\MemberAccess\Application\CreateGroupUseCase;
@@ -38,7 +38,7 @@ use ProfessionalWiki\MemberAccess\EntryPoints\Auth\MemberAuthenticationProvider;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\MemberProvisioner;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\PasswordResetHandler;
 use ProfessionalWiki\MemberAccess\EntryPoints\MemberLoginHandler;
-use ProfessionalWiki\MemberAccess\EntryPoints\REST\AddEntryApi;
+use ProfessionalWiki\MemberAccess\EntryPoints\REST\AddEntriesApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\CreateGroupApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\DeactivateMemberApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\DeleteGroupApi;
@@ -191,13 +191,13 @@ class MemberAccessExtension {
 		);
 	}
 
-	public static function newAddEntryApi(): AddEntryApi {
+	public static function newAddEntriesApi(): AddEntriesApi {
 		$instance = self::getInstance();
 
-		return new AddEntryApi(
+		return new AddEntriesApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
 			schema: $instance->getSchema(),
-			useCase: new AddEntryUseCase(
+			useCase: new AddEntriesUseCase(
 				groups: $instance->newMemberGroupRepository(),
 				allowlist: $instance->newAllowlistRepository()
 			),

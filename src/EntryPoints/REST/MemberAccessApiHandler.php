@@ -100,17 +100,26 @@ abstract class MemberAccessApiHandler extends SimpleHandler {
 		int $status,
 		array $extra = []
 	): Response {
-		$response = $this->getResponseFactory()->createJson(
-			[ 'errorCode' => $errorCode, 'error' => $message ] + $extra
-		);
+		$response = $this->getResponseFactory()->createJson( self::newErrorBody( $errorCode, $message, $extra ) );
 		$response->setStatus( $status );
 
 		return $response;
 	}
 
 	/**
-	 * A body that is not a JSON object never reaches a handler: the REST framework answers that
-	 * itself, with its own error shape.
+	 * The body a failure carries, without the status that goes with it. An endpoint that refuses
+	 * part of a request rather than the whole of it puts this next to what it did do.
+	 *
+	 * @param array<string, mixed> $extra Fields the caller needs to act on the failure
+	 * @return array<string, mixed>
+	 */
+	protected static function newErrorBody( string $errorCode, string $message, array $extra = [] ): array {
+		return [ 'errorCode' => $errorCode, 'error' => $message ] + $extra;
+	}
+
+	/**
+	 * Only a body that parses as a JSON object or list reaches a handler: the REST framework answers
+	 * anything else itself, with its own error shape. A list arrives here without named fields.
 	 *
 	 * @return array<mixed>
 	 */

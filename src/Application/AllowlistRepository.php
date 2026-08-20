@@ -29,6 +29,6 @@ interface AllowlistRepository {
 	 */
 	public function groupHasEntries( int $groupId ): bool;
 
-	public function findGroupForValue( AllowlistValue $value ): ?MemberGroup;
+	public function findGroupForValue( AllowlistValue $value, ReadConsistency $consistency ): ?MemberGroup;
 
 }

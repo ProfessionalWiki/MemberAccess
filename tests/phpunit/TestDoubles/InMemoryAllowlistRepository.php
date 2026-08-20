@@ -9,6 +9,7 @@ use ProfessionalWiki\MemberAccess\Application\AllowlistRepository;
 use ProfessionalWiki\MemberAccess\Application\AllowlistValue;
 use ProfessionalWiki\MemberAccess\Application\MemberGroup;
 use ProfessionalWiki\MemberAccess\Application\MemberGroupRepository;
+use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
 
 class InMemoryAllowlistRepository implements AllowlistRepository {
 
@@ -30,7 +31,8 @@ class InMemoryAllowlistRepository implements AllowlistRepository {
 	}
 
 	public function addEntry( int $groupId, AllowlistValue $value, int $actorId ): ?AllowlistEntry {
-		if ( $this->findEntry( $value ) !== null ) {
+		// The unique index lives on the primary, so a value only it holds is taken all the same.
+		if ( $this->findEntry( $value, $this->entriesFor( ReadConsistency::UpToDate ) ) !== null ) {
 			return null;
 		}
 
@@ -80,9 +82,7 @@ class InMemoryAllowlistRepository implements AllowlistRepository {
 	}
 
 	public function groupHasEntries( int $groupId ): bool {
-		$entries = $this->entries + $this->unreplicatedEntries;
-
-		return $this->entriesOfGroup( $entries, $groupId ) !== [];
+		return $this->entriesOfGroup( $this->entriesFor( ReadConsistency::UpToDate ), $groupId ) !== [];
 	}
 
 	/**
@@ -98,14 +98,26 @@ class InMemoryAllowlistRepository implements AllowlistRepository {
 		);
 	}
 
-	public function findGroupForValue( AllowlistValue $value ): ?MemberGroup {
-		$entry = $this->findEntry( $value );
+	public function findGroupForValue( AllowlistValue $value, ReadConsistency $consistency ): ?MemberGroup {
+		$entry = $this->findEntry( $value, $this->entriesFor( $consistency ) );
 
 		return $entry === null ? null : $this->groups->getGroup( $entry->groupId );
 	}
 
-	private function findEntry( AllowlistValue $value ): ?AllowlistEntry {
-		foreach ( $this->entries as $entry ) {
+	/**
+	 * @return array<int, AllowlistEntry>
+	 */
+	private function entriesFor( ReadConsistency $consistency ): array {
+		return $consistency === ReadConsistency::UpToDate
+			? $this->entries + $this->unreplicatedEntries
+			: $this->entries;
+	}
+
+	/**
+	 * @param array<int, AllowlistEntry> $entries
+	 */
+	private function findEntry( AllowlistValue $value, array $entries ): ?AllowlistEntry {
+		foreach ( $entries as $entry ) {
 			if ( $entry->value->value === $value->value ) {
 				return $entry;
 			}

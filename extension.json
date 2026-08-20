@@ -162,7 +162,7 @@
 		{
 			"path": "/member-access/v0/groups/{id}/entries",
 			"method": [ "POST" ],
-			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newAddEntryApi"
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newAddEntriesApi"
 		},
 		{
 			"path": "/member-access/v0/entries/{id}",

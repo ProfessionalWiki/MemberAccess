@@ -7,6 +7,8 @@ namespace ProfessionalWiki\MemberAccess\Tests\Integration;
 use ProfessionalWiki\MemberAccess\Application\AllowlistEntry;
 use ProfessionalWiki\MemberAccess\Application\AllowlistValue;
 use ProfessionalWiki\MemberAccess\Application\EntryKind;
+use ProfessionalWiki\MemberAccess\Application\MemberGroup;
+use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
 use ProfessionalWiki\MemberAccess\Persistence\DatabaseAllowlistRepository;
 use ProfessionalWiki\MemberAccess\Persistence\DatabaseMemberGroupRepository;
 
@@ -98,7 +100,7 @@ class DatabaseAllowlistRepositoryTest extends DatabaseRepositoryTestCase {
 
 		$this->assertSame(
 			$originalGroupId,
-			$this->allowlist->findGroupForValue( $this->value( 'jane@example.com' ) )?->id
+			$this->groupForValue( 'jane@example.com' )?->id
 		);
 	}
 
@@ -147,7 +149,7 @@ class DatabaseAllowlistRepositoryTest extends DatabaseRepositoryTestCase {
 
 		$this->assertSame(
 			$newGroupId,
-			$this->allowlist->findGroupForValue( $this->value( 'jane@example.com' ) )?->id
+			$this->groupForValue( 'jane@example.com' )?->id
 		);
 	}
 
@@ -185,13 +187,17 @@ class DatabaseAllowlistRepositoryTest extends DatabaseRepositoryTestCase {
 		$this->addEntry( $this->groups->createGroup( 'Acme' )->id, 'jane@example.com' );
 		$this->addEntry( $this->newGroupId(), 'later@example.com' );
 
-		$this->assertSame( 'Acme', $this->allowlist->findGroupForValue( $this->value( 'jane@example.com' ) )?->name );
+		$this->assertSame( 'Acme', $this->groupForValue( 'jane@example.com' )?->name );
 	}
 
 	public function testUnlistedValueHasNoGroup(): void {
 		$this->addEntry( $this->newGroupId(), 'jane@example.com' );
 
-		$this->assertNull( $this->allowlist->findGroupForValue( $this->value( 'john@example.com' ) ) );
+		$this->assertNull( $this->groupForValue( 'john@example.com' ) );
+	}
+
+	private function groupForValue( string $value ): ?MemberGroup {
+		return $this->allowlist->findGroupForValue( $this->value( $value ), ReadConsistency::MayBeStale );
 	}
 
 	private function newGroupId(): int {
