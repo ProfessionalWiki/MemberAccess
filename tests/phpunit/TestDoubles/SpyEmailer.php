@@ -11,7 +11,7 @@ use StatusValue;
 class SpyEmailer implements IEmailer {
 
 	/**
-	 * @var array<int, array{to: string, from: string, subject: string, bodyText: string}>
+	 * @var array<int, array{to: string, from: string, subject: string, bodyText: string, bodyHtml: ?string}>
 	 */
 	private array $sentMails = [];
 
@@ -38,14 +38,15 @@ class SpyEmailer implements IEmailer {
 			'to' => implode( ', ', array_map( static fn ( MailAddress $address ): string => $address->address, $recipients ) ),
 			'from' => $from->address,
 			'subject' => $subject,
-			'bodyText' => $bodyText
+			'bodyText' => $bodyText,
+			'bodyHtml' => $bodyHtml
 		];
 
 		return $this->sendSucceeds ? StatusValue::newGood() : StatusValue::newFatal( 'mail-failed' );
 	}
 
 	/**
-	 * @return array<int, array{to: string, from: string, subject: string, bodyText: string}>
+	 * @return array<int, array{to: string, from: string, subject: string, bodyText: string, bodyHtml: ?string}>
 	 */
 	public function getSentMails(): array {
 		return $this->sentMails;

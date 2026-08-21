@@ -214,6 +214,12 @@ $wgMemberAccessCodeLogin = 'allowlisted';
 Loading alone admits nobody: the second line turns on the code login route, held to the allowlist.
 See [Login routes](#login-routes) for what each route setting admits.
 
+To send the login code as rich email rather than plain text, set:
+
+```php
+$wgAllowHTMLEmail = true;
+```
+
 Run `php maintenance/run.php update --quick` to create the extension's tables. Until it has run, the
 code login route is not offered and the management API answers `schema_missing`, with a warning on
 the `MemberAccess` log channel. Accounts in the reader group are refused a password meanwhile, and
@@ -338,6 +344,8 @@ Initial version for MediaWiki 1.43+ with these features:
 
 * Login with an eight-digit code mailed to the member's address, valid for ten minutes and usable
   once, requested from the login form's username field
+* The code mailed as a formatted message naming the wiki, with a plain-text alternative carrying the
+  same code and the same warning
 * An allowlist of email addresses and domains, organized into named groups, decides who is admitted
 * Accounts create themselves at first login, into a reader group that may read and nothing else
 * Single sign-on logins through [PluggableAuth] can be held to the same allowlist, with staff
