@@ -27,3 +27,66 @@
 .mw-memberaccess-divider .cdx-field__control {
 	padding: 0 @spacing-50;
 }
+
+/**
+ * What is offered beside entering the code: asking for another one, and going back for a different
+ * address. Both read as links, so that the button entering the code stays the way on. The resend
+ * stays a button, since it submits, and is undressed as one here.
+ */
+.mw-memberaccess-inline-action,
+button.mw-memberaccess-inline-action {
+	background-color: transparent;
+	border: 0;
+	color: @color-progressive;
+	cursor: pointer;
+	font-family: inherit;
+	font-size: inherit;
+	font-weight: normal;
+	padding: 0;
+}
+
+/**
+ * A button is never laid out inline however it is asked to be: the value is taken and rendered as
+ * inline-block, which leaves it a box, and leaves it keeping the height a Codex button is given.
+ * Sitting in a sentence means giving that box up.
+ */
+button.mw-memberaccess-inline-action {
+	max-width: none;
+	min-height: 0;
+	min-width: 0;
+	vertical-align: baseline;
+	white-space: normal;
+}
+
+.mw-memberaccess-inline-action:hover {
+	color: @color-progressive--hover;
+	text-decoration: underline;
+}
+
+.mw-memberaccess-inline-action:active {
+	color: @color-progressive--active;
+}
+
+.mw-memberaccess-inline-action:focus-visible {
+	color: @color-progressive--focus;
+	text-decoration: underline;
+}
+
+/**
+ * The sentences under the code box offering another code and a way back. Quieter than the box they
+ * sit under, since they are for the visitor the code did not reach.
+ */
+.mw-memberaccess-fallback {
+	color: @color-subtle;
+	font-size: @font-size-small;
+	margin-top: @spacing-50;
+}
+
+/**
+ * The field the press is collected from; the sentence above draws the button that is seen. Hidden
+ * here rather than left undescribed, since the form collects only what it was told about — so a
+ * wiki that failed to load these styles would show the drawn button and this one both.
+ */
+.mw-memberaccess-collector {
+	display: none;
+}

@@ -41,10 +41,16 @@ says so: see [Login routes](#login-routes).
 
 ### Login codes
 
-A visitor asks for a login code by entering their email address in the login form's username field.
+A visitor asks for a login code by entering their email address in the login form's own box for it.
 Whether one is sent depends on the allowlist, where each entry belongs to exactly one group. A code
 is eight digits, valid for ten minutes and usable once. The response to a code request is the same
 either way, so it never reveals who is on the list.
+
+The screen that asks for the code names the address back, so an address typed wrongly can be seen
+rather than waited on. It names it whether or not the allowlist admits it. From there the visitor
+can ask for another code, which replaces the one before it, or go back and enter a different
+address. Asking for another is counted by the same rate limits as asking for the first; once they
+are spent the offer is withdrawn, and the code already sent goes on working.
 
 Entering the right code logs the visitor in, and the first time also creates their account: the
 username is their email address, they are placed in the reader group, and the address is recorded as
@@ -337,7 +343,9 @@ php maintenance/run.php generateSchemaSql --json extensions/MemberAccess/sql/<ta
 Initial version for MediaWiki 1.43+ with these features:
 
 * Login with an eight-digit code mailed to the member's address, valid for ten minutes and usable
-  once, requested from the login form's username field
+  once, requested from the login form's own box for an address
+* A code screen that names the address the code went to, offers another code in its place, and
+  offers a way back to enter a different address
 * An allowlist of email addresses and domains, organized into named groups, decides who is admitted
 * Accounts create themselves at first login, into a reader group that may read and nothing else
 * Single sign-on logins through [PluggableAuth] can be held to the same allowlist, with staff

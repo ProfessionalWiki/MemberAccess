@@ -10,6 +10,7 @@ use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\Auth\PasswordAuthenticationRequest;
 use MediaWiki\Auth\TemporaryPasswordAuthenticationRequest;
+use MediaWiki\Message\Message;
 use MediaWiki\User\UserGroupManager;
 use MediaWiki\User\UserIdentity;
 use MediaWiki\User\UserIdentityLookup;
@@ -48,6 +49,8 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	public const PROVISIONING_SESSION_KEY = 'MemberAccessProvisioning';
 
 	private const HANDLE_SESSION_KEY = 'MemberAccessCodeHandle';
+	private const ADDRESS_SESSION_KEY = 'MemberAccessCodeAddress';
+	private const RESEND_SPENT_SESSION_KEY = 'MemberAccessResendSpent';
 
 	public function __construct(
 		private readonly CodeLoginMode $mode,
@@ -109,10 +112,19 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 			return AuthenticationResponse::newFail( wfMessage( 'memberaccess-auth-email-missing' ) );
 		}
 
+		return $this->sendCodeTo( $address );
+	}
+
+	/**
+	 * The address is named back on the screen that follows, so that one typed wrongly can be seen as
+	 * such rather than waited on. What is named is what was typed, which is what keeps the screen
+	 * saying the same for an admitted address and one the allowlist has never heard of.
+	 */
+	private function sendCodeTo( string $address ): AuthenticationResponse {
 		$result = $this->codeRequests->requestCode( $address, $this->manager->getRequest()->getIP() );
 
 		return match ( $result->outcome ) {
-			CodeRequestOutcome::Accepted => $this->askForCode( (string)$result->handle ),
+			CodeRequestOutcome::Accepted => $this->askForCode( (string)$result->handle, $address ),
 			CodeRequestOutcome::Throttled => AuthenticationResponse::newFail(
 				wfMessage( 'memberaccess-auth-throttled' )
 			),
@@ -122,12 +134,66 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 		};
 	}
 
-	private function askForCode( string $handle ): AuthenticationResponse {
+	/**
+	 * Asking for another code is counted by the same throttle as asking for the first, and refused
+	 * on the same terms. What differs is what a refusal costs: the code already sent may still be
+	 * usable, so the visitor is left on the screen holding it rather than sent back to the address
+	 * box, and the session goes on naming the code they have.
+	 */
+	private function resendCodeTo( string $address ): AuthenticationResponse {
+		$result = $this->codeRequests->requestCode( $address, $this->manager->getRequest()->getIP() );
+
+		return match ( $result->outcome ) {
+			CodeRequestOutcome::Accepted => $this->askForCode( (string)$result->handle, $address ),
+			CodeRequestOutcome::Throttled => $this->refuseFurtherCodes( $address ),
+			// The address was read once already to get this far, so this is not a visitor's mistake.
+			CodeRequestOutcome::InvalidEmail => $this->refuse( 'Resend asked for an unreadable address' )
+		};
+	}
+
+	private function askForCode( string $handle, string $address ): AuthenticationResponse {
 		$this->manager->setAuthenticationSessionData( self::HANDLE_SESSION_KEY, $handle );
+		$this->manager->setAuthenticationSessionData( self::ADDRESS_SESSION_KEY, $address );
+
+		// A code has just been sent, so whatever the throttle said before it is no longer the case.
+		$this->manager->removeAuthenticationSessionData( self::RESEND_SPENT_SESSION_KEY );
+
+		return $this->codeScreen(
+			$this->naming( 'memberaccess-auth-code-sent', $address )
+				->numParams( $this->codeLifetime->inMinutes() )
+		);
+	}
+
+	/**
+	 * Remembered, so that the screen goes on saying so rather than offering a button that the next
+	 * press would refuse again. It says the offer is withdrawn, not that another code could never
+	 * arrive: the allowance frees again on its own, and a code issued after it does clears this.
+	 */
+	private function refuseFurtherCodes( string $address ): AuthenticationResponse {
+		$this->manager->setAuthenticationSessionData( self::RESEND_SPENT_SESSION_KEY, true );
+
+		return $this->codeScreen( $this->naming( 'memberaccess-auth-code-outstanding', $address ) );
+	}
+
+	/**
+	 * A message naming the address back to whoever typed it.
+	 *
+	 * As a plaintext parameter, because the address is theirs rather than ours: it has been through
+	 * nothing but a trim, and the screen it is put on is parsed as wikitext. Given as an ordinary
+	 * parameter it would be substituted before that parse, and an address holding a transclusion
+	 * would fetch the page it names into the login screen, for anyone at all to read.
+	 */
+	private function naming( string $key, string $address ): Message {
+		return wfMessage( $key )->plaintextParams( $address );
+	}
+
+	private function codeScreen( Message $message, string $type = 'warning' ): AuthenticationResponse {
+		$resendIsSpent = $this->manager->getAuthenticationSessionData( self::RESEND_SPENT_SESSION_KEY ) === true;
 
 		return AuthenticationResponse::newUI(
-			[ new EnterCodeRequest() ],
-			wfMessage( 'memberaccess-auth-code-sent', $this->codeLifetime->inMinutes() )
+			[ new EnterCodeRequest(), new ResendCodeRequest( available: !$resendIsSpent ) ],
+			$message,
+			$type
 		);
 	}
 
@@ -139,6 +205,16 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 			return $this->refuse( 'Code entry continued while the code login route is off' );
 		}
 
+		$address = $this->manager->getAuthenticationSessionData( self::ADDRESS_SESSION_KEY );
+
+		if ( !is_string( $address ) ) {
+			return $this->refuse( 'Code entry continued without a code request in the session' );
+		}
+
+		if ( AuthenticationRequest::getRequestByClass( $reqs, ResendCodeRequest::class ) !== null ) {
+			return $this->resendCodeTo( $address );
+		}
+
 		$request = AuthenticationRequest::getRequestByClass( $reqs, EnterCodeRequest::class );
 		$handle = $this->manager->getAuthenticationSessionData( self::HANDLE_SESSION_KEY );
 
@@ -146,13 +222,19 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 			return $this->refuse( 'Code entry continued without a code request in the session' );
 		}
 
-		$result = $this->codeVerification->verify( $handle, trim( $request->memberaccessCode ) );
+		$code = trim( $request->memberaccessCode );
+
+		if ( $code === '' ) {
+			return $this->codeScreen( wfMessage( 'memberaccess-auth-code-missing' ), 'error' );
+		}
+
+		$result = $this->codeVerification->verify( $handle, $code );
 
 		return match ( $result->outcome ) {
 			CodeVerificationOutcome::Pass => $this->admit( (string)$result->email ),
-			CodeVerificationOutcome::RetryableFailure => AuthenticationResponse::newUI(
-				[ new EnterCodeRequest() ],
-				wfMessage( 'memberaccess-auth-code-wrong', $result->attemptsRemaining ),
+			CodeVerificationOutcome::RetryableFailure => $this->codeScreen(
+				$this->naming( 'memberaccess-auth-code-wrong', $address )
+					->numParams( $result->attemptsRemaining ),
 				'error'
 			),
 			CodeVerificationOutcome::Burned => AuthenticationResponse::newFail(
