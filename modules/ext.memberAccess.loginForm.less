@@ -1,0 +1,29 @@
+/**
+ * Sets the member login route apart from the password form above it.
+ */
+
+@import 'mediawiki.skin.variables.less';
+
+.mw-memberaccess-divider {
+	display: flex;
+	align-items: center;
+	margin: @spacing-100 0 @spacing-75;
+	color: @color-subtle;
+}
+
+.mw-memberaccess-divider::before,
+.mw-memberaccess-divider::after {
+	border-top: @border-subtle;
+	content: '';
+	flex: 1;
+}
+
+.mw-memberaccess-divider .oo-ui-fieldLayout-header,
+.mw-memberaccess-divider .cdx-label {
+	display: none;
+}
+
+.mw-memberaccess-divider .mw-htmlform-field-HTMLInfoField,
+.mw-memberaccess-divider .cdx-field__control {
+	padding: 0 @spacing-50;
+}

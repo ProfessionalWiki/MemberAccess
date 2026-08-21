@@ -37,6 +37,9 @@
 		},
 		"api": {
 			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newUserListApiHookHandler"
+		},
+		"loginForm": {
+			"class": "ProfessionalWiki\\MemberAccess\\EntryPoints\\LoginFormHandler"
 		}
 	},
 	"Hooks": {
@@ -44,7 +47,18 @@
 		"PluggableAuthUserAuthorization": "sso",
 		"UserLoggedIn": "login",
 		"SpecialPasswordResetOnSubmit": "passwordReset",
-		"ApiCheckCanExecute": "api"
+		"ApiCheckCanExecute": "api",
+		"AuthChangeFormFields": "loginForm",
+		"BeforePageDisplay": "loginForm"
+	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "modules",
+		"remoteExtPath": "MemberAccess/modules"
+	},
+	"ResourceModules": {
+		"ext.memberAccess.loginForm": {
+			"styles": [ "ext.memberAccess.loginForm.less" ]
+		}
 	},
 	"callback": "ProfessionalWiki\\MemberAccess\\EntryPoints\\RegistrationHandler::onRegistration",
 	"AuthManagerAutoConfig": {
