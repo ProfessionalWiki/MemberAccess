@@ -2,15 +2,9 @@
 
 ## CI checks
 
-Before pushing, run all checks and fix any failures.
-
-They need the MediaWiki autoloader, so run them in the MediaWiki container, from the prowiki-docker root:
-
-```sh
-docker compose exec -T mediawiki bash -c 'cd mw43/extensions/MemberAccess && PRO_DOMAIN=premium.wiki.localhost composer preflight'
-```
-
-The extension is loaded on `premium.wiki.localhost` and `all.wiki.localhost` only.
+Before pushing, run `composer preflight` and fix any failures. It needs MediaWiki's autoloader, so run
+it from a clone inside a MediaWiki installation's `extensions/` directory — see
+[Development](README.md#development).
 
 ## Schema changes
 
