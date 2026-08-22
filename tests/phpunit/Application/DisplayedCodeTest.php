@@ -28,6 +28,14 @@ class DisplayedCodeTest extends TestCase {
 		$this->assertSame( '', DisplayedCode::grouped( '' ) );
 	}
 
+	public function testGroupedLengthLeavesRoomForTheSpacesBetweenTheGroups(): void {
+		$this->assertSame( 9, DisplayedCode::groupedLength( 8 ) );
+	}
+
+	public function testGroupedLengthOfACodeEndingInAShortGroup(): void {
+		$this->assertSame( 7, DisplayedCode::groupedLength( 6 ) );
+	}
+
 	public function testGroupingIsTakenBackOff(): void {
 		$this->assertSame( '40632370', DisplayedCode::ungrouped( '4063 2370' ) );
 	}

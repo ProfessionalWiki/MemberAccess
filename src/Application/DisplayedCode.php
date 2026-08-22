@@ -28,6 +28,14 @@ final class DisplayedCode {
 	}
 
 	/**
+	 * How much room a code of this many digits takes once grouped, which is how much a box
+	 * collecting one has to allow: a member who copies a code out of the mail brings its spaces.
+	 */
+	public static function groupedLength( int $digits ): int {
+		return strlen( self::grouped( str_repeat( '0', $digits ) ) );
+	}
+
+	/**
 	 * The digits alone, whichever way they came back grouped. Every kind of space is taken out, not
 	 * only the one that was put in, since what a mail client hands to a clipboard is its own affair.
 	 */

@@ -29,7 +29,11 @@ class EnterCodeRequest extends AuthenticationRequest {
 
 				// The code logs its holder in, so core treats it like a password: it may only
 				// arrive in a POST body, and is redacted from the action API's logs.
-				'sensitive' => true
+				'sensitive' => true,
+
+				// Required, the box would have to be filled before the button asking for another
+				// code could be pressed. An empty box is answered on instead.
+				'optional' => true
 			]
 		];
 	}

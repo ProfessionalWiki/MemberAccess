@@ -6,7 +6,8 @@ namespace ProfessionalWiki\MemberAccess\Application;
 
 class RandomSecretGenerator implements SecretGenerator {
 
-	private const int CODE_DIGITS = 8;
+	/** Also how many digits the form asking for a code allows to be typed into it. */
+	public const int CODE_DIGITS = 8;
 	private const int HANDLE_BYTES = 16;
 
 	public function generateCode(): string {

@@ -20,7 +20,7 @@ trait CodeRequestSubmission {
 		$requests = AuthenticationRequest::loadRequestsFromSubmission(
 			[ new LoginCodeRequest() ],
 			[
-				'username' => $address,
+				LoginCodeRequest::EMAIL_FIELD => $address,
 				LoginCodeRequest::BUTTON_NAME => true
 			]
 		);

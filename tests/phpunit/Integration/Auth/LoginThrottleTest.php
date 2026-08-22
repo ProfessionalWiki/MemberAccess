@@ -16,9 +16,9 @@ use ProfessionalWiki\MemberAccess\MemberAccessExtension;
 use Wikimedia\ObjectCache\HashBagOStuff;
 
 /**
- * MediaWiki throttles login attempts per client IP and per account, and asks the requests being
- * submitted which account is logging in. These pin that it gets an answer for a code request, so
- * that everyone at one client IP no longer draws on a single shared budget.
+ * A code request asks for its address in a box of its own, so it names no account to MediaWiki and
+ * is counted against the client IP. Telling one address from another is the extension's own
+ * throttle's job, which is tighter than the one here. {@see \ProfessionalWiki\MemberAccess\Application\RequestThrottle}
  *
  * @group Database
  * @covers \ProfessionalWiki\MemberAccess\EntryPoints\Auth\LoginCodeRequest
@@ -48,15 +48,7 @@ class LoginThrottleTest extends MediaWikiIntegrationTestCase {
 		parent::tearDown();
 	}
 
-	public function testOneAddressDoesNotUseUpTheLoginAttemptsOfAnother(): void {
-		$this->exhaustTheLoginAttemptsOf( 'jane@example.com' );
-
-		$response = $this->requestCode( 'john@example.com' );
-
-		$this->assertSame( AuthenticationResponse::UI, $response->status );
-	}
-
-	public function testRepeatedRequestsForOneAddressRunOutOfLoginAttempts(): void {
+	public function testRepeatedRequestsRunOutOfLoginAttempts(): void {
 		$this->exhaustTheLoginAttemptsOf( 'jane@example.com' );
 
 		$response = $this->requestCode( 'jane@example.com' );
@@ -65,18 +57,22 @@ class LoginThrottleTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * A request holding no address names no account to count against, and the code request's own
-	 * throttle does not count one either, so the client IP has to keep counting it. A request that
-	 * counted against nothing would take the throttle off this flow entirely.
+	 * The counting is per client IP, so the budget one address spends is gone for every other
+	 * address reaching the wiki from there. Pinned because it is what asking for the address in a
+	 * box of its own gave up, and what the extension's own per-address throttle has to make up for.
 	 */
-	public function testRequestsWithoutAnAddressRunOutOfLoginAttempts(): void {
-		$this->exhaustTheLoginAttemptsOf( '' );
+	public function testOneAddressUsesUpTheLoginAttemptsOfAnother(): void {
+		$this->exhaustTheLoginAttemptsOf( 'jane@example.com' );
 
-		$response = $this->requestCode( '' );
+		$response = $this->requestCode( 'john@example.com' );
 
 		$this->assertRefusedByTheLoginThrottle( $response );
 	}
 
+	/**
+	 * An address MediaWiki could make nothing of still spends an attempt, or the flow could be
+	 * driven without a throttle counting it at all.
+	 */
 	public function testRequestsWithAMistypedAddressRunOutOfLoginAttempts(): void {
 		$this->exhaustTheLoginAttemptsOf( 'jane#example.com' );
 
@@ -85,25 +81,51 @@ class LoginThrottleTest extends MediaWikiIntegrationTestCase {
 		$this->assertRefusedByTheLoginThrottle( $response );
 	}
 
+	public function testRequestsWithoutAnAddressRunOutOfLoginAttempts(): void {
+		$this->exhaustTheLoginAttemptsOf( '' );
+
+		$response = $this->requestCode( '' );
+
+		$this->assertRefusedByTheLoginThrottle( $response );
+	}
+
 	/**
-	 * Two requests naming different accounts in one submission is a conflict MediaWiki raises
-	 * rather than resolves, and not everything that asks who is logging in catches it. Sharing the
-	 * login form's own username field, and passing on what it holds untouched, is what keeps the
-	 * two from disagreeing. The address here is submitted padded and oddly capitalised, so that
-	 * tidying it up on the way through would show.
+	 * The login form carries a box for a username and a box for an address, and nothing stops a
+	 * visitor filling both before pressing either button. Two requests naming different accounts is
+	 * a conflict MediaWiki raises rather than resolves, so a code request has to name no account at
+	 * all. The two boxes are filled with different values here, which is what would raise it.
 	 */
-	public function testSubmittingAPasswordAsWellStillNamesOneAccount(): void {
+	public function testFillingInThePasswordBoxAsWellStillNamesOneAccount(): void {
 		$requests = AuthenticationRequest::loadRequestsFromSubmission(
 			[ new LoginCodeRequest(), $this->passwordRequest() ],
 			[
-				'username' => ' Jane@Example.com ',
+				LoginCodeRequest::EMAIL_FIELD => 'jane@example.com',
 				LoginCodeRequest::BUTTON_NAME => true,
+				'username' => 'Some other account',
 				'password' => 'a password typed into the other box'
 			]
 		);
 
 		$this->assertCount( 2, $requests );
-		$this->assertSame( ' Jane@Example.com ', AuthenticationRequest::getUsernameFromRequests( $requests ) );
+		$this->assertSame( 'Some other account', AuthenticationRequest::getUsernameFromRequests( $requests ) );
+	}
+
+	/**
+	 * The address is what the code is sent to, so it has to survive the submission exactly as it
+	 * was typed. It is submitted padded and oddly capitalised here, since tidying it up on the way
+	 * through would leave the address the code was sent to disagreeing with the one asked for.
+	 */
+	public function testTheAddressReachesTheRequestAsSubmitted(): void {
+		$requests = AuthenticationRequest::loadRequestsFromSubmission(
+			[ new LoginCodeRequest() ],
+			[
+				LoginCodeRequest::EMAIL_FIELD => ' Jane@Example.com ',
+				LoginCodeRequest::BUTTON_NAME => true
+			]
+		);
+
+		$this->assertSame( 'Jane@Example.com', $requests[0]->address() );
+		$this->assertNull( AuthenticationRequest::getUsernameFromRequests( $requests ) );
 	}
 
 	private function passwordRequest(): PasswordAuthenticationRequest {
