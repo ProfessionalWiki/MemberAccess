@@ -19,6 +19,7 @@ use ProfessionalWiki\MemberAccess\Application\CodeLifetime;
 use ProfessionalWiki\MemberAccess\Application\CodeLoginMode;
 use ProfessionalWiki\MemberAccess\Application\CodeRequestOutcome;
 use ProfessionalWiki\MemberAccess\Application\CodeVerificationOutcome;
+use ProfessionalWiki\MemberAccess\Application\DisplayedCode;
 use ProfessionalWiki\MemberAccess\Application\Member;
 use ProfessionalWiki\MemberAccess\Application\MemberGroup;
 use ProfessionalWiki\MemberAccess\Application\MemberRepository;
@@ -146,7 +147,11 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 			return $this->refuse( 'Code entry continued without a code request in the session' );
 		}
 
-		$result = $this->codeVerification->verify( $handle, trim( $request->memberaccessCode ) );
+		// Shown in groups in the mail, so a member who copied it brings the spaces along.
+		$result = $this->codeVerification->verify(
+			$handle,
+			DisplayedCode::ungrouped( $request->memberaccessCode )
+		);
 
 		return match ( $result->outcome ) {
 			CodeVerificationOutcome::Pass => $this->admit( (string)$result->email ),

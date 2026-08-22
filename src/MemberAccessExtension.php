@@ -7,6 +7,7 @@ namespace ProfessionalWiki\MemberAccess;
 use MailAddress;
 use MediaWiki\Context\RequestContext;
 use MediaWiki\Logger\LoggerFactory;
+use MediaWiki\Html\TemplateParser;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Session\CsrfTokenSet;
 use ProfessionalWiki\MemberAccess\Application\AddEntriesUseCase;
@@ -432,6 +433,9 @@ class MemberAccessExtension {
 			mailer: new MediaWikiCodeMailer(
 				emailer: MediaWikiServices::getInstance()->getEmailer(),
 				sender: $this->getSenderAddress(),
+				templates: new TemplateParser( __DIR__ . '/../templates' ),
+				contentLanguage: MediaWikiServices::getInstance()->getContentLanguage(),
+				siteName: $this->getStringConfig( 'Sitename' ),
 				logger: $this->newLogger()
 			)
 		);
