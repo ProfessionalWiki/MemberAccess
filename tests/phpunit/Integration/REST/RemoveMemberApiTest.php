@@ -20,7 +20,6 @@ use ProfessionalWiki\MemberAccess\Tests\Integration\Auth\AuthenticationProviderR
 use ProfessionalWiki\MemberAccess\Tests\Integration\Auth\CodeRequestSubmission;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\FixedSecretGenerator;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\InMemoryMemberRepository;
-use ProfessionalWiki\MemberAccess\Tests\TestDoubles\InstalledSchema;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\SpyEmailer;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\SpyMemberRemover;
 use Psr\Log\NullLogger;
@@ -170,7 +169,6 @@ class RemoveMemberApiTest extends RestApiTestCase {
 
 		$handler = new RemoveMemberApi(
 			$this->csrfTokens(),
-			new InstalledSchema(),
 			new RemoveMemberUseCase(
 				members: $members,
 				remover: new SpyMemberRemover( RemovalResult::RemovalFailed ),

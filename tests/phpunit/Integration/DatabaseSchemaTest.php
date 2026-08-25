@@ -64,7 +64,7 @@ class DatabaseSchemaTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * Every request builds the entry points, and most of them go on to do nothing with the tables.
+	 * Every request builds the handler that asks, and most requests are no login.
 	 */
 	public function testTheDatabaseIsNotAskedUntilTheQuestionIsPut(): void {
 		$this->newSchema( $this->connectionsReporting( tablesExist: true ) );
@@ -73,7 +73,7 @@ class DatabaseSchemaTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * Everything the extension does asks first, so the answer has to cost at most one query.
+	 * However often the question is put, it costs at most one query.
 	 */
 	public function testTheDatabaseIsAskedOnlyOnce(): void {
 		$schema = $this->newSchema( $this->connectionsReporting( tablesExist: true ) );

@@ -9,16 +9,14 @@ use MediaWiki\Session\CsrfTokenSet;
 use ProfessionalWiki\MemberAccess\Application\MemberGroup;
 use ProfessionalWiki\MemberAccess\Application\RenameGroupResult;
 use ProfessionalWiki\MemberAccess\Application\RenameGroupUseCase;
-use ProfessionalWiki\MemberAccess\Application\Schema;
 
 class RenameGroupApi extends MemberAccessApiHandler {
 
 	public function __construct(
 		CsrfTokenSet $csrfTokens,
-		Schema $schema,
 		private readonly RenameGroupUseCase $useCase
 	) {
-		parent::__construct( $csrfTokens, $schema );
+		parent::__construct( $csrfTokens );
 	}
 
 	public function run( int $id ): Response {

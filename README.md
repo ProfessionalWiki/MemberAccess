@@ -226,13 +226,9 @@ To send the login code as rich email rather than plain text, set:
 $wgAllowHTMLEmail = true;
 ```
 
-Run `php maintenance/run.php update --quick` to create the extension's tables. Until it has run, the
-code login route is not offered and the management API answers `schema_missing`, with a warning on
-the `MemberAccess` log channel. Accounts in the reader group are refused a password meanwhile, and
-where the allowlist governs single sign-on they are refused a login as well, since the roster that
-would clear them is exactly what cannot be read. Every other account is left alone. The settings
-described under [What loading the extension changes on the wiki](#what-loading-the-extension-changes-on-the-wiki)
-follow the route settings alone, so a turned-on route brings them before the tables exist.
+Run `php maintenance/run.php update --quick` to create the extension's tables. Until it has run, a
+warning on the `MemberAccess` log channel says so, and anything that reads them fails with a database
+error.
 
 ## Management API
 
@@ -285,7 +281,7 @@ group (`group_not_found`), a body without a `values` list or with a value that i
 (`invalid_request_body`), and more values than one request may carry (`too_many_entry_values`).
 
 A failed request answers with the HTTP status and a body carrying a stable `errorCode` next to a
-human-readable `error`: `not_logged_in`, `permission_denied`, `invalid_csrf_token`, `schema_missing`,
+human-readable `error`: `not_logged_in`, `permission_denied`, `invalid_csrf_token`,
 `invalid_request_body`, `invalid_group_name`, `group_name_too_long`, `duplicate_group_name`,
 `group_not_found`, `group_not_empty`, `group_has_members`, `too_many_entry_values`, `entry_not_found`,
 `not_a_member`, `cannot_deactivate_self`, `block_right_required`, `block_failed`, `unblock_failed`,

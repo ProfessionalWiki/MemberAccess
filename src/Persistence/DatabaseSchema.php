@@ -11,8 +11,7 @@ use Wikimedia\Rdbms\IMaintainableDatabase;
 
 /**
  * Asks the database whether the tables are there, once, and remembers the answer for the rest of
- * the request. Everything the extension does asks before touching a table, so the answer has to
- * cost at most one query, and one that cannot fail on a wiki without the tables.
+ * the request.
  */
 class DatabaseSchema implements Schema {
 
@@ -39,11 +38,7 @@ class DatabaseSchema implements Schema {
 		$missing = !$this->tablesExist();
 
 		if ( $missing ) {
-			$this->logger->warning(
-				'The MemberAccess tables do not exist, so the extension offers no login route and '
-					. 'refuses a password to the accounts carrying its reader group. '
-					. 'Run update.php to create them.'
-			);
+			$this->logger->warning( 'The MemberAccess tables do not exist. Run update.php to create them.' );
 		}
 
 		return $missing;
@@ -56,8 +51,8 @@ class DatabaseSchema implements Schema {
 			return $database->tableExists( self::MEMBER_TABLE, __METHOD__ );
 		}
 
-		// Every connection MediaWiki hands out can answer this. One that cannot is no reason to
-		// turn the extension off wiki-wide, so the wiki is taken to have its tables.
+		// Every connection MediaWiki hands out can answer this. One that cannot is no reason to skip
+		// the record a wiki with its tables expects, so such a wiki is taken to have them.
 		return true;
 	}
 

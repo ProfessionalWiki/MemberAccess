@@ -9,7 +9,6 @@ use MediaWiki\Rest\Response;
 use MediaWiki\Session\CsrfTokenSet;
 use ProfessionalWiki\MemberAccess\Application\DeactivateMemberUseCase;
 use ProfessionalWiki\MemberAccess\Application\DeactivationResult;
-use ProfessionalWiki\MemberAccess\Application\Schema;
 
 class DeactivateMemberApi extends MemberAccessApiHandler {
 
@@ -17,10 +16,9 @@ class DeactivateMemberApi extends MemberAccessApiHandler {
 
 	public function __construct(
 		CsrfTokenSet $csrfTokens,
-		Schema $schema,
 		private readonly DeactivateMemberUseCase $useCase
 	) {
-		parent::__construct( $csrfTokens, $schema );
+		parent::__construct( $csrfTokens );
 	}
 
 	public function run( int $userId ): Response {

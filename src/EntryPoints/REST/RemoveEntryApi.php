@@ -7,16 +7,14 @@ namespace ProfessionalWiki\MemberAccess\EntryPoints\REST;
 use MediaWiki\Rest\Response;
 use MediaWiki\Session\CsrfTokenSet;
 use ProfessionalWiki\MemberAccess\Application\AllowlistRepository;
-use ProfessionalWiki\MemberAccess\Application\Schema;
 
 class RemoveEntryApi extends MemberAccessApiHandler {
 
 	public function __construct(
 		CsrfTokenSet $csrfTokens,
-		Schema $schema,
 		private readonly AllowlistRepository $allowlist
 	) {
-		parent::__construct( $csrfTokens, $schema );
+		parent::__construct( $csrfTokens );
 	}
 
 	public function run( int $id ): Response {

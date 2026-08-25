@@ -93,17 +93,6 @@ class MemberPasswordTest extends ApiTestCase {
 		$this->assertTrue( $status->isGood() );
 	}
 
-	/**
-	 * A wiki with its roster reads that, and nothing else. The reader group is what the refusal
-	 * hangs on only where the roster cannot be read, so an account put in the group by hand, or by a
-	 * wiki that had a group of that name before the extension arrived, keeps its password.
-	 */
-	public function testPasswordChangeOfAnAccountPutInTheReaderGroupByHandIsAllowed(): void {
-		$status = $this->allowsPasswordChangeFor( $this->getMutableTestUser( [ 'reader' ] )->getUser() );
-
-		$this->assertTrue( $status->isGood() );
-	}
-
 	public function testPasswordResetOfAnAccountThatIsNoMemberStillMails(): void {
 		$staff = $this->getMutableTestUser()->getUser();
 		$staff->setEmail( 'staff@example.com' );

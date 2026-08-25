@@ -10,6 +10,7 @@ use ProfessionalWiki\MemberAccess\Application\MemberRepository;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
 use ProfessionalWiki\MemberAccess\MemberAccessExtension;
+use ProfessionalWiki\MemberAccess\Tests\TestDoubles\MissingSchema;
 
 /**
  * Runs the hook itself rather than the handler, so that the registration in extension.json is
@@ -26,6 +27,12 @@ class MemberLoginHandlerTest extends MediaWikiIntegrationTestCase {
 		parent::setUp();
 
 		$this->members = MemberAccessExtension::getInstance()->newMemberRepository();
+	}
+
+	protected function tearDown(): void {
+		MemberAccessExtension::getInstance()->setSchemaOverride( null );
+
+		parent::tearDown();
 	}
 
 	public function testLoginOfAMemberIsRecorded(): void {
@@ -48,6 +55,22 @@ class MemberLoginHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->logIn( $this->newMember() );
 
 		$this->assertNull( $this->members->getMember( $other->getId(), ReadConsistency::UpToDate )?->lastLoginTimestamp );
+	}
+
+	/**
+	 * This is the one thing the extension does on every login the wiki has, so a wiki that loaded it
+	 * without running update.php must have its logins go through rather than fail on a roster that
+	 * is not there. The member is recorded first, while the test database still stands in for a wiki
+	 * that has the tables: a handler reaching for the roster anyway would find that row and write to
+	 * it, which on a real wiki is the database error this guards against.
+	 */
+	public function testLoginOnAWikiWithoutTheTablesRecordsNothing(): void {
+		$user = $this->newMember();
+		MemberAccessExtension::getInstance()->setSchemaOverride( new MissingSchema() );
+
+		$this->logIn( $user );
+
+		$this->assertNull( $this->members->getMember( $user->getId(), ReadConsistency::UpToDate )?->lastLoginTimestamp );
 	}
 
 	private function newMember(): User {
