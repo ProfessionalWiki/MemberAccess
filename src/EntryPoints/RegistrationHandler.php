@@ -104,10 +104,6 @@ class RegistrationHandler {
 	 * What a login route needs to work, applied only where a setting turns that route on. Each of
 	 * these widens what the wiki allows or changes it for everyone on it, and the settings are read
 	 * afresh on every request, so taking the last route away takes them with it.
-	 *
-	 * Registration runs before services exist, so whether the tables are there cannot be asked:
-	 * these follow the settings alone, and a turned-on route brings them even while missing tables
-	 * keep it from being offered.
 	 */
 	private static function applyWhatTheLoginRoutesNeed(): void {
 		$codeRouteIsOffered = self::codeLoginMode() !== CodeLoginMode::Off;

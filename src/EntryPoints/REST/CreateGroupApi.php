@@ -9,16 +9,14 @@ use MediaWiki\Session\CsrfTokenSet;
 use ProfessionalWiki\MemberAccess\Application\CreateGroupOutcome;
 use ProfessionalWiki\MemberAccess\Application\CreateGroupUseCase;
 use ProfessionalWiki\MemberAccess\Application\MemberGroup;
-use ProfessionalWiki\MemberAccess\Application\Schema;
 
 class CreateGroupApi extends MemberAccessApiHandler {
 
 	public function __construct(
 		CsrfTokenSet $csrfTokens,
-		Schema $schema,
 		private readonly CreateGroupUseCase $useCase
 	) {
-		parent::__construct( $csrfTokens, $schema );
+		parent::__construct( $csrfTokens );
 	}
 
 	public function run(): Response {

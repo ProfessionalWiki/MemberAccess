@@ -14,7 +14,6 @@ use ProfessionalWiki\MemberAccess\EntryPoints\Auth\MemberAuthenticationProvider;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\PendingProvisioning;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\SsoAuthorizationHandler;
 use ProfessionalWiki\MemberAccess\MemberAccessExtension;
-use ProfessionalWiki\MemberAccess\Tests\TestDoubles\InstalledSchema;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\SpyLogger;
 
 /**
@@ -335,8 +334,7 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 			userGroups: $this->getServiceContainer()->getUserGroupManager(),
 			authManager: $this->getServiceContainer()->getAuthManager(),
 			logger: $this->logger,
-			readerGroup: 'reader',
-			schema: new InstalledSchema()
+			readerGroup: 'reader'
 		);
 	}
 

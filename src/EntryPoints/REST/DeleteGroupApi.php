@@ -8,16 +8,14 @@ use MediaWiki\Rest\Response;
 use MediaWiki\Session\CsrfTokenSet;
 use ProfessionalWiki\MemberAccess\Application\DeleteGroupResult;
 use ProfessionalWiki\MemberAccess\Application\DeleteGroupUseCase;
-use ProfessionalWiki\MemberAccess\Application\Schema;
 
 class DeleteGroupApi extends MemberAccessApiHandler {
 
 	public function __construct(
 		CsrfTokenSet $csrfTokens,
-		Schema $schema,
 		private readonly DeleteGroupUseCase $useCase
 	) {
-		parent::__construct( $csrfTokens, $schema );
+		parent::__construct( $csrfTokens );
 	}
 
 	public function run( int $id ): Response {

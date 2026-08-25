@@ -114,11 +114,8 @@ class MemberAccessExtension {
 			members: $this->newMemberRepository(),
 			provisioner: $this->newMemberProvisioner(),
 			userLookup: MediaWikiServices::getInstance()->getUserIdentityLookup(),
-			userGroups: MediaWikiServices::getInstance()->getUserGroupManager(),
 			auditLogger: $this->newLogger(),
-			codeLifetime: $this->newCodeLifetime(),
-			readerGroup: $this->getReaderGroup(),
-			schema: $this->getSchema()
+			codeLifetime: $this->newCodeLifetime()
 		);
 	}
 
@@ -134,8 +131,7 @@ class MemberAccessExtension {
 			userGroups: MediaWikiServices::getInstance()->getUserGroupManager(),
 			authManager: MediaWikiServices::getInstance()->getAuthManager(),
 			logger: $this->newLogger(),
-			readerGroup: $this->getReaderGroup(),
-			schema: $this->getSchema()
+			readerGroup: $this->getReaderGroup()
 		);
 	}
 
@@ -144,7 +140,6 @@ class MemberAccessExtension {
 
 		return new ListGroupsApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
-			schema: $instance->getSchema(),
 			groups: $instance->newMemberGroupRepository(),
 			allowlist: $instance->newAllowlistRepository(),
 			members: $instance->newMemberRepository()
@@ -156,7 +151,6 @@ class MemberAccessExtension {
 
 		return new CreateGroupApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
-			schema: $instance->getSchema(),
 			useCase: new CreateGroupUseCase( groups: $instance->newMemberGroupRepository() )
 		);
 	}
@@ -166,7 +160,6 @@ class MemberAccessExtension {
 
 		return new RenameGroupApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
-			schema: $instance->getSchema(),
 			useCase: new RenameGroupUseCase( groups: $instance->newMemberGroupRepository() )
 		);
 	}
@@ -176,7 +169,6 @@ class MemberAccessExtension {
 
 		return new DeleteGroupApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
-			schema: $instance->getSchema(),
 			useCase: $instance->newDeleteGroupUseCase()
 		);
 	}
@@ -186,7 +178,6 @@ class MemberAccessExtension {
 
 		return new ListEntriesApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
-			schema: $instance->getSchema(),
 			groups: $instance->newMemberGroupRepository(),
 			allowlist: $instance->newAllowlistRepository()
 		);
@@ -197,7 +188,6 @@ class MemberAccessExtension {
 
 		return new AddEntriesApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
-			schema: $instance->getSchema(),
 			useCase: new AddEntriesUseCase(
 				groups: $instance->newMemberGroupRepository(),
 				allowlist: $instance->newAllowlistRepository()
@@ -212,7 +202,6 @@ class MemberAccessExtension {
 
 		return new RemoveEntryApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
-			schema: $instance->getSchema(),
 			allowlist: $instance->newAllowlistRepository()
 		);
 	}
@@ -222,7 +211,6 @@ class MemberAccessExtension {
 
 		return new ListMembersApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
-			schema: $instance->getSchema(),
 			members: $instance->newMemberRepository(),
 			groups: $instance->newMemberGroupRepository()
 		);
@@ -233,7 +221,6 @@ class MemberAccessExtension {
 
 		return new DeactivateMemberApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
-			schema: $instance->getSchema(),
 			useCase: $instance->newDeactivateMemberUseCase()
 		);
 	}
@@ -243,7 +230,6 @@ class MemberAccessExtension {
 
 		return new RemoveMemberApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
-			schema: $instance->getSchema(),
 			useCase: $instance->newRemoveMemberUseCase()
 		);
 	}
@@ -253,7 +239,6 @@ class MemberAccessExtension {
 
 		return new ReactivateMemberApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
-			schema: $instance->getSchema(),
 			useCase: $instance->newReactivateMemberUseCase()
 		);
 	}
@@ -287,12 +272,7 @@ class MemberAccessExtension {
 	}
 
 	private function newPasswordResetHandler(): PasswordResetHandler {
-		return new PasswordResetHandler(
-			members: $this->newMemberRepository(),
-			userGroups: MediaWikiServices::getInstance()->getUserGroupManager(),
-			readerGroup: $this->getReaderGroup(),
-			schema: $this->getSchema()
-		);
+		return new PasswordResetHandler( members: $this->newMemberRepository() );
 	}
 
 	private function newMemberProvisioner(): MemberProvisioner {
@@ -464,8 +444,8 @@ class MemberAccessExtension {
 	}
 
 	/**
-	 * Held on to rather than built anew, so that the one question every entry point asks is asked
-	 * of the database once per request, and answered from memory after that.
+	 * Held on to rather than built anew, so that the question is asked of the database once per
+	 * request and answered from memory after that.
 	 */
 	private function getSchema(): Schema {
 		if ( $this->schemaOverride !== null ) {

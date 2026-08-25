@@ -9,17 +9,15 @@ use MediaWiki\Session\CsrfTokenSet;
 use ProfessionalWiki\MemberAccess\Application\AllowlistEntry;
 use ProfessionalWiki\MemberAccess\Application\AllowlistRepository;
 use ProfessionalWiki\MemberAccess\Application\MemberGroupRepository;
-use ProfessionalWiki\MemberAccess\Application\Schema;
 
 class ListEntriesApi extends MemberAccessApiHandler {
 
 	public function __construct(
 		CsrfTokenSet $csrfTokens,
-		Schema $schema,
 		private readonly MemberGroupRepository $groups,
 		private readonly AllowlistRepository $allowlist
 	) {
-		parent::__construct( $csrfTokens, $schema );
+		parent::__construct( $csrfTokens );
 	}
 
 	public function run( int $id ): Response {

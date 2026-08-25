@@ -10,7 +10,6 @@ use ProfessionalWiki\MemberAccess\Application\Member;
 use ProfessionalWiki\MemberAccess\Application\MemberGroupRepository;
 use ProfessionalWiki\MemberAccess\Application\MemberRepository;
 use ProfessionalWiki\MemberAccess\Application\MemberTotals;
-use ProfessionalWiki\MemberAccess\Application\Schema;
 
 /**
  * The roster, and the counts that are the billing meter.
@@ -19,11 +18,10 @@ class ListMembersApi extends MemberAccessApiHandler {
 
 	public function __construct(
 		CsrfTokenSet $csrfTokens,
-		Schema $schema,
 		private readonly MemberRepository $members,
 		private readonly MemberGroupRepository $groups
 	) {
-		parent::__construct( $csrfTokens, $schema );
+		parent::__construct( $csrfTokens );
 	}
 
 	public function run(): Response {
