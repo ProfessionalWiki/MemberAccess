@@ -19,8 +19,8 @@ use MediaWiki\User\UserIdentity;
  *
  * ApiCheckCanExecute is the only extension point that can refuse a query before it runs, but it is
  * handed the action module rather than the submodules it will run, so the requested submodules are
- * read off the query itself. Hiding the matching special pages is a wiki configuration matter and
- * deliberately not done here.
+ * read off the query itself. The special pages that list the same accounts are closed by
+ * UserListSpecialPageHandler.
  */
 class UserListApiHandler implements ApiCheckCanExecuteHook {
 
