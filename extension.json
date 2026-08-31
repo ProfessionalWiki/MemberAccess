@@ -38,6 +38,9 @@
 		"api": {
 			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newUserListApiHookHandler"
 		},
+		"specialPages": {
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newUserListSpecialPageHookHandler"
+		},
 		"loginForm": {
 			"class": "ProfessionalWiki\\MemberAccess\\EntryPoints\\LoginFormHandler"
 		}
@@ -48,6 +51,7 @@
 		"UserLoggedIn": "login",
 		"SpecialPasswordResetOnSubmit": "passwordReset",
 		"ApiCheckCanExecute": "api",
+		"SpecialPageBeforeExecute": "specialPages",
 		"AuthChangeFormFields": "loginForm",
 		"BeforePageDisplay": "loginForm"
 	},
@@ -145,6 +149,10 @@
 		"MemberAccessBlockedApiModules": {
 			"value": [ "allusers", "users", "blocks" ],
 			"description": "Names of action API query submodules the reader group may not use."
+		},
+		"MemberAccessBlockedSpecialPages": {
+			"value": [ "Listusers", "Activeusers", "BlockList", "Redirect" ],
+			"description": "Canonical names of special pages the reader group may not open, and that nobody may transclude."
 		}
 	},
 	"RestRoutes": [

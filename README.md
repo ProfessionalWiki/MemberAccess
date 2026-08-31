@@ -117,8 +117,10 @@ action API query modules whose purpose is enumerating accounts are closed to the
 three logs are closed to anyone who cannot manage members: the new user log, where every member's
 account creation is recorded, the block log, where every deactivation is, and the rename log, which
 names what a removed member was called. Restricting a log type also keeps it out of recent changes.
-Hiding the matching special pages beyond that is a wiki configuration matter, for instance with
-[Lockdown].
+The special pages that list or resolve accounts are closed to the reader group as well, and
+transcluding them is closed to everyone — the inclusion renders empty — since what a transclusion
+renders is not kept to the reader who asked for it. `Special:Redirect` is closed whole, so members
+lose its other lookups too.
 
 Page histories and recent changes still name whoever acted, which on a members-only wiki means the
 staff who edit: members cannot appear there, since they cannot change anything.
@@ -175,6 +177,8 @@ Whatever the login routes are set to, loading the extension:
 * refuses members a password, whatever the routes: setting one and having a temporary one mailed
   stay refused;
 * closes the account-listing API modules to the reader group;
+* closes the special pages that list or resolve accounts to the reader group, and their
+  transclusion to everyone;
 * removes `@` from `$wgInvalidUsernameCharacters`, and changes `$wgUserrightsInterwikiDelimiter` from
   `@` to `@@`, so that `Special:UserRights` can act on an account named after an address.
 
@@ -305,6 +309,7 @@ than this one.
 | `$wgMemberAccessSenderAddress` | ?string | `null` | Address login codes are sent from. Falls back to `$wgPasswordSender` |
 | `$wgMemberAccessSessionDurationSeconds` | int | `2592000` | How long a remembered login lasts, wiki-wide. Thirty days, against core's 180 days. `0` leaves `$wgExtendedLoginCookieExpiration` alone |
 | `$wgMemberAccessBlockedApiModules` | string[] | `[ 'allusers', 'users', 'blocks' ]` | Action API query submodules the reader group may not use |
+| `$wgMemberAccessBlockedSpecialPages` | string[] | `[ 'Listusers', 'Activeusers', 'BlockList', 'Redirect' ]` | Special pages the reader group may not open and nobody may transclude. Canonical names; an alias does not match |
 
 Issued codes and rate-limit counters are held in the main object stash (`$wgMainStash`), which is
 database-backed by default. Point it at Redis or Valkey to keep them out of the database.
@@ -362,8 +367,8 @@ Initial version for MediaWiki 1.43+ with these features:
   removal frees their address for a new account
 * Code requests rate limited per email address and per client IP, with a burst and a daily limit,
   and codes stored hashed and burned after five wrong entries
-* Uniform responses, restricted account-listing API modules, and restricted new user, block and
-  rename logs, so the member list is not given away
+* Uniform responses, restricted account-listing API modules and special pages, and restricted new
+  user, block and rename logs, so the member list is not given away
 * Every code issue, login success, failure and rate-limit hit logged through the `MemberAccess` log
   channel, with the email address hashed
 * A REST API under `/rest.php/member-access/v0/` for managing groups, allowlist entries and the roster
@@ -375,4 +380,3 @@ Initial version for MediaWiki 1.43+ with these features:
 [MediaWiki Consulting]: https://professional.wiki/en/mediawiki-consulting-services
 [PHP]: https://www.php.net
 [PluggableAuth]: https://www.mediawiki.org/wiki/Extension:PluggableAuth
-[Lockdown]: https://www.mediawiki.org/wiki/Extension:Lockdown
