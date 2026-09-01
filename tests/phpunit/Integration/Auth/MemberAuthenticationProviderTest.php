@@ -16,12 +16,16 @@ use Wikimedia\Rdbms\IDBAccessObject;
 use MediaWikiIntegrationTestCase;
 use ProfessionalWiki\MemberAccess\Application\AllowlistValue;
 use ProfessionalWiki\MemberAccess\Application\Member;
+use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
+use ProfessionalWiki\MemberAccess\Application\OpaqueUsername;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\EnterCodeRequest;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\LoginCodeRequest;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\MemberAuthenticationProvider;
 use ProfessionalWiki\MemberAccess\MemberAccessExtension;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\FixedSecretGenerator;
+use ProfessionalWiki\MemberAccess\Tests\TestDoubles\InMemoryMemberRepository;
+use ProfessionalWiki\MemberAccess\Tests\TestDoubles\RefusingUsernameMinter;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\SpyEmailer;
 use RuntimeException;
 use Wikimedia\ObjectCache\HashBagOStuff;
@@ -42,7 +46,12 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	private const CODE = '12345678';
 	private const GROUPED_CODE = '1234 5678';
 	private const RETURN_TO_URL = 'https://wiki.example.com/return';
-	private const SSO_USERNAME = 'Jane of Acme';
+	/**
+	 * The name the identity provider's plugin creates the account under, which for a member is the
+	 * opaque one the extension minted for that login.
+	 * {@see \ProfessionalWiki\MemberAccess\EntryPoints\Auth\SsoUsernameProcessor}
+	 */
+	private const SSO_USERNAME = 'Member AB2345';
 
 	private SpyEmailer $emailer;
 
@@ -64,6 +73,8 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	protected function tearDown(): void {
 		MemberAccessExtension::getInstance()->setStashOverride( null );
 		MemberAccessExtension::getInstance()->setSecretGeneratorOverride( null );
+		MemberAccessExtension::getInstance()->setMemberRepositoryOverride( null );
+		MemberAccessExtension::getInstance()->setUsernameMinterOverride( null );
 
 		parent::tearDown();
 	}
@@ -101,7 +112,28 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$response = $this->enterCode( self::CODE );
 
 		$this->assertSame( AuthenticationResponse::PASS, $response->status );
-		$this->assertSame( 'Jane@example.com', $response->username );
+		$this->assertTrue( OpaqueUsername::isOpaque( (string)$response->username ) );
+	}
+
+	public function testTwoMembersAreGivenDifferentNames(): void {
+		$this->allow( '@example.com' );
+
+		$this->assertNotSame( $this->logIn( 'jane@example.com' )->username, $this->logIn( 'john@example.com' )->username );
+	}
+
+	/**
+	 * A name that cannot be minted is no reason to hand the address an account somebody else holds,
+	 * so the login is turned away. Letting the failure out instead would answer a proven address
+	 * with MediaWiki's error page.
+	 */
+	public function testLoginIsRefusedWhenNoNameCanBeMintedForTheAccount(): void {
+		$this->allow( 'jane@example.com' );
+		MemberAccessExtension::getInstance()->setUsernameMinterOverride( new RefusingUsernameMinter() );
+
+		$response = $this->logIn( 'jane@example.com' );
+
+		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		$this->assertSame( 'memberaccess-auth-failed', $response->message?->getKey() );
 	}
 
 	public function testCreatedAccountIsAReaderWithAConfirmedEmail(): void {
@@ -109,7 +141,7 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->requestCode( 'jane@example.com' );
 		$this->enterCode( self::CODE );
 
-		$user = $this->userNamed( 'Jane@example.com' );
+		$user = $this->accountOfMemberWithAddress( 'jane@example.com' );
 
 		$this->assertContains( 'reader', $this->getServiceContainer()->getUserGroupManager()->getUserGroups( $user ) );
 		$this->assertSame( 'jane@example.com', $user->getEmail() );
@@ -121,7 +153,7 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->requestCode( 'jane@example.com' );
 		$this->enterCode( self::CODE );
 
-		$member = $this->memberNamed( 'Jane@example.com' );
+		$member = $this->memberWithAddress( 'jane@example.com' );
 
 		$this->assertNotNull( $member );
 		$this->assertSame( $groupId, $member->groupId );
@@ -136,41 +168,37 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( AuthenticationResponse::PASS, $response->status );
 	}
 
-	public function testUnderscoreInTheAddressBecomesASpaceInTheUsername(): void {
-		$this->allow( '@example.com' );
-
-		$response = $this->logIn( 'John_Doe@example.com' );
-
-		$this->assertSame( 'John doe@example.com', $response->username );
-	}
-
-	public function testAddressThatCannotBecomeAUsernameIsRefused(): void {
+	/**
+	 * An address is no longer a name, so one that could never have been a username is admitted
+	 * like any other.
+	 */
+	public function testAddressThatCouldNotBecomeAUsernameIsAdmitted(): void {
 		$this->allow( '@example.com' );
 
 		$this->requestCode( 'jane#doe@example.com' );
 		$response = $this->enterCode( self::CODE );
 
-		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
-		$this->assertSame( 'memberaccess-auth-failed', $response->message?->getKey() );
+		$this->assertSame( AuthenticationResponse::PASS, $response->status );
+		$this->assertTrue( OpaqueUsername::isOpaque( (string)$response->username ) );
 	}
 
 	public function testOnlyMemberAccountsCanAuthenticateWithACode(): void {
 		$this->allow( 'jane@example.com' );
-		$this->logIn( 'jane@example.com' );
+		$name = (string)$this->logIn( 'jane@example.com' )->username;
 
 		$provider = $this->newInitializedProvider();
 
-		$this->assertTrue( $provider->testUserExists( 'Jane@example.com' ) );
+		$this->assertTrue( $provider->testUserExists( $name ) );
 		$this->assertFalse( $provider->testUserExists( $this->getMutableTestUser()->getUser()->getName() ) );
 	}
 
 	public function testCaseVariantsOfOneAddressReachTheSameAccount(): void {
 		$this->allow( '@example.com' );
-		$this->logIn( 'jane@example.com' );
+		$first = $this->logIn( 'jane@example.com' );
 
 		$response = $this->logIn( 'JANE@Example.COM' );
 
-		$this->assertSame( 'Jane@example.com', $response->username );
+		$this->assertSame( $first->username, $response->username );
 	}
 
 	public function testWrongCodeShowsTheCodeScreenAgain(): void {
@@ -217,8 +245,7 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$response = $this->enterCode( self::CODE );
 
 		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
-		$this->assertNull( $this->getServiceContainer()->getUserIdentityLookup()
-			->getUserIdentityByName( 'Stranger@example.com' ) );
+		$this->assertNull( $this->memberWithAddress( 'stranger@example.com' ) );
 	}
 
 	public function testMemberRemovedFromTheAllowlistIsRefusedAtTheNextLogin(): void {
@@ -264,9 +291,31 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( 'memberaccess-auth-throttled', $response->message?->getKey() );
 	}
 
-	public function testExistingAccountWithoutAMemberRowCannotBeOpenedWithACode(): void {
+	/**
+	 * A code proves a mailbox, never an account that was made some other way. The roster is what
+	 * joins the two, so an account carrying the address without a roster row is not the one a code
+	 * login arrives at.
+	 */
+	public function testAccountCarryingTheAddressWithoutARosterRowIsNotOpenedWithACode(): void {
 		$this->allow( 'jane@example.com' );
-		$this->getServiceContainer()->getUserFactory()->newFromName( 'Jane@example.com' )?->addToDatabase();
+		$outsider = $this->accountWithAddress( 'jane@example.com' );
+
+		$this->requestCode( 'jane@example.com' );
+		$response = $this->enterCode( self::CODE );
+		$member = $this->memberWithAddress( 'jane@example.com' );
+
+		$this->assertSame( AuthenticationResponse::PASS, $response->status );
+		$this->assertNotNull( $member );
+		$this->assertNotSame( $outsider->getId(), $member->userId );
+	}
+
+	/**
+	 * A roster row is what points an address at an account, so one pointing at an account that is
+	 * no longer there points nowhere. Minting a fresh account for the address would leave two
+	 * roster rows holding it.
+	 */
+	public function testRosterRowWhoseAccountIsGoneRefusesTheLogin(): void {
+		$this->recordMemberWithoutAnAccount( 'jane@example.com' );
 
 		$this->requestCode( 'jane@example.com' );
 		$response = $this->enterCode( self::CODE );
@@ -275,21 +324,48 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( 'memberaccess-auth-failed', $response->message?->getKey() );
 	}
 
-	public function testAccountNamedAfterTheNormalisedAddressIsAlsoDefendedAgainst(): void {
-		$this->allow( '@example.com' );
-		$this->getServiceContainer()->getUserFactory()->newFromName( 'John doe@example.com' )?->addToDatabase();
+	private function recordMemberWithoutAnAccount( string $email ): void {
+		$normalized = NormalizedEmail::fromString( $email );
 
-		$this->requestCode( 'John_Doe@example.com' );
-		$response = $this->enterCode( self::CODE );
+		$this->assertNotNull( $normalized );
 
-		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		MemberAccessExtension::getInstance()->newMemberRepository()->recordMember(
+			userId: 654321,
+			email: $normalized,
+			groupId: $this->allow( $email )
+		);
+	}
+
+	/**
+	 * A member provisioned moments ago has not reached a replica yet, and reading one would answer
+	 * that this address is new here, which would give it a second account.
+	 */
+	public function testMemberTheReplicaHasNotSeenYetIsNotGivenASecondAccount(): void {
+		$account = $this->getMutableTestUser()->getUser();
+		$this->recordMemberBehindTheReplica( $account->getId(), 'jane@example.com' );
+
+		$response = $this->logIn( 'jane@example.com' );
+
+		$this->assertSame( $account->getName(), $response->username );
+	}
+
+	private function recordMemberBehindTheReplica( int $userId, string $email ): void {
+		$groupId = $this->allow( $email );
+		$normalized = NormalizedEmail::fromString( $email );
+
+		$this->assertNotNull( $normalized );
+
+		$members = new InMemoryMemberRepository();
+		$members->recordMemberBehindTheReplica( $userId, $normalized, $groupId );
+
+		MemberAccessExtension::getInstance()->setMemberRepositoryOverride( $members );
 	}
 
 	public function testSecondLoginOfAMemberDoesNotProvisionAgain(): void {
 		$this->allow( 'jane@example.com' );
 		$this->logIn( 'jane@example.com' );
-		$this->getServiceContainer()->getUserGroupManager()
-			->removeUserFromGroup( $this->userNamed( 'Jane@example.com' ), 'reader' );
+		$member = $this->accountOfMemberWithAddress( 'jane@example.com' );
+		$this->getServiceContainer()->getUserGroupManager()->removeUserFromGroup( $member, 'reader' );
 
 		$response = $this->logIn( 'jane@example.com' );
 
@@ -297,7 +373,7 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->assertCount( 1, MemberAccessExtension::getInstance()->newMemberRepository()->listMembers() );
 		$this->assertNotContains(
 			'reader',
-			$this->getServiceContainer()->getUserGroupManager()->getUserGroups( $this->userNamed( 'Jane@example.com' ) )
+			$this->getServiceContainer()->getUserGroupManager()->getUserGroups( $member )
 		);
 	}
 
@@ -306,7 +382,7 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	 * user for instance, must not be handed the membership that was meant for the member.
 	 */
 	public function testAccountOtherThanTheAdmittedOneIsNotMadeAMember(): void {
-		$this->markAsWaitingToBeProvisioned( 'jane@example.com', 'Jane@example.com' );
+		$this->markAsWaitingToBeProvisioned( 'jane@example.com', self::SSO_USERNAME );
 		$stranger = $this->getMutableTestUser()->getUser();
 
 		$this->newInitializedProvider()->autoCreatedAccount( $stranger, 'SomeOtherProvider' );
@@ -316,13 +392,13 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	}
 
 	public function testAdmittedAccountIsMadeAMemberWhateverCreatedIt(): void {
-		$this->markAsWaitingToBeProvisioned( 'jane@example.com', 'Jane@example.com' );
-		$member = $this->userNamed( 'Jane@example.com' );
+		$this->markAsWaitingToBeProvisioned( 'jane@example.com', self::SSO_USERNAME );
+		$member = $this->userNamed( self::SSO_USERNAME );
 		$member->addToDatabase();
 
 		$this->newInitializedProvider()->autoCreatedAccount( $member, 'SomeOtherProvider' );
 
-		$this->assertNotNull( $this->memberNamed( 'Jane@example.com' ) );
+		$this->assertNotNull( $this->memberWithAddress( 'jane@example.com' ) );
 	}
 
 	/**
@@ -330,13 +406,13 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	 * waiting to be provisioned is put through the same rules the account itself went through.
 	 */
 	public function testAccountWhoseNameTheProviderLeftUnnormalisedIsStillMadeAMember(): void {
-		$this->markAsWaitingToBeProvisioned( 'jane@example.com', 'jane from acme' );
-		$member = $this->userNamed( 'Jane from acme' );
+		$this->markAsWaitingToBeProvisioned( 'jane@example.com', 'member AB2345' );
+		$member = $this->userNamed( self::SSO_USERNAME );
 		$member->addToDatabase();
 
 		$this->newInitializedProvider()->autoCreatedAccount( $member, 'SomeOtherProvider' );
 
-		$this->assertNotNull( $this->memberNamed( 'Jane from acme' ) );
+		$this->assertNotNull( $this->memberWithAddress( 'jane@example.com' ) );
 	}
 
 	/**
@@ -345,8 +421,8 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	 * make it one.
 	 */
 	public function testAccountThatCouldNotBeProvisionedIsStillWaitingToBeProvisioned(): void {
-		$this->markAsWaitingToBeProvisioned( 'jane@example.com', 'Jane@example.com' );
-		$member = $this->userNamed( 'Jane@example.com' );
+		$this->markAsWaitingToBeProvisioned( 'jane@example.com', self::SSO_USERNAME );
+		$member = $this->userNamed( self::SSO_USERNAME );
 		$member->addToDatabase();
 		$this->refuseGroupAdditions();
 
@@ -368,7 +444,7 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 
 		$this->logInThroughSingleSignOn( 'jane@example.com' );
 
-		$member = $this->memberNamed( self::SSO_USERNAME );
+		$member = $this->memberWithAddress( 'jane@example.com' );
 		$this->assertSame( $groupId, $member?->groupId );
 		$this->assertSame( 'jane@example.com', $member?->email );
 	}
@@ -505,7 +581,12 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->assertFalse( RequestContext::getMain()->getRequest()->getSession()->getUser()->isRegistered() );
 	}
 
-	public function testAccountLeftBehindByAFailedProvisioningCannotBeLoggedIntoLater(): void {
+	/**
+	 * The account a failed provisioning leaves behind is on no roster, so nothing points the
+	 * address at it: the next login mints a name of its own and the member ends up on the account
+	 * that was provisioned.
+	 */
+	public function testAccountLeftBehindByAFailedProvisioningIsNotWhereALaterLoginArrives(): void {
 		$this->allow( 'jane@example.com' );
 		$this->refuseGroupAdditions();
 		$this->requestCode( 'jane@example.com' );
@@ -515,7 +596,11 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->requestCode( 'jane@example.com' );
 		$response = $this->enterCode( self::CODE );
 
-		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		$this->assertSame( AuthenticationResponse::PASS, $response->status );
+		$this->assertSame(
+			$this->memberWithAddress( 'jane@example.com' )?->userId,
+			$this->userNamed( (string)$response->username )->getId()
+		);
 	}
 
 	/**
@@ -624,9 +709,35 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		return $user;
 	}
 
-	private function memberNamed( string $name ): ?Member {
+	private function memberWithAddress( string $email ): ?Member {
+		$normalized = NormalizedEmail::fromString( $email );
+
+		$this->assertNotNull( $normalized );
+
 		return MemberAccessExtension::getInstance()->newMemberRepository()
-			->getMember( $this->userNamed( $name )->getId(), ReadConsistency::UpToDate );
+			->findMemberByEmail( $normalized, ReadConsistency::UpToDate );
+	}
+
+	private function accountOfMemberWithAddress( string $email ): User {
+		$member = $this->memberWithAddress( $email );
+
+		$this->assertNotNull( $member );
+
+		$user = $this->getServiceContainer()->getUserFactory()->newFromId( $member->userId );
+		$user->load( IDBAccessObject::READ_LATEST );
+
+		return $user;
+	}
+
+	/**
+	 * An account the extension had no hand in, carrying an address of its own.
+	 */
+	private function accountWithAddress( string $email ): User {
+		$user = $this->getMutableTestUser()->getUser();
+		$user->setEmail( $email );
+		$user->saveSettings();
+
+		return $user;
 	}
 
 	private function runDeferredUpdates(): void {

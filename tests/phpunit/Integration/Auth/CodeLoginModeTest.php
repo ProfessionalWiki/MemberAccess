@@ -16,6 +16,8 @@ use MediaWikiIntegrationTestCase;
 use ProfessionalWiki\MemberAccess\Application\AllowlistValue;
 use ProfessionalWiki\MemberAccess\Application\DeactivationResult;
 use ProfessionalWiki\MemberAccess\Application\Member;
+use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
+use ProfessionalWiki\MemberAccess\Application\OpaqueUsername;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\EnterCodeRequest;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\LoginCodeRequest;
@@ -144,7 +146,7 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 		$response = $this->logIn( self::UNLISTED_ADDRESS );
 
 		$this->assertSame( AuthenticationResponse::PASS, $response->status );
-		$this->assertSame( 'Stranger@other.example', $response->username );
+		$this->assertTrue( OpaqueUsername::isOpaque( (string)$response->username ) );
 	}
 
 	public function testOpenCodeLoginMailsTheCodeToAnAddressTheAllowlistDoesNotHave(): void {
@@ -160,7 +162,7 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 
 		$this->logIn( self::UNLISTED_ADDRESS );
 
-		$member = $this->memberNamed( 'Stranger@other.example' );
+		$member = $this->memberWithAddress( self::UNLISTED_ADDRESS );
 
 		$this->assertNotNull( $member, 'the login has to leave a member behind' );
 		$this->assertNull( $member->groupId );
@@ -172,7 +174,7 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 
 		$this->logIn( self::ADMITTED_ADDRESS );
 
-		$this->assertSame( $groupId, $this->memberNamed( 'Jane@example.com' )?->groupId );
+		$this->assertSame( $groupId, $this->memberWithAddress( self::ADMITTED_ADDRESS )?->groupId );
 	}
 
 	/**
@@ -186,31 +188,26 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 
 		$this->logIn( self::UNLISTED_ADDRESS );
 
-		$this->assertSame( $groupId, $this->memberNamed( 'Stranger@other.example' )?->groupId );
+		$this->assertSame( $groupId, $this->memberWithAddress( self::UNLISTED_ADDRESS )?->groupId );
 	}
 
 	/**
 	 * An open route lets anyone start a login, which is what makes this the defence that matters:
-	 * a proven mailbox may only open the account the roster ties to it.
+	 * a proven mailbox opens the account the roster ties to it and no other.
 	 */
-	public function testOpenCodeLoginStillRefusesAnAccountTheRosterDoesNotTieToTheAddress(): void {
+	public function testOpenCodeLoginStillDoesNotOpenAnAccountTheRosterDoesNotTieToTheAddress(): void {
 		$this->setCodeLogin( 'open' );
-		$this->userNamed( 'Stranger@other.example' )->addToDatabase();
+		$outsider = $this->getMutableTestUser()->getUser();
+		$outsider->setEmail( self::UNLISTED_ADDRESS );
+		$outsider->saveSettings();
 
 		$this->requestCode( self::UNLISTED_ADDRESS );
 		$response = $this->enterCode( self::CODE );
+		$member = $this->memberWithAddress( self::UNLISTED_ADDRESS );
 
-		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
-		$this->assertSame( 'memberaccess-auth-failed', $response->message?->getKey() );
-	}
-
-	public function testOpenCodeLoginStillRefusesAnAddressThatCannotBecomeAUsername(): void {
-		$this->setCodeLogin( 'open' );
-
-		$this->requestCode( 'jane#doe@other.example' );
-		$response = $this->enterCode( self::CODE );
-
-		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		$this->assertSame( AuthenticationResponse::PASS, $response->status );
+		$this->assertNotNull( $member );
+		$this->assertNotSame( $outsider->getId(), $member->userId );
 	}
 
 	/**
@@ -246,7 +243,7 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 		$this->useTheAuthenticationChainCoreConfigures();
 		$this->setCodeLogin( 'open' );
 		$this->logIn( self::UNLISTED_ADDRESS );
-		$this->deactivate( 'Stranger@other.example' );
+		$this->deactivate( self::UNLISTED_ADDRESS );
 
 		$response = $this->logIn( self::UNLISTED_ADDRESS );
 
@@ -256,7 +253,7 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 	public function testDeactivatedMemberIsMailedNoFurtherCode(): void {
 		$this->setCodeLogin( 'open' );
 		$this->logIn( self::UNLISTED_ADDRESS );
-		$this->deactivate( 'Stranger@other.example' );
+		$this->deactivate( self::UNLISTED_ADDRESS );
 
 		$this->requestCode( self::UNLISTED_ADDRESS );
 
@@ -372,7 +369,7 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 	}
 
 	private function authorizeThroughSingleSignOn( string $email ): bool {
-		$identity = $this->getServiceContainer()->getUserFactory()->newFromName( 'Jane of Acme' );
+		$identity = $this->getServiceContainer()->getUserFactory()->newFromName( 'Member AB2345' );
 
 		$this->assertNotNull( $identity );
 		$identity->setEmail( $email );
@@ -384,9 +381,13 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 		return $authorized;
 	}
 
-	private function deactivate( string $username ): void {
+	private function deactivate( string $email ): void {
+		$member = $this->memberWithAddress( $email );
+
+		$this->assertNotNull( $member );
+
 		$result = MemberAccessExtension::getInstance()->newDeactivateMemberUseCase()->deactivate(
-			userId: $this->userNamed( $username )->getId(),
+			userId: $member->userId,
 			performerId: $this->getTestSysop()->getUser()->getId()
 		);
 
@@ -442,18 +443,13 @@ class CodeLoginModeTest extends MediaWikiIntegrationTestCase {
 		return $provider;
 	}
 
-	private function memberNamed( string $name ): ?Member {
+	private function memberWithAddress( string $email ): ?Member {
+		$normalized = NormalizedEmail::fromString( $email );
+
+		$this->assertNotNull( $normalized );
+
 		return MemberAccessExtension::getInstance()->newMemberRepository()
-			->getMember( $this->userNamed( $name )->getId(), ReadConsistency::UpToDate );
-	}
-
-	private function userNamed( string $name ): User {
-		$user = $this->getServiceContainer()->getUserFactory()->newFromName( $name );
-
-		$this->assertNotNull( $user );
-		$user->load( IDBAccessObject::READ_LATEST );
-
-		return $user;
+			->findMemberByEmail( $normalized, ReadConsistency::UpToDate );
 	}
 
 	private function allowAnonymousAutocreation(): void {

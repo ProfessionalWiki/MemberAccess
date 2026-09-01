@@ -10,7 +10,7 @@ interface MemberRepository {
 
 	public function getMember( int $userId, ReadConsistency $consistency ): ?Member;
 
-	public function findMemberByEmail( NormalizedEmail $email ): ?Member;
+	public function findMemberByEmail( NormalizedEmail $email, ReadConsistency $consistency ): ?Member;
 
 	/**
 	 * Notes that the member logged in. Does nothing when the account is no member.
@@ -38,8 +38,8 @@ interface MemberRepository {
 	public function groupHasMembers( int $groupId ): bool;
 
 	/**
-	 * Forgets the member. The account itself is left alone: freeing the username it holds is the
-	 * other half of removing a member, and belongs to the remover.
+	 * Forgets the member. The account itself is left alone: closing it is the other half of
+	 * removing a member, and belongs to the remover.
 	 */
 	public function forgetMember( int $userId ): void;
 

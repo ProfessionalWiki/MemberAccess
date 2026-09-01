@@ -306,7 +306,7 @@ class DatabaseMemberRepositoryTest extends DatabaseRepositoryTestCase {
 	}
 
 	private function findMember( string $email ): ?Member {
-		return $this->members->findMemberByEmail( $this->normalize( $email ) );
+		return $this->members->findMemberByEmail( $this->normalize( $email ), ReadConsistency::UpToDate );
 	}
 
 	private function normalize( string $email ): NormalizedEmail {

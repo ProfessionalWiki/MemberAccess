@@ -6,23 +6,16 @@ namespace ProfessionalWiki\MemberAccess\Tests\Integration\REST;
 
 use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Deferred\DeferredUpdates;
-use MediaWiki\RenameUser\RenameuserSQL;
 use MediaWiki\Rest\ResponseInterface;
 use ProfessionalWiki\MemberAccess\Application\Member;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
-use ProfessionalWiki\MemberAccess\Application\RemovalResult;
-use ProfessionalWiki\MemberAccess\Application\RemoveMemberUseCase;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\EnterCodeRequest;
-use ProfessionalWiki\MemberAccess\EntryPoints\REST\RemoveMemberApi;
 use ProfessionalWiki\MemberAccess\MemberAccessExtension;
 use ProfessionalWiki\MemberAccess\Tests\Integration\Auth\AuthenticationProviderRegistration;
 use ProfessionalWiki\MemberAccess\Tests\Integration\Auth\CodeRequestSubmission;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\FixedSecretGenerator;
-use ProfessionalWiki\MemberAccess\Tests\TestDoubles\InMemoryMemberRepository;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\SpyEmailer;
-use ProfessionalWiki\MemberAccess\Tests\TestDoubles\SpyMemberRemover;
-use Psr\Log\NullLogger;
 use Wikimedia\ObjectCache\HashBagOStuff;
 use Wikimedia\Rdbms\IDBAccessObject;
 
@@ -66,11 +59,11 @@ class RemoveMemberApiTest extends RestApiTestCase {
 	}
 
 	/**
-	 * The roster row gone, nothing of this extension refuses the parked account a password reset
-	 * anymore, and the reset finds accounts by their address. The address has to go with the row,
-	 * or it would mail the removed member a way back in.
+	 * The roster row gone, nothing of this extension refuses the account a password reset anymore,
+	 * and the reset finds accounts by their address. The address has to go with the row, or it
+	 * would mail the removed member a way back in.
 	 */
-	public function testRemovingStripsTheAddressOffTheParkedAccount(): void {
+	public function testRemovingStripsTheAddressOffTheAccount(): void {
 		$userId = $this->newMember( $this->groupId, 'jane@example.com' );
 		$this->confirmAddressOf( $userId, 'jane@example.com' );
 
@@ -80,15 +73,16 @@ class RemoveMemberApiTest extends RestApiTestCase {
 	}
 
 	/**
-	 * The username the removed member held is what every later login with their address arrives
-	 * at, so the account has to stop holding it.
+	 * The account is left where it is: its name says nothing about the member who held it, and the
+	 * address is what a later login arrives by, which the roster row alone decides.
 	 */
-	public function testRemovedMembersAccountIsParkedUnderAReservedName(): void {
+	public function testRemovedMembersAccountKeepsTheNameItHad(): void {
 		$userId = $this->newMember( $this->groupId, 'jane@example.com' );
+		$name = $this->nameOf( $userId );
 
 		$this->removeThrough( $userId );
 
-		$this->assertSame( 'Removed member ' . $userId, $this->nameOf( $userId ) );
+		$this->assertSame( $name, $this->nameOf( $userId ) );
 	}
 
 	/**
@@ -163,60 +157,12 @@ class RemoveMemberApiTest extends RestApiTestCase {
 		$this->assertNotNull( $this->rosterRowOf( $userId ) );
 	}
 
-	public function testRefusedRenameAnswersRemovalFailed(): void {
-		$members = new InMemoryMemberRepository();
-		$members->recordMember( userId: 7, email: $this->normalizedEmail( 'jane@example.com' ), groupId: null );
-
-		$handler = new RemoveMemberApi(
-			$this->csrfTokens(),
-			new RemoveMemberUseCase(
-				members: $members,
-				remover: new SpyMemberRemover( RemovalResult::RemovalFailed ),
-				logger: new NullLogger()
-			)
-		);
-
-		$response = $this->runHandler( $handler, $this->newRequest( 'DELETE', [], [ 'userId' => '7' ] ) );
-
-		$this->assertError( 'removal_failed', 500, $response );
-	}
-
 	private function normalizedEmail( string $email ): NormalizedEmail {
 		$normalized = NormalizedEmail::fromString( $email );
 
 		$this->assertNotNull( $normalized );
 
 		return $normalized;
-	}
-
-	/**
-	 * Renaming whoever holds the name out of the way is not this endpoint's to do.
-	 */
-	public function testMemberIsKeptWhenTheReservedNameIsTaken(): void {
-		$userId = $this->newMember( $this->groupId, 'jane@example.com' );
-		$name = $this->nameOf( $userId );
-		$this->createAccountNamed( 'Removed member ' . $userId );
-
-		$response = $this->removeThrough( $userId );
-
-		$this->assertError( 'reserved_name_taken', 409, $response );
-		$this->assertNotNull( $this->rosterRowOf( $userId ) );
-		$this->assertSame( $name, $this->nameOf( $userId ) );
-	}
-
-	/**
-	 * An identity provider settles on the username of the members it admits, so one of them can
-	 * already be sitting on the name their own removal wants. Reading that as taken would leave
-	 * them unremovable.
-	 */
-	public function testMemberAlreadyUnderTheReservedNameIsStillRemoved(): void {
-		$userId = $this->newMember( $this->groupId, 'jane@example.com' );
-		$this->renameAccount( $userId, 'Removed member ' . $userId );
-
-		$response = $this->removeThrough( $userId );
-
-		$this->assertSame( 200, $response->getStatusCode() );
-		$this->assertNull( $this->rosterRowOf( $userId ) );
 	}
 
 	/**
@@ -234,23 +180,28 @@ class RemoveMemberApiTest extends RestApiTestCase {
 	}
 
 	/**
-	 * Two admitted addresses can arrive at one username, since MediaWiki drops the leading
-	 * underscore of "_alice@example.com". The first one there takes the account, and the other is
-	 * refused at every login after that. Removing the member is what frees the name again.
+	 * What a removal is for: the address is free again, and the login that follows arrives at an
+	 * account of its own rather than at the one the removed member held.
 	 */
-	public function testAddressRefusedOverAUsernameClashLogsInOnceTheMemberIsRemoved(): void {
+	public function testRemovedMembersAddressReachesANewAccountAtTheNextLogin(): void {
 		$this->admitTheDomain();
-		$this->logIn( '_alice@example.com' );
-		$squatterId = $this->idOfAccountNamed( 'Alice@example.com' );
+		$this->logIn( 'alice@example.com' );
+		$removedId = $this->idOfTheOnlyMember();
 
-		$this->assertSame( AuthenticationResponse::FAIL, $this->logIn( 'alice@example.com' )->status );
-
-		$this->removeThrough( $squatterId );
+		$this->removeThrough( $removedId );
 
 		$this->assertSame( AuthenticationResponse::PASS, $this->logIn( 'alice@example.com' )->status );
-		$freshId = $this->idOfAccountNamed( 'Alice@example.com' );
-		$this->assertNotSame( $squatterId, $freshId );
+		$freshId = $this->idOfTheOnlyMember();
+		$this->assertNotSame( $removedId, $freshId );
 		$this->assertSame( 'alice@example.com', $this->rosterRowOf( $freshId )?->email );
+	}
+
+	private function idOfTheOnlyMember(): int {
+		$members = MemberAccessExtension::getInstance()->newMemberRepository()->listMembers();
+
+		$this->assertCount( 1, $members );
+
+		return $members[0]->userId;
 	}
 
 	private function removeThrough( int $userId ): ResponseInterface {
@@ -268,15 +219,6 @@ class RemoveMemberApiTest extends RestApiTestCase {
 	private function nameOf( int $userId ): ?string {
 		return $this->getServiceContainer()->getUserIdentityLookup()
 			->getUserIdentityByUserId( $userId, IDBAccessObject::READ_LATEST )?->getName();
-	}
-
-	private function idOfAccountNamed( string $name ): int {
-		$user = $this->getServiceContainer()->getUserIdentityLookup()
-			->getUserIdentityByName( $name, IDBAccessObject::READ_LATEST );
-
-		$this->assertNotNull( $user, "there is no account named $name" );
-
-		return $user->getId();
 	}
 
 	private function sessionTokenOf( int $userId ): string {
@@ -301,24 +243,6 @@ class RemoveMemberApiTest extends RestApiTestCase {
 		$user->setEmail( $email );
 		$user->confirmEmail();
 		$user->saveSettings();
-	}
-
-	private function renameAccount( int $userId, string $name ): void {
-		$renamed = ( new RenameuserSQL(
-			(string)$this->nameOf( $userId ),
-			$name,
-			$userId,
-			$this->getTestSysop()->getUser()
-		) )->rename();
-
-		$this->assertTrue( $renamed );
-	}
-
-	private function createAccountNamed( string $name ): void {
-		$user = $this->getServiceContainer()->getUserFactory()->newFromName( $name );
-
-		$this->assertNotNull( $user );
-		$user->addToDatabase();
 	}
 
 	private function recordAsMember( int $userId, string $email ): void {

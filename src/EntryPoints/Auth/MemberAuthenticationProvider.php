@@ -11,7 +11,6 @@ use MediaWiki\Auth\AuthManager;
 use MediaWiki\Auth\PasswordAuthenticationRequest;
 use MediaWiki\Auth\TemporaryPasswordAuthenticationRequest;
 use MediaWiki\Message\Message;
-use MediaWiki\User\UserIdentity;
 use MediaWiki\User\UserIdentityLookup;
 use MediaWiki\User\UserRigorOptions;
 use ProfessionalWiki\MemberAccess\Application\AllowlistMatcher;
@@ -26,13 +25,16 @@ use ProfessionalWiki\MemberAccess\Application\MemberRepository;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
 use ProfessionalWiki\MemberAccess\Application\RequestCodeUseCase;
+use ProfessionalWiki\MemberAccess\Application\UsernameMinter;
 use ProfessionalWiki\MemberAccess\Application\VerifyCodeUseCase;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use StatusValue;
 use Wikimedia\Rdbms\IDBAccessObject;
 
 /**
- * Logs members in with a one-time code mailed to their address, which also becomes their username.
+ * Logs members in with a one-time code mailed to their address. The account the address belongs to
+ * is the one the roster names, since the account itself is named after nobody.
  *
  * A primary provider rather than a PluggableAuth plugin, because only core's newUI loop can ask for
  * the code and come back to the same provider with the login still in progress. Other primaries
@@ -58,6 +60,7 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 		private readonly AllowlistMatcher $matcher,
 		private readonly MemberRepository $members,
 		private readonly MemberProvisioner $provisioner,
+		private readonly UsernameMinter $minter,
 		private readonly UserIdentityLookup $userLookup,
 		private readonly LoggerInterface $auditLogger,
 		private readonly CodeLifetime $codeLifetime
@@ -229,8 +232,8 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	}
 
 	/**
-	 * The address is proven at this point. What remains is whether it is still admitted, and
-	 * whether the account it maps to is really this member's.
+	 * The address is proven at this point. What remains is whether it is still admitted, and which
+	 * account it belongs to.
 	 *
 	 * The allowlist is asked whatever the route admits, since a matching entry is what attributes a
 	 * member to a group. On an open route, an address no entry matches is admitted without one.
@@ -247,24 +250,42 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 			return AuthenticationResponse::newFail( wfMessage( 'memberaccess-auth-not-authorized' ) );
 		}
 
-		$username = $this->usernameFor( $email );
+		$member = $this->members->findMemberByEmail( $email, ReadConsistency::UpToDate );
+
+		if ( $member === null ) {
+			return $this->admitToANewAccount( $email, $group );
+		}
+
+		$username = $this->nameOfAccount( $member->userId );
 
 		if ( $username === null ) {
-			return $this->refuse( 'Proven address cannot be used as a username', $email );
+			return $this->refuse( 'The roster names an account that is no longer there', $email );
 		}
 
-		$account = $this->registeredAccountNamed( $username );
+		$this->attributeToGroup( $member, $group );
 
-		if ( $account !== null ) {
-			$member = $this->members->getMember( $account->getId(), ReadConsistency::UpToDate );
+		return $this->pass( $username, $email, $group );
+	}
 
-			if ( $member?->email !== $email->value ) {
-				return $this->refuse( 'Derived username belongs to another account', $email );
-			}
-
-			$this->attributeToGroup( $member, $group );
+	/**
+	 * An address the roster has never heard of gets an account of its own, under a name that says
+	 * nothing about who holds it. Whatever else the wiki has an account for is left alone: a code
+	 * proves a mailbox, and what the roster does not join to that mailbox is not this route's.
+	 *
+	 * A name that cannot be minted refuses the login: a proven address is worth nothing without an
+	 * account to open under it, and letting the failure out would answer it with an error page.
+	 */
+	private function admitToANewAccount( NormalizedEmail $email, ?MemberGroup $group ): AuthenticationResponse {
+		try {
+			$username = $this->minter->mintUsername();
+		} catch ( RuntimeException ) {
+			return $this->refuse( 'No name could be minted for a new member account', $email );
 		}
 
+		return $this->pass( $username, $email, $group );
+	}
+
+	private function pass( string $username, NormalizedEmail $email, ?MemberGroup $group ): AuthenticationResponse {
 		$this->manager->setAuthenticationSessionData(
 			self::PROVISIONING_SESSION_KEY,
 			( new PendingProvisioning( username: $username, email: $email, groupId: $group?->id ) )->toSessionData()
@@ -274,14 +295,6 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 		return AuthenticationResponse::newPass( $username );
 	}
 
-	/**
-	 * The address in its MediaWiki username form: lowercased, first letter capitalised, and put
-	 * through title normalisation, which turns underscores into spaces.
-	 */
-	private function usernameFor( NormalizedEmail $email ): ?string {
-		return $this->canonicalNameOf( $email->value );
-	}
-
 	private function canonicalNameOf( string $username ): ?string {
 		$canonical = $this->userNameUtils->getCanonical( $username, UserRigorOptions::RIGOR_USABLE );
 
@@ -289,17 +302,11 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	}
 
 	/**
-	 * The account the username already names, if any. Read as recently as the account itself was
-	 * written, or a member provisioned moments ago looks like somebody else's account and is
-	 * turned away.
-	 *
-	 * An address proves a mailbox, never an account that was made some other way, so what makes
-	 * such an account this member's is the roster saying the two belong together.
+	 * Read as recently as the account itself was written, or a member provisioned moments ago is
+	 * not there yet and their address would be given a second account.
 	 */
-	private function registeredAccountNamed( string $username ): ?UserIdentity {
-		$user = $this->userLookup->getUserIdentityByName( $username, IDBAccessObject::READ_LATEST );
-
-		return $user !== null && $user->isRegistered() ? $user : null;
+	private function nameOfAccount( int $userId ): ?string {
+		return $this->userLookup->getUserIdentityByUserId( $userId, IDBAccessObject::READ_LATEST )?->getName();
 	}
 
 	/**

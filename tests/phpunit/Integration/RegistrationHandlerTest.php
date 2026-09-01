@@ -6,13 +6,19 @@ namespace ProfessionalWiki\MemberAccess\Tests\Integration;
 
 use MediaWiki\Permissions\Authority;
 use MediaWikiIntegrationTestCase;
+use ProfessionalWiki\MemberAccess\Application\AllowlistValue;
+use ProfessionalWiki\MemberAccess\Application\OpaqueUsername;
 use ProfessionalWiki\MemberAccess\EntryPoints\RegistrationHandler;
+use ProfessionalWiki\MemberAccess\MemberAccessExtension;
 
 /**
  * @group Database
  * @covers \ProfessionalWiki\MemberAccess\EntryPoints\RegistrationHandler
  */
 class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
+
+	private const SSO_EMAIL_PROCESSOR = 'wgOpenIDConnect_EmailProcessor';
+	private const SSO_USERNAME_PROCESSOR = 'wgOpenIDConnect_PreferredUsernameProcessor';
 
 	private const REVOKED_FROM_READERS = [
 		'edit',
@@ -43,10 +49,10 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * extension.json has to name the callback for any of what follows to reach a wiki. Nothing else
-	 * takes "@" out of the invalid username characters.
+	 * closes the new user log.
 	 */
 	public function testLoadingTheExtensionAppliesItsSettings(): void {
-		$this->assertStringNotContainsString( '@', $GLOBALS['wgInvalidUsernameCharacters'] );
+		$this->assertSame( 'memberaccess-manage', $GLOBALS['wgLogRestrictions']['newusers'] ?? null );
 	}
 
 	/**
@@ -157,7 +163,24 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider everyRouteStateProvider
 	 */
-	public function testAddressesAreAcceptableUsernames(
+	public function testRenamesAreKeptOutOfTheReadableRenameLog(
+		string $codeLogin,
+		bool $allowlistAppliesToSso
+	): void {
+		$this->setMwGlobals( 'wgLogRestrictions', [] );
+
+		$this->registerWithRoutes( $codeLogin, $allowlistAppliesToSso );
+
+		$this->assertSame( 'memberaccess-manage', $GLOBALS['wgLogRestrictions']['renameuser'] ?? null );
+	}
+
+	/**
+	 * A member's name is minted rather than made out of their address, so what a username may hold
+	 * is the wiki's own business again.
+	 *
+	 * @dataProvider everyRouteStateProvider
+	 */
+	public function testWhatAUsernameMayHoldIsLeftAsTheWikiHasIt(
 		string $codeLogin,
 		bool $allowlistAppliesToSso
 	): void {
@@ -165,13 +188,47 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 
 		$this->registerWithRoutes( $codeLogin, $allowlistAppliesToSso );
 
-		$this->assertSame( ':', $GLOBALS['wgInvalidUsernameCharacters'] );
+		$this->assertSame( '@:', $GLOBALS['wgInvalidUsernameCharacters'] );
+	}
+
+	/**
+	 * update.php records its renames as an account of its own, stealing the name if the wiki has one
+	 * of it. Reserving the name is what keeps a real account from being there to steal.
+	 *
+	 * @dataProvider everyRouteStateProvider
+	 */
+	public function testTheAccountTheRenamesAreRecordedAsIsReserved(
+		string $codeLogin,
+		bool $allowlistAppliesToSso
+	): void {
+		$this->registerWithRoutes( $codeLogin, $allowlistAppliesToSso );
+
+		$this->assertContains( 'MemberAccess', $GLOBALS['wgReservedUsernames'] );
+	}
+
+	public function testReservingItLeavesTheNamesTheWikiReservedAlone(): void {
+		$this->setMwGlobals( 'wgReservedUsernames', [ 'Maintenance script' ] );
+
+		$this->registerWithRoutes( 'off', false );
+
+		$this->assertSame( [ 'Maintenance script', 'MemberAccess' ], $GLOBALS['wgReservedUsernames'] );
+	}
+
+	public function testTheNameIsNotReservedTwiceWhenTheExtensionIsRegisteredAgain(): void {
+		$this->registerWithRoutes( 'off', false );
+
+		$this->registerWithRoutes( 'off', false );
+
+		$this->assertSame( [ 'MemberAccess' ], array_values( array_filter(
+			$GLOBALS['wgReservedUsernames'],
+			static fn ( string $name ): bool => $name === 'MemberAccess'
+		) ) );
 	}
 
 	/**
 	 * @dataProvider everyRouteStateProvider
 	 */
-	public function testUserRightsCanTargetAnAccountNamedAfterAnAddress(
+	public function testUserRightsReadsNamesAsTheWikiHasItRead(
 		string $codeLogin,
 		bool $allowlistAppliesToSso
 	): void {
@@ -179,15 +236,115 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 
 		$this->registerWithRoutes( $codeLogin, $allowlistAppliesToSso );
 
-		$this->assertSame( '@@', $GLOBALS['wgUserrightsInterwikiDelimiter'] );
+		$this->assertSame( '@', $GLOBALS['wgUserrightsInterwikiDelimiter'] );
 	}
 
-	public function testUserRightsDelimiterThatCannotClashIsLeftAlone(): void {
-		$this->setMwGlobals( 'wgUserrightsInterwikiDelimiter', '#' );
+	/**
+	 * A single sign-on login the allowlist admits is named by the extension rather than by the
+	 * identity provider's plugin, which OpenIDConnect asks this for.
+	 */
+	public function testSingleSignOnHeldToTheAllowlistIsNamedByTheExtension(): void {
+		$this->allow( '@example.com' );
 
-		$this->registerWithRoutes( 'allowlisted', true );
+		$this->registerWithRoutes( 'off', true );
 
-		$this->assertSame( '#', $GLOBALS['wgUserrightsInterwikiDelimiter'] );
+		$this->assertTrue( OpaqueUsername::isOpaque( (string)$this->nameFor( 'jane@example.com' ) ) );
+	}
+
+	public function testSingleSignOnTheAllowlistDoesNotGovernIsNamedAsTheWikiHasIt(): void {
+		$this->registerWithRoutes( 'allowlisted', false );
+
+		$this->assertNull( $GLOBALS[self::SSO_USERNAME_PROCESSOR] );
+	}
+
+	/**
+	 * A processor the wiki configured itself decides the name of every login the extension has no
+	 * member to name.
+	 */
+	public function testProcessorTheWikiConfiguredIsKept(): void {
+		$this->setMwGlobals(
+			self::SSO_USERNAME_PROCESSOR,
+			static fn ( ?string $preferredUsername, array $attributes ): string => 'The wiki\'s choice'
+		);
+
+		$this->registerWithRoutes( 'off', true );
+
+		$this->assertSame(
+			'The wiki\'s choice',
+			( $GLOBALS[self::SSO_USERNAME_PROCESSOR] )( 'The plugin\'s choice', [] )
+		);
+	}
+
+	/**
+	 * The address the plugin resolved is not always in the claims a processor is handed, so it is
+	 * taken where the plugin has it: from the say it offers over that address, which it asks before
+	 * asking what to name the account.
+	 */
+	public function testLoginIsNamedByTheAddressTheProviderResolvedRatherThanTheClaims(): void {
+		$this->allow( '@example.com' );
+		$this->registerWithRoutes( 'off', true );
+
+		( $GLOBALS[self::SSO_EMAIL_PROCESSOR] )( 'jane@example.com', [] );
+
+		$this->assertTrue( OpaqueUsername::isOpaque( (string)$this->nameFor( null ) ) );
+	}
+
+	public function testSingleSignOnTheAllowlistDoesNotGovernResolvesAddressesAsTheWikiHasIt(): void {
+		$this->registerWithRoutes( 'allowlisted', false );
+
+		$this->assertNull( $GLOBALS[self::SSO_EMAIL_PROCESSOR] );
+	}
+
+	/**
+	 * An address processor the wiki configured itself runs first, and what it returns is what the
+	 * plugin goes on with, so both are held to one idea of the address a login carries.
+	 */
+	public function testAddressProcessorTheWikiConfiguredDecidesTheAddressThePluginIsHandedBack(): void {
+		$this->setMwGlobals(
+			self::SSO_EMAIL_PROCESSOR,
+			static fn ( ?string $email, array $attributes ): string => 'jane@example.com'
+		);
+
+		$this->registerWithRoutes( 'off', true );
+
+		$this->assertSame( 'jane@example.com', ( $GLOBALS[self::SSO_EMAIL_PROCESSOR] )( 'jane@other.example', [] ) );
+	}
+
+	public function testAddressProcessorTheWikiConfiguredDecidesWhichLoginsAreMembers(): void {
+		$this->allow( '@example.com' );
+		$this->setMwGlobals(
+			self::SSO_EMAIL_PROCESSOR,
+			static fn ( ?string $email, array $attributes ): string => 'jane@example.com'
+		);
+		$this->registerWithRoutes( 'off', true );
+
+		( $GLOBALS[self::SSO_EMAIL_PROCESSOR] )( 'jane@other.example', [] );
+
+		$this->assertTrue( OpaqueUsername::isOpaque( (string)$this->nameFor( null ) ) );
+	}
+
+	/**
+	 * The name the wrapped processors settle on for a login carrying the given address in its
+	 * claims, which is what OpenIDConnect creates the account under.
+	 */
+	private function nameFor( ?string $emailClaim ): ?string {
+		return ( $GLOBALS[self::SSO_USERNAME_PROCESSOR] )(
+			'Jane of Acme',
+			$emailClaim === null ? [] : [ 'email' => $emailClaim ]
+		);
+	}
+
+	private function allow( string $value ): void {
+		$extension = MemberAccessExtension::getInstance();
+		$allowlistValue = AllowlistValue::fromString( $value );
+
+		$this->assertNotNull( $allowlistValue );
+
+		$extension->newAllowlistRepository()->addEntry(
+			groupId: $extension->newMemberGroupRepository()->createGroup( 'Acme' )->id,
+			value: $allowlistValue,
+			actorId: 1
+		);
 	}
 
 	/**
@@ -391,9 +548,19 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 			'wgGroupPermissions' => $GLOBALS['wgGroupPermissions'],
 			'wgInvalidUsernameCharacters' => $GLOBALS['wgInvalidUsernameCharacters'],
 			'wgLogRestrictions' => $GLOBALS['wgLogRestrictions'],
+			// OpenIDConnect is an optional companion, so the wiki may well not have these settings.
+			self::SSO_EMAIL_PROCESSOR => $GLOBALS[self::SSO_EMAIL_PROCESSOR] ?? null,
+			self::SSO_USERNAME_PROCESSOR => $GLOBALS[self::SSO_USERNAME_PROCESSOR] ?? null,
+			'wgReservedUsernames' => $GLOBALS['wgReservedUsernames'],
 			'wgRevokePermissions' => $GLOBALS['wgRevokePermissions'],
 			'wgUserrightsInterwikiDelimiter' => $GLOBALS['wgUserrightsInterwikiDelimiter']
 		] );
+	}
+
+	protected function tearDown(): void {
+		MemberAccessExtension::getInstance()->recordSsoAddress( null );
+
+		parent::tearDown();
 	}
 
 	private function registerWithRoutes( string $codeLogin, mixed $allowlistAppliesToSso ): void {

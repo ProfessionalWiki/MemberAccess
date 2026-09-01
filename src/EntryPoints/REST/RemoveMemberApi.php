@@ -23,8 +23,8 @@ class RemoveMemberApi extends MemberAccessApiHandler {
 	}
 
 	/**
-	 * Removing renames the account and drops its sessions, which done to your own account is a
-	 * locked door with the key on the inside.
+	 * Removing drops the account's sessions, which done to your own account is a locked door with
+	 * the key on the inside.
 	 */
 	private function refuse( int $userId ): ?Response {
 		if ( $userId === $this->performerId() ) {
@@ -48,16 +48,6 @@ class RemoveMemberApi extends MemberAccessApiHandler {
 				'not_a_member',
 				'That account was not admitted through the allowlist',
 				404
-			),
-			RemovalResult::ReservedNameTaken => $this->newErrorResponse(
-				'reserved_name_taken',
-				'The name a removed member\'s account is parked under is held by another account',
-				409
-			),
-			RemovalResult::RemovalFailed => $this->newErrorResponse(
-				'removal_failed',
-				'The member was left as they were because their account could not be renamed',
-				500
 			)
 		};
 	}

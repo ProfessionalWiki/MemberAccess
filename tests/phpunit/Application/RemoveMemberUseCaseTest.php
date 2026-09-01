@@ -46,12 +46,12 @@ class RemoveMemberUseCaseTest extends TestCase {
 		$this->assertSame( RemovalResult::Removed, $result );
 	}
 
-	public function testRemovalIsAttributedToTheActingAdmin(): void {
+	public function testMembersAccountIsHandedToTheRemover(): void {
 		$remover = new SpyMemberRemover();
 
 		$this->newUseCase( $remover )->remove( self::MEMBER_ID, self::ADMIN_ID );
 
-		$this->assertSame( self::ADMIN_ID, $remover->performerWhoRemoved( self::MEMBER_ID ) );
+		$this->assertTrue( $remover->hasRemoved( self::MEMBER_ID ) );
 	}
 
 	/**
@@ -66,6 +66,12 @@ class RemoveMemberUseCaseTest extends TestCase {
 		$this->assertSame( RemovalResult::Removed, $result );
 	}
 
+	public function testAccountThatIsNoMemberIsNotLogged(): void {
+		$this->newUseCase( new SpyMemberRemover() )->remove( self::OUTSIDER_ID, self::ADMIN_ID );
+
+		$this->assertSame( [], $this->logger->getEntries() );
+	}
+
 	public function testAccountThatIsNoMemberIsRefused(): void {
 		$result = $this->newUseCase( new SpyMemberRemover() )->remove( self::OUTSIDER_ID, self::ADMIN_ID );
 
@@ -73,35 +79,21 @@ class RemoveMemberUseCaseTest extends TestCase {
 	}
 
 	/**
-	 * Renaming an account the allowlist never admitted is not this endpoint's to do, whatever
-	 * else that account may be.
+	 * An account the allowlist never admitted is not this endpoint's to close, whatever else that
+	 * account may be.
 	 */
 	public function testAccountThatIsNoMemberIsLeftAlone(): void {
 		$remover = new SpyMemberRemover();
 
 		$this->newUseCase( $remover )->remove( self::OUTSIDER_ID, self::ADMIN_ID );
 
-		$this->assertNull( $remover->performerWhoRemoved( self::OUTSIDER_ID ) );
+		$this->assertFalse( $remover->hasRemoved( self::OUTSIDER_ID ) );
 	}
 
 	public function testRemovalIsLoggedWithoutTheAddress(): void {
 		$this->newUseCase( new SpyMemberRemover() )->remove( self::MEMBER_ID, self::ADMIN_ID );
 
 		$this->assertNotSame( '', $this->logger->getLog() );
-		$this->assertStringNotContainsString( self::EMAIL, $this->logger->getLog() );
-	}
-
-	public function testFailedRemovalIsLoggedAsAnError(): void {
-		$this->newUseCase( new SpyMemberRemover( RemovalResult::RemovalFailed ) )
-			->remove( self::MEMBER_ID, self::ADMIN_ID );
-
-		$this->assertNotSame( [], $this->logger->getEntriesAtLevel( 'error' ) );
-	}
-
-	public function testFailedRemovalIsLoggedWithoutTheAddress(): void {
-		$this->newUseCase( new SpyMemberRemover( RemovalResult::RemovalFailed ) )
-			->remove( self::MEMBER_ID, self::ADMIN_ID );
-
 		$this->assertStringNotContainsString( self::EMAIL, $this->logger->getLog() );
 	}
 

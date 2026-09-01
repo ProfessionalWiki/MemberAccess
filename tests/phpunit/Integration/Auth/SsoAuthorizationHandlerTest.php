@@ -23,6 +23,15 @@ use ProfessionalWiki\MemberAccess\Tests\TestDoubles\SpyLogger;
  */
 class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 
+	/**
+	 * The name the identity provider's plugin is about to create the account under, which for a
+	 * member is the opaque one the extension minted for that login.
+	 * {@see \ProfessionalWiki\MemberAccess\EntryPoints\Auth\SsoUsernameProcessor}
+	 */
+	private const string MINTED_NAME = 'Member AB2345';
+
+	private const string PLUGIN_NAME = 'Jane of Acme';
+
 	private SpyLogger $logger;
 
 	protected function setUp(): void {
@@ -50,15 +59,104 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * The account is created by the identity provider's plugin, under a name of its choosing, which
-	 * is rarely the address. Provisioning has to recognise the account by that name.
+	 * The account is created by the identity provider's plugin, under the name settled on before
+	 * this runs. Provisioning has to recognise the account by that name.
 	 */
 	public function testNewIdentityIsMarkedForProvisioningUnderTheNameItsAccountWillHave(): void {
 		$this->allow( '@example.com' );
 
 		$this->authorize( $this->newIdentity( 'jane@example.com' ) );
 
-		$this->assertSame( 'SsoNewcomer', $this->pendingProvisioning()?->username );
+		$this->assertSame( self::MINTED_NAME, $this->pendingProvisioning()?->username );
+	}
+
+	/**
+	 * OpenIDConnect asks the extension what to name an account it is about to create, and is given
+	 * a name that identifies nobody. A plugin that offers no such say would create the account
+	 * under a name of its own, which is what every account listing would then show, so the login is
+	 * refused rather than admitted and lived with.
+	 */
+	public function testNewIdentityToBeNamedByItsPluginIsRefused(): void {
+		$this->allow( '@example.com' );
+
+		$this->assertFalse( $this->authorize( $this->identityNamed( self::PLUGIN_NAME, 'jane@example.com' ) ) );
+	}
+
+	public function testRefusalOfAnIdentifyingNameIsRecordedAsAWarning(): void {
+		$this->allow( '@example.com' );
+
+		$this->authorize( $this->identityNamed( self::PLUGIN_NAME, 'jane@example.com' ) );
+
+		$this->assertCount( 1, $this->logger->getEntriesAtLevel( 'warning' ) );
+	}
+
+	public function testRefusalOfAnIdentifyingNameIsRecordedWithoutTheAddress(): void {
+		$this->allow( '@example.com' );
+
+		$this->authorize( $this->identityNamed( self::PLUGIN_NAME, 'jane@example.com' ) );
+
+		$this->assertStringNotContainsString( 'jane@example.com', $this->logger->getLog() );
+	}
+
+	/**
+	 * A plugin that never handed the extension the address could not have known the login was a
+	 * member's while it settled on the name, which is a different thing to put right from a plugin
+	 * that was handed it and named the account anyway.
+	 */
+	public function testRefusalSaysSoWhenNoAddressReachedTheExtensionWhileTheAccountWasNamed(): void {
+		$this->allow( '@example.com' );
+
+		$this->authorizeThrough( $this->newHandler(), $this->identityNamed( self::PLUGIN_NAME, 'jane@example.com' ) );
+
+		$this->assertStringContainsString(
+			'the extension was given no address while the account was being named',
+			$this->logger->getLog()
+		);
+	}
+
+	public function testRefusalSaysSoWhenThePluginNamedTheAccountDespiteHavingTheAddress(): void {
+		$this->allow( '@example.com' );
+
+		$this->authorizeThrough(
+			$this->newHandlerGivenTheAddress( 'jane@example.com' ),
+			$this->identityNamed( self::PLUGIN_NAME, 'jane@example.com' )
+		);
+
+		$this->assertStringContainsString(
+			'a name that identifies its holder',
+			$this->logger->getLog()
+		);
+	}
+
+	public function testIdentityRefusedOverItsNameIsNotMarkedForProvisioning(): void {
+		$this->allow( '@example.com' );
+
+		$this->authorize( $this->identityNamed( self::PLUGIN_NAME, 'jane@example.com' ) );
+
+		$this->assertNull( $this->pendingProvisioning() );
+	}
+
+	public function testRefusalOverANameStopsTheOtherHandlersOfTheHook(): void {
+		$this->allow( '@example.com' );
+
+		$authorized = true;
+		$continue = $this->newHandler()->onPluggableAuthUserAuthorization(
+			$this->identityNamed( self::PLUGIN_NAME, 'jane@example.com' ),
+			$authorized
+		);
+
+		$this->assertFalse( $continue );
+	}
+
+	/**
+	 * Staff are no members, so their account keeps the name their plugin settled on.
+	 */
+	public function testAccountThatIsNoMemberKeepsAPluginChosenNameAndIsAdmitted(): void {
+		$this->allow( '@example.com' );
+		$staff = $this->existingUserNamed( self::PLUGIN_NAME, 'staff@other.example' );
+
+		$this->assertTrue( $this->authorize( $staff ) );
+		$this->assertSame( self::PLUGIN_NAME, $staff->getName() );
 	}
 
 	public function testNewIdentityWithAnAddressThatIsNotAdmittedIsRefused(): void {
@@ -129,7 +227,7 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * An account holding the reader group without a roster row is one the allowlist once created
-	 * and has since forgotten: a removed member's parked account, or one left behind by a failed
+	 * and has since forgotten: a removed member's closed account, or one left behind by a failed
 	 * provisioning. An identity provider that recorded the account can hand its logins back to it
 	 * for good, so admitting it as staff would put a forgotten account permanently outside the
 	 * allowlist.
@@ -153,10 +251,10 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * The account a removal parks keeps the reader group on purpose: it is what marks the account
+	 * The account a removal closes keeps the reader group on purpose: it is what marks the account
 	 * as one of ours, and what an identity provider that still points at it is refused by.
 	 */
-	public function testRemovedMembersParkedAccountIsRefused(): void {
+	public function testRemovedMembersClosedAccountIsRefused(): void {
 		$this->allow( '@example.com' );
 		$member = $this->existingMember( 'jane@example.com' );
 		$this->addToReaderGroup( $member );
@@ -166,9 +264,9 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 			$this->getTestSysop()->getUser()->getId()
 		);
 
-		$parked = $this->getServiceContainer()->getUserFactory()->newFromId( $member->getId() );
+		$closed = $this->getServiceContainer()->getUserFactory()->newFromId( $member->getId() );
 
-		$this->assertFalse( $this->authorize( $parked ) );
+		$this->assertFalse( $this->authorize( $closed ) );
 	}
 
 	public function testMemberWhoseAddressIsNoLongerAdmittedIsRefused(): void {
@@ -321,10 +419,18 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	private function newHandler(): SsoAuthorizationHandler {
-		return $this->newHandlerWith( allowlistApplies: true );
+		return $this->newHandlerWith( allowlistApplies: true, resolvedAddress: null );
 	}
 
-	private function newHandlerWith( bool $allowlistApplies ): SsoAuthorizationHandler {
+	/**
+	 * As the handler is built for a login whose address reached the extension while the account was
+	 * being named, which is what OpenIDConnect hands it.
+	 */
+	private function newHandlerGivenTheAddress( string $address ): SsoAuthorizationHandler {
+		return $this->newHandlerWith( allowlistApplies: true, resolvedAddress: $address );
+	}
+
+	private function newHandlerWith( bool $allowlistApplies, ?string $resolvedAddress ): SsoAuthorizationHandler {
 		$extension = MemberAccessExtension::getInstance();
 
 		return new SsoAuthorizationHandler(
@@ -334,6 +440,7 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 			userGroups: $this->getServiceContainer()->getUserGroupManager(),
 			authManager: $this->getServiceContainer()->getAuthManager(),
 			logger: $this->logger,
+			resolvedAddress: $resolvedAddress,
 			readerGroup: 'reader'
 		);
 	}
@@ -343,7 +450,10 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	private function authorizeWithoutTheAllowlist( User $user ): bool {
-		return $this->authorizeThrough( $this->newHandlerWith( allowlistApplies: false ), $user );
+		return $this->authorizeThrough(
+			$this->newHandlerWith( allowlistApplies: false, resolvedAddress: null ),
+			$user
+		);
 	}
 
 	private function authorizeThrough( SsoAuthorizationHandler $handler, User $user ): bool {
@@ -359,7 +469,11 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 	 * the way its plugin decided, carrying the address the identity provider vouched for.
 	 */
 	private function newIdentity( string $email ): User {
-		$user = $this->getServiceContainer()->getUserFactory()->newFromName( 'SsoNewcomer' );
+		return $this->identityNamed( self::MINTED_NAME, $email );
+	}
+
+	private function identityNamed( string $name, string $email ): User {
+		$user = $this->getServiceContainer()->getUserFactory()->newFromName( $name );
 
 		$this->assertNotNull( $user );
 		$user->setEmail( $email );
@@ -369,6 +483,17 @@ class SsoAuthorizationHandlerTest extends MediaWikiIntegrationTestCase {
 
 	private function existingUser( string $email ): User {
 		$user = $this->getMutableTestUser()->getUser();
+		$user->setEmail( $email );
+		$user->saveSettings();
+
+		return $user;
+	}
+
+	private function existingUserNamed( string $name, string $email ): User {
+		$user = $this->getServiceContainer()->getUserFactory()->newFromName( $name );
+
+		$this->assertNotNull( $user );
+		$user->addToDatabase();
 		$user->setEmail( $email );
 		$user->saveSettings();
 
