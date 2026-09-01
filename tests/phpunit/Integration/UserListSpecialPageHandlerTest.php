@@ -49,6 +49,16 @@ class UserListSpecialPageHandlerTest extends ApiTestCase {
 	}
 
 	/**
+	 * Special:UserRights answers a numeric user ID with that account's name and its groups, before
+	 * it asks whether the reader may change anything, so walking IDs names every member there too.
+	 */
+	public function testMemberCannotResolveAnAccountThroughUserRights(): void {
+		$this->expectException( PermissionsError::class );
+
+		$this->openAsMember( 'Userrights', '#' . $this->newMember()->getId() );
+	}
+
+	/**
 	 * Its form resolves an account without a subpage to match on, so the page is closed whole.
 	 */
 	public function testMemberCannotOpenTheRedirectFormItself(): void {
@@ -67,7 +77,7 @@ class UserListSpecialPageHandlerTest extends ApiTestCase {
 	public function testAccountsOutsideTheReaderGroupKeepTheUserList(): void {
 		$member = $this->newMember();
 
-		$html = $this->open( 'Listusers', $this->getTestSysop()->getAuthority() );
+		$html = $this->open( 'Listusers', $this->getTestUser()->getUser() );
 
 		$this->assertStringContainsString( $member->getName(), $html );
 	}
@@ -100,14 +110,29 @@ class UserListSpecialPageHandlerTest extends ApiTestCase {
 	}
 
 	/**
-	 * The output of a transclusion lands in the shared parser cache, so a parse asked for by
-	 * someone who may see the roster is served to the members who read that page afterwards.
+	 * The refusal is not held to the reader group, since a page's rendered text is also produced by
+	 * parses nobody asked for: secondary data updates and search index builds parse as an anonymous
+	 * user, and a check on the group would let the roster through into those.
 	 */
 	public function testTranscludedUserListNamesNoAccountToAnAdmin(): void {
 		$member = $this->newMember();
 
 		$html = $this->parseAs( '{{Special:Listusers}}', $this->getTestSysop()->getAuthority() );
 
+		$this->assertStringNotContainsString( $member->getName(), $html );
+	}
+
+	/**
+	 * Refusing the inclusion by exception would end the parse of the whole page holding it, so it
+	 * renders empty instead.
+	 */
+	public function testAPageTranscludingTheUserListRendersWithoutIt(): void {
+		$member = $this->newMember();
+
+		$html = $this->parseAs( 'before {{Special:Listusers}} after', $member );
+
+		$this->assertStringContainsString( 'before', $html );
+		$this->assertStringContainsString( 'after', $html );
 		$this->assertStringNotContainsString( $member->getName(), $html );
 	}
 

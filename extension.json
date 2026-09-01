@@ -151,8 +151,8 @@
 			"description": "Names of action API query submodules the reader group may not use."
 		},
 		"MemberAccessBlockedSpecialPages": {
-			"value": [ "Listusers", "Activeusers", "BlockList", "Redirect" ],
-			"description": "Canonical names of special pages the reader group may not open, and that nobody may transclude."
+			"value": [ "Listusers", "Activeusers", "BlockList", "Redirect", "Userrights" ],
+			"description": "Canonical names of special pages the reader group may not open."
 		}
 	},
 	"RestRoutes": [
