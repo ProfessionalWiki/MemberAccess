@@ -12,6 +12,8 @@ use ProfessionalWiki\MemberAccess\Application\CodeMailer;
 use ProfessionalWiki\MemberAccess\Application\DisplayedCode;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use Psr\Log\LoggerInterface;
+use StatusValue;
+use Wikimedia\Message\MessageSpecifier;
 
 class MediaWikiCodeMailer implements CodeMailer {
 
@@ -55,9 +57,23 @@ class MediaWikiCodeMailer implements CodeMailer {
 		if ( !$status->isGood() ) {
 			$this->logger->warning( 'Sending a login code failed', [
 				'email' => $email->hash(),
-				'status' => $status->__toString()
+				'reasons' => self::reasonsFor( $status )
 			] );
 		}
+	}
+
+	/**
+	 * Why the mail was refused, as message keys alone. A rendered status carries whatever the mail
+	 * transport said, and a server refusing an address usually says it back, which would put the
+	 * address in the log the hash above keeps it out of.
+	 *
+	 * @return string[]
+	 */
+	private static function reasonsFor( StatusValue $status ): array {
+		return array_map(
+			static fn ( MessageSpecifier $message ): string => $message->getKey(),
+			$status->getMessages()
+		);
 	}
 
 	/**
