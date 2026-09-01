@@ -113,14 +113,19 @@ address hashed.
 ### The roster
 
 A member's username is their email address, so anything that names accounts names the roster. The
-action API query modules whose purpose is enumerating accounts are closed to the reader group, and
-three logs are closed to anyone who cannot manage members: the new user log, where every member's
-account creation is recorded, the block log, where every deactivation is, and the rename log, which
-names what a removed member was called. Restricting a log type also keeps it out of recent changes.
+action API modules that list or resolve accounts are closed to the reader group, and three logs are
+closed to anyone who cannot manage members: the new user log, where every member's account creation
+is recorded, the block log, where every deactivation is, and the rename log, which names what a
+removed member was called. Restricting a log type also keeps it out of recent changes.
 The special pages that list or resolve accounts are closed to the reader group as well, and
 transcluding `Special:ListUsers` renders it empty for everyone, since what a transclusion renders
 is not kept to the reader who asked for it. `Special:Redirect` is closed whole, so members lose its
 other lookups too, and `Special:FilePath`, which redirects through it.
+
+Completing a username, as the search box does for `Special:Contributions/…` and pages like it, answers
+a member with nothing. `Special:Contributions` and `Special:ListFiles` still tell a member whether one
+named account exists, and so does the action API's `userrights` token check; adding `Contributions` and
+`Listfiles` to `$wgMemberAccessBlockedSpecialPages` closes those two, at the cost of the pages themselves.
 
 Page histories and recent changes still name whoever acted, which on a members-only wiki means the
 staff who edit: members cannot appear there, since they cannot change anything.
@@ -176,9 +181,11 @@ Whatever the login routes are set to, loading the extension:
   the wiki already restricted them;
 * refuses members a password, whatever the routes: setting one and having a temporary one mailed
   stay refused;
-* closes the account-listing API modules to the reader group;
+* closes the API modules that list or resolve accounts to the reader group;
 * closes the special pages that list or resolve accounts to the reader group, and transcluding
   `Special:ListUsers` to everyone;
+* stops completing usernames for the reader group;
+* sets `$wgSearchSuggestCacheExpiry` to `0`, since search suggestions now differ by reader;
 * removes `@` from `$wgInvalidUsernameCharacters`, and changes `$wgUserrightsInterwikiDelimiter` from
   `@` to `@@`, so that staff can use `Special:UserRights` on an account named after an address.
 
@@ -308,7 +315,7 @@ than this one.
 | `$wgMemberAccessIpDailyLimit` | int | `50` | Maximum code requests per client IP within 24 hours |
 | `$wgMemberAccessSenderAddress` | ?string | `null` | Address login codes are sent from. Falls back to `$wgPasswordSender` |
 | `$wgMemberAccessSessionDurationSeconds` | int | `2592000` | How long a remembered login lasts, wiki-wide. Thirty days, against core's 180 days. `0` leaves `$wgExtendedLoginCookieExpiration` alone |
-| `$wgMemberAccessBlockedApiModules` | string[] | `[ 'allusers', 'users', 'blocks' ]` | Action API query submodules the reader group may not use |
+| `$wgMemberAccessBlockedApiModules` | string[] | `[ 'allusers', 'users', 'blocks', 'feedcontributions', 'validatepassword', 'emailuser', 'userrights' ]` | Action API modules the reader group may not use, top-level actions and query submodules alike. Setting it adds to the shipped list rather than replacing it |
 | `$wgMemberAccessBlockedSpecialPages` | string[] | `[ 'Listusers', 'Activeusers', 'BlockList', 'Redirect', 'Userrights' ]` | Special pages the reader group may not open. Canonical names; an alias does not match. Setting it adds to the shipped list rather than replacing it, so those pages cannot be dropped |
 
 Issued codes and rate-limit counters are held in the main object stash (`$wgMainStash`), which is
@@ -367,8 +374,8 @@ Initial version for MediaWiki 1.43+ with these features:
   removal frees their address for a new account
 * Code requests rate limited per email address and per client IP, with a burst and a daily limit,
   and codes stored hashed and burned after five wrong entries
-* Uniform responses, restricted account-listing API modules and special pages, and restricted new
-  user, block and rename logs, so the member list is not given away
+* Uniform responses, restricted API modules and special pages that list or resolve accounts, and
+  restricted new user, block and rename logs, so the member list is not given away
 * Every code issue, login success, failure and rate-limit hit logged through the `MemberAccess` log
   channel, with the email address hashed
 * A REST API under `/rest.php/member-access/v0/` for managing groups, allowlist entries and the roster

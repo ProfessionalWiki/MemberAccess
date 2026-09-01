@@ -36,7 +36,7 @@
 	"memberaccess-auth-not-authorized": "Error shown when a correct code was entered but the address is not on the allowlist.",
 	"memberaccess-auth-failed": "Error shown when logging in cannot continue: the session lost track of the code request, the address cannot become a username, or that username belongs to a different account. Deliberately vague; only the first case is fixable by requesting a new code.",
 	"memberaccess-auth-password-refused": "Error shown when setting or resetting the password of a member account is attempted.",
-	"memberaccess-api-module-denied": "Action API error shown when a member asks for a query module that lists the wiki's accounts.\n\nParameters:\n* $1 - the name of the query submodule, for example allusers",
+	"memberaccess-api-module-denied": "Action API error shown when a member asks for a module that lists or resolves the wiki's accounts.\n\nParameters:\n* $1 - the name of the module, for example allusers",
 	"memberaccess-special-page-denied": "Error page shown when a member opens a special page that lists or resolves the wiki's accounts.",
 	"memberaccess-block-reason": "Reason recorded in the block log when a member is deactivated. Reactivation recognises the extension's own block by this text in the wiki's content language: after a rewording, blocks placed under the old wording are reported as foreign instead of lifted.",
 	"memberaccess-unblock-reason": "Reason recorded in the block log when a member is reactivated.",

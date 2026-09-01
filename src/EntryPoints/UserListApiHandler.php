@@ -14,13 +14,14 @@ use MediaWiki\User\UserIdentity;
 /**
  * Keeps members from reading the wiki's list of accounts through the action API.
  *
- * Members are told nothing about each other beyond what they need, so the query modules whose
- * purpose is to enumerate accounts are closed to the reader group. Everything else stays open.
+ * Members are told nothing about each other beyond what they need, so the modules whose purpose is
+ * to enumerate accounts, and those that answer whether an account exists or what it is called, are
+ * closed to the reader group. Everything else stays open.
  *
- * ApiCheckCanExecute is the only extension point that can refuse a query before it runs, but it is
- * handed the action module rather than the submodules it will run, so the requested submodules are
- * read off the query itself. The special pages that list the same accounts are closed by
- * UserListSpecialPageHandler.
+ * ApiCheckCanExecute is the only extension point that can refuse a module before it runs. It is
+ * handed the action, which is the blocked module itself for a top-level action, but for a query is
+ * handed the query rather than the submodules it will run, so those are read off the query itself.
+ * The special pages that name the same accounts are closed by UserListSpecialPageHandler.
  */
 class UserListApiHandler implements ApiCheckCanExecuteHook {
 
@@ -28,7 +29,7 @@ class UserListApiHandler implements ApiCheckCanExecuteHook {
 		private readonly UserGroupManager $userGroups,
 		private readonly string $readerGroup,
 		/**
-		 * @var string[] Names of query submodules the reader group may not use
+		 * @var string[] Names of actions and query submodules the reader group may not use
 		 */
 		private readonly array $blockedModules
 	) {
@@ -40,11 +41,7 @@ class UserListApiHandler implements ApiCheckCanExecuteHook {
 	 * @param string|array<mixed>|ApiMessage &$message
 	 */
 	public function onApiCheckCanExecute( $module, $user, &$message ): bool {
-		if ( !$module instanceof ApiQuery ) {
-			return true;
-		}
-
-		$blocked = $this->firstBlockedSubmodule( $module );
+		$blocked = $this->firstBlockedModule( $module );
 
 		if ( $blocked === null || !$this->holdsTheReaderGroup( $user ) ) {
 			return true;
@@ -56,6 +53,20 @@ class UserListApiHandler implements ApiCheckCanExecuteHook {
 		);
 
 		return false;
+	}
+
+	private function firstBlockedModule( ApiBase $module ): ?string {
+		$action = $module->getModuleName();
+
+		if ( in_array( $action, $this->blockedModules, true ) ) {
+			return $action;
+		}
+
+		if ( $module instanceof ApiQuery ) {
+			return $this->firstBlockedSubmodule( $module );
+		}
+
+		return null;
 	}
 
 	private function firstBlockedSubmodule( ApiQuery $query ): ?string {

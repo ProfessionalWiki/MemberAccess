@@ -50,6 +50,51 @@ class UserListApiHandlerTest extends ApiTestCase {
 		$this->queryAs( $this->newMember(), [ 'list' => 'logevents|allusers' ] );
 	}
 
+	/**
+	 * The feed names the account an ID belongs to before it names a single contribution, so an
+	 * account that never edited resolves too.
+	 */
+	public function testMemberCannotResolveAnAccountThroughTheContributionsFeed(): void {
+		$member = $this->newMember();
+
+		$this->expectApiErrorCode( 'memberaccess-module-denied' );
+
+		$this->requestAs( $member, [ 'action' => 'feedcontributions', 'user' => '#' . $member->getId() ] );
+	}
+
+	public function testMemberCannotAskWhetherAnAccountExists(): void {
+		$member = $this->newMember();
+
+		$this->expectApiErrorCode( 'memberaccess-module-denied' );
+
+		$this->requestAs( $member, [
+			'action' => 'validatepassword',
+			'password' => 'a passphrase nobody uses',
+			'user' => $member->getName()
+		] );
+	}
+
+	public function testMemberCannotProbeAnAccountThroughEmail(): void {
+		$member = $this->newMember();
+
+		$this->expectApiErrorCode( 'memberaccess-module-denied' );
+
+		$this->requestWithTokenAs( $member, [
+			'action' => 'emailuser',
+			'target' => $member->getName(),
+			'subject' => 'Hello',
+			'text' => 'Anyone there?'
+		] );
+	}
+
+	public function testMemberCannotResolveAnAccountThroughUserRights(): void {
+		$member = $this->newMember();
+
+		$this->expectApiErrorCode( 'memberaccess-module-denied' );
+
+		$this->requestWithTokenAs( $member, [ 'action' => 'userrights', 'user' => '#' . $member->getId() ] );
+	}
+
 	public function testMemberKeepsTheRestOfTheQueryApi(): void {
 		$result = $this->queryAs( $this->newMember(), [ 'meta' => 'siteinfo' ] );
 
@@ -62,12 +107,29 @@ class UserListApiHandlerTest extends ApiTestCase {
 		$this->assertArrayHasKey( 'query', $result[0] );
 	}
 
+	public function testAccountsOutsideTheReaderGroupKeepPasswordValidation(): void {
+		$result = $this->requestAs(
+			$this->getTestUser()->getUser(),
+			[ 'action' => 'validatepassword', 'password' => 'a passphrase nobody uses' ]
+		);
+
+		$this->assertArrayHasKey( 'validity', $result[0]['validatepassword'] );
+	}
+
 	public function testTheBlockedModulesAreConfigurable(): void {
 		$this->overrideConfigValue( 'MemberAccessBlockedApiModules', [ 'siteinfo' ] );
 
 		$this->expectApiErrorCode( 'memberaccess-module-denied' );
 
 		$this->queryAs( $this->newMember(), [ 'meta' => 'siteinfo' ] );
+	}
+
+	public function testTheBlockedActionsAreConfigurable(): void {
+		$this->overrideConfigValue( 'MemberAccessBlockedApiModules', [ 'paraminfo' ] );
+
+		$this->expectApiErrorCode( 'memberaccess-module-denied' );
+
+		$this->requestAs( $this->newMember(), [ 'action' => 'paraminfo', 'modules' => 'query' ] );
 	}
 
 	private function newMember(): User {
@@ -79,7 +141,23 @@ class UserListApiHandlerTest extends ApiTestCase {
 	 * @return array<int, mixed>
 	 */
 	private function queryAs( User $user, array $params ): array {
-		return $this->doApiRequest( [ 'action' => 'query' ] + $params, null, false, $user );
+		return $this->requestAs( $user, [ 'action' => 'query' ] + $params );
+	}
+
+	/**
+	 * @param array<string, string> $params
+	 * @return array<int, mixed>
+	 */
+	private function requestAs( User $user, array $params ): array {
+		return $this->doApiRequest( $params, null, false, $user );
+	}
+
+	/**
+	 * @param array<string, string> $params
+	 * @return array<int, mixed>
+	 */
+	private function requestWithTokenAs( User $user, array $params ): array {
+		return $this->doApiRequestWithToken( $params, null, $user );
 	}
 
 }

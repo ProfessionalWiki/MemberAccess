@@ -42,6 +42,10 @@ class RegistrationHandler {
 
 		// A deactivated member is blocked, and only this makes a block keep them out of a private wiki.
 		$GLOBALS['wgBlockDisablesLogin'] = true;
+
+		// Completing a username answers by reader now, and this is what keeps the search box's
+		// suggestions from being cached for everyone.
+		$GLOBALS['wgSearchSuggestCacheExpiry'] = 0;
 	}
 
 	/**

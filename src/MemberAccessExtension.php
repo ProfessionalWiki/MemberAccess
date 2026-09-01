@@ -10,6 +10,7 @@ use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\Html\TemplateParser;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Session\CsrfTokenSet;
+use MediaWiki\User\UserIdentity;
 use ProfessionalWiki\MemberAccess\Application\AddEntriesUseCase;
 use ProfessionalWiki\MemberAccess\Application\AllowlistMatcher;
 use ProfessionalWiki\MemberAccess\Application\AllowlistRepository;
@@ -53,6 +54,7 @@ use ProfessionalWiki\MemberAccess\EntryPoints\REST\RenameGroupApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\SsoAuthorizationHandler;
 use ProfessionalWiki\MemberAccess\EntryPoints\UserListApiHandler;
 use ProfessionalWiki\MemberAccess\EntryPoints\UserListSpecialPageHandler;
+use ProfessionalWiki\MemberAccess\EntryPoints\UserNameCompletionHandler;
 use ProfessionalWiki\MemberAccess\Persistence\DatabaseAllowlistRepository;
 use ProfessionalWiki\MemberAccess\Persistence\DatabaseMemberGroupRepository;
 use ProfessionalWiki\MemberAccess\Persistence\DatabaseMemberRepository;
@@ -269,6 +271,18 @@ class MemberAccessExtension {
 			userGroups: MediaWikiServices::getInstance()->getUserGroupManager(),
 			readerGroup: $this->getReaderGroup(),
 			blockedPages: $this->getStringListConfig( 'MemberAccessBlockedSpecialPages' )
+		);
+	}
+
+	public static function newUserNameCompletionHookHandler(): UserNameCompletionHandler {
+		return self::getInstance()->newUserNameCompletionHandler();
+	}
+
+	private function newUserNameCompletionHandler(): UserNameCompletionHandler {
+		return new UserNameCompletionHandler(
+			userGroups: MediaWikiServices::getInstance()->getUserGroupManager(),
+			readerGroup: $this->getReaderGroup(),
+			requestingUser: static fn (): UserIdentity => RequestContext::getMain()->getUser()
 		);
 	}
 

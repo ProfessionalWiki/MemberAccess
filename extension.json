@@ -41,6 +41,9 @@
 		"specialPages": {
 			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newUserListSpecialPageHookHandler"
 		},
+		"userNameCompletion": {
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newUserNameCompletionHookHandler"
+		},
 		"loginForm": {
 			"class": "ProfessionalWiki\\MemberAccess\\EntryPoints\\LoginFormHandler"
 		}
@@ -52,6 +55,7 @@
 		"SpecialPasswordResetOnSubmit": "passwordReset",
 		"ApiCheckCanExecute": "api",
 		"SpecialPageBeforeExecute": "specialPages",
+		"SpecialPage_initList": "userNameCompletion",
 		"AuthChangeFormFields": "loginForm",
 		"BeforePageDisplay": "loginForm"
 	},
@@ -147,8 +151,8 @@
 			"description": "How long a remembered login lasts, in seconds. Sets $wgExtendedLoginCookieExpiration while a route can log a member in, so it applies to everyone on the wiki, not only to members. Set to 0 to leave that setting alone."
 		},
 		"MemberAccessBlockedApiModules": {
-			"value": [ "allusers", "users", "blocks" ],
-			"description": "Names of action API query submodules the reader group may not use."
+			"value": [ "allusers", "users", "blocks", "feedcontributions", "validatepassword", "emailuser", "userrights" ],
+			"description": "Names of action API modules the reader group may not use, top-level actions and query submodules alike."
 		},
 		"MemberAccessBlockedSpecialPages": {
 			"value": [ "Listusers", "Activeusers", "BlockList", "Redirect", "Userrights" ],

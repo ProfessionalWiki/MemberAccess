@@ -50,6 +50,14 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
+	 * What a completion answers depends on who asked for it, so a cached suggestion would be handed
+	 * to whoever asks next.
+	 */
+	public function testSearchSuggestionsAreNotCached(): void {
+		$this->assertSame( 0, $GLOBALS['wgSearchSuggestCacheExpiry'] );
+	}
+
+	/**
 	 * @dataProvider revokedRightProvider
 	 */
 	public function testReadersLoseTheRightsThatWouldLetThemChangeTheWiki( string $right ): void {
