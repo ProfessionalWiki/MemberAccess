@@ -12,6 +12,7 @@ use Psr\Log\LoggerInterface;
 use stdClass;
 use Throwable;
 use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IExpression;
 use Wikimedia\Rdbms\ILBFactory;
 use Wikimedia\Rdbms\LikeValue;
@@ -183,6 +184,9 @@ class OpaqueNameUpdate {
 	 * error carries the statement it failed on, and that statement carries the name.
 	 */
 	private function giveAnOpaqueName( int $userId, string $currentName, User $performer ): bool {
+		$database = $this->connectionProvider->getPrimaryDatabase();
+		$section = $database->startAtomic( __METHOD__, IDatabase::ATOMIC_CANCELABLE );
+
 		try {
 			$renamed = ( new RenameuserSQL(
 				$currentName,
@@ -192,6 +196,11 @@ class OpaqueNameUpdate {
 				[ 'reason' => wfMessage( self::RENAME_REASON_MESSAGE )->inContentLanguage()->text() ]
 			) )->rename();
 		} catch ( Throwable $failure ) {
+			// Core's rename opens an atomic section that stays open when a failure escapes it,
+			// which would take down or silently roll back every rename after this one. Cancelling
+			// this outer section discards the dangling one with it.
+			$database->cancelAtomic( __METHOD__, $section );
+
 			$this->logger->error( 'Member account not renamed', [
 				'user' => $userId,
 				'reason' => get_class( $failure )
@@ -199,6 +208,8 @@ class OpaqueNameUpdate {
 
 			return false;
 		}
+
+		$database->endAtomic( __METHOD__ );
 
 		if ( $renamed ) {
 			$this->logger->info( 'Member account given an opaque name', [ 'user' => $userId ] );
