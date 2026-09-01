@@ -118,9 +118,9 @@ three logs are closed to anyone who cannot manage members: the new user log, whe
 account creation is recorded, the block log, where every deactivation is, and the rename log, which
 names what a removed member was called. Restricting a log type also keeps it out of recent changes.
 The special pages that list or resolve accounts are closed to the reader group as well, and
-transcluding them is closed to everyone — the inclusion renders empty — since what a transclusion
-renders is not kept to the reader who asked for it. `Special:Redirect` is closed whole, so members
-lose its other lookups too.
+transcluding `Special:ListUsers` renders it empty for everyone, since what a transclusion renders
+is not kept to the reader who asked for it. `Special:Redirect` is closed whole, so members lose its
+other lookups too, and `Special:FilePath`, which redirects through it.
 
 Page histories and recent changes still name whoever acted, which on a members-only wiki means the
 staff who edit: members cannot appear there, since they cannot change anything.
@@ -177,10 +177,10 @@ Whatever the login routes are set to, loading the extension:
 * refuses members a password, whatever the routes: setting one and having a temporary one mailed
   stay refused;
 * closes the account-listing API modules to the reader group;
-* closes the special pages that list or resolve accounts to the reader group, and their
-  transclusion to everyone;
+* closes the special pages that list or resolve accounts to the reader group, and transcluding
+  `Special:ListUsers` to everyone;
 * removes `@` from `$wgInvalidUsernameCharacters`, and changes `$wgUserrightsInterwikiDelimiter` from
-  `@` to `@@`, so that `Special:UserRights` can act on an account named after an address.
+  `@` to `@@`, so that staff can use `Special:UserRights` on an account named after an address.
 
 While the code route is turned on, it also turns off ConfirmEdit's `badloginperuser` captcha trigger,
 so failed logins no longer escalate to a captcha for the account they name, for everyone on the wiki
@@ -309,7 +309,7 @@ than this one.
 | `$wgMemberAccessSenderAddress` | ?string | `null` | Address login codes are sent from. Falls back to `$wgPasswordSender` |
 | `$wgMemberAccessSessionDurationSeconds` | int | `2592000` | How long a remembered login lasts, wiki-wide. Thirty days, against core's 180 days. `0` leaves `$wgExtendedLoginCookieExpiration` alone |
 | `$wgMemberAccessBlockedApiModules` | string[] | `[ 'allusers', 'users', 'blocks' ]` | Action API query submodules the reader group may not use |
-| `$wgMemberAccessBlockedSpecialPages` | string[] | `[ 'Listusers', 'Activeusers', 'BlockList', 'Redirect' ]` | Special pages the reader group may not open and nobody may transclude. Canonical names; an alias does not match |
+| `$wgMemberAccessBlockedSpecialPages` | string[] | `[ 'Listusers', 'Activeusers', 'BlockList', 'Redirect', 'Userrights' ]` | Special pages the reader group may not open. Canonical names; an alias does not match. Setting it adds to the shipped list rather than replacing it, so those pages cannot be dropped |
 
 Issued codes and rate-limit counters are held in the main object stash (`$wgMainStash`), which is
 database-backed by default. Point it at Redis or Valkey to keep them out of the database.
