@@ -69,6 +69,39 @@ class DatabaseAllowlistRepositoryTest extends DatabaseRepositoryTestCase {
 		$this->assertJustHappened( $this->allowlist->listEntries( $groupId )[0]->creationTimestamp );
 	}
 
+	public function testStoredEntryCarriesNoInvitation(): void {
+		$groupId = $this->newGroupId();
+		$this->addEntry( $groupId, 'jane@example.com' );
+
+		$this->assertNull( $this->allowlist->listEntries( $groupId )[0]->invitationTimestamp );
+	}
+
+	public function testRecordedInvitationIsReadBackFromTheEntry(): void {
+		$entry = $this->addEntry( $this->newGroupId(), 'jane@example.com' );
+
+		$recorded = $this->allowlist->recordInvitation( $entry->id );
+
+		$this->assertSame( $recorded, $this->allowlist->getEntry( $entry->id )?->invitationTimestamp );
+	}
+
+	public function testRecordedInvitationIsTimestamped(): void {
+		$entry = $this->addEntry( $this->newGroupId(), 'jane@example.com' );
+
+		$this->allowlist->recordInvitation( $entry->id );
+
+		$this->assertJustHappened( $this->allowlist->getEntry( $entry->id )?->invitationTimestamp );
+	}
+
+	public function testRecordingAnInvitationLeavesOtherEntriesAlone(): void {
+		$groupId = $this->newGroupId();
+		$invited = $this->addEntry( $groupId, 'jane@example.com' );
+		$uninvited = $this->addEntry( $groupId, 'john@example.com' );
+
+		$this->allowlist->recordInvitation( $invited->id );
+
+		$this->assertNull( $this->allowlist->getEntry( $uninvited->id )?->invitationTimestamp );
+	}
+
 	public function testAddedEntryIsListedInItsGroup(): void {
 		$groupId = $this->newGroupId();
 		$this->addEntry( $groupId, 'jane@example.com' );

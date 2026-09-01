@@ -82,4 +82,12 @@ final class AllowlistValue {
 		return new self( $value, $kind );
 	}
 
+	/**
+	 * The one address this admits, or null when it admits a whole domain and so names nobody to
+	 * write to.
+	 */
+	public function asEmail(): ?NormalizedEmail {
+		return $this->kind === EntryKind::Email ? NormalizedEmail::fromString( $this->value ) : null;
+	}
+
 }

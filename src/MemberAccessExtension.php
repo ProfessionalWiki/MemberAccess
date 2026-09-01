@@ -12,6 +12,7 @@ use MediaWiki\Html\TemplateParser;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Session\CsrfTokenSet;
 use MediaWiki\Session\SessionManager;
+use MediaWiki\SpecialPage\SpecialPage;
 use ProfessionalWiki\MemberAccess\Application\AddEntriesUseCase;
 use ProfessionalWiki\MemberAccess\Application\AllowlistMatcher;
 use ProfessionalWiki\MemberAccess\Application\AllowlistRepository;
@@ -24,6 +25,7 @@ use ProfessionalWiki\MemberAccess\Application\CodeRepository;
 use ProfessionalWiki\MemberAccess\Application\CounterStore;
 use ProfessionalWiki\MemberAccess\Application\DeactivateMemberUseCase;
 use ProfessionalWiki\MemberAccess\Application\DeleteGroupUseCase;
+use ProfessionalWiki\MemberAccess\Application\InvitationMailer;
 use ProfessionalWiki\MemberAccess\Application\MemberBlocker;
 use ProfessionalWiki\MemberAccess\Application\MemberGroupRepository;
 use ProfessionalWiki\MemberAccess\Application\MemberRemover;
@@ -32,6 +34,7 @@ use ProfessionalWiki\MemberAccess\Application\OpaqueUsername;
 use ProfessionalWiki\MemberAccess\Application\ReactivateMemberUseCase;
 use ProfessionalWiki\MemberAccess\Application\RemoveMemberUseCase;
 use ProfessionalWiki\MemberAccess\Application\RenameGroupUseCase;
+use ProfessionalWiki\MemberAccess\Application\SendInvitationUseCase;
 use ProfessionalWiki\MemberAccess\Application\RandomSecretGenerator;
 use ProfessionalWiki\MemberAccess\Application\RequestCodeUseCase;
 use ProfessionalWiki\MemberAccess\Application\RequestThrottle;
@@ -54,6 +57,7 @@ use ProfessionalWiki\MemberAccess\EntryPoints\REST\ReactivateMemberApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\RemoveEntryApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\RemoveMemberApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\RenameGroupApi;
+use ProfessionalWiki\MemberAccess\EntryPoints\REST\SendInvitationApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\SsoAuthorizationHandler;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\SsoUsernameProcessor;
 use ProfessionalWiki\MemberAccess\EntryPoints\UserListApiHandler;
@@ -64,6 +68,7 @@ use ProfessionalWiki\MemberAccess\Persistence\DatabaseMemberRepository;
 use ProfessionalWiki\MemberAccess\Persistence\DatabaseSchema;
 use ProfessionalWiki\MemberAccess\Persistence\DeferredCodeMailer;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiCodeMailer;
+use ProfessionalWiki\MemberAccess\Persistence\MediaWikiInvitationMailer;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiMemberBlocker;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiMemberRemover;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiUsernameMinter;
@@ -255,6 +260,20 @@ class MemberAccessExtension {
 		return new RemoveEntryApi(
 			csrfTokens: $instance->newCsrfTokenSet(),
 			allowlist: $instance->newAllowlistRepository()
+		);
+	}
+
+	public static function newSendInvitationApi(): SendInvitationApi {
+		$instance = self::getInstance();
+
+		return new SendInvitationApi(
+			csrfTokens: $instance->newCsrfTokenSet(),
+			useCase: new SendInvitationUseCase(
+				mode: $instance->getCodeLoginMode(),
+				allowlist: $instance->newAllowlistRepository(),
+				mailer: $instance->newInvitationMailer(),
+				logger: $instance->newLogger()
+			)
 		);
 	}
 
@@ -501,12 +520,30 @@ class MemberAccessExtension {
 			mailer: new MediaWikiCodeMailer(
 				emailer: MediaWikiServices::getInstance()->getEmailer(),
 				sender: $this->getSenderAddress(),
-				templates: new TemplateParser( __DIR__ . '/../templates' ),
+				templates: $this->newTemplateParser(),
 				contentLanguage: MediaWikiServices::getInstance()->getContentLanguage(),
 				siteName: $this->getStringConfig( 'Sitename' ),
 				logger: $this->newLogger()
 			)
 		);
+	}
+
+	private function newInvitationMailer(): InvitationMailer {
+		$services = MediaWikiServices::getInstance();
+
+		return new MediaWikiInvitationMailer(
+			emailer: $services->getEmailer(),
+			sender: $this->getSenderAddress(),
+			templates: $this->newTemplateParser(),
+			contentLanguage: $services->getContentLanguage(),
+			siteName: $this->getStringConfig( 'Sitename' ),
+			loginUrl: SpecialPage::getTitleFor( 'Userlogin' )->getCanonicalURL(),
+			logger: $this->newLogger()
+		);
+	}
+
+	private function newTemplateParser(): TemplateParser {
+		return new TemplateParser( __DIR__ . '/../templates' );
 	}
 
 	public function getSenderAddress(): MailAddress {

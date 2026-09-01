@@ -1,0 +1,88 @@
+{{!
+	The HTML part of the mail inviting an admitted address to log in.
+
+	Table layout and inline styles throughout, because a mail client is not a browser: the classic
+	Outlook still in use across the companies this extension serves lays out with Word's engine,
+	which has no flex, no grid, and no stylesheet to read. Nor does it honour max-width, so the width
+	the card is held to is given to it again in a table only that engine sees. Colours are given as
+	bgcolor beside the style carrying them, for the webmail clients that drop the shorthand. The
+	rounded corners it will not do either way.
+
+	Colours, spacing and type sizes are Codex's, spelled out rather than referred to: a mail carries
+	no stylesheet, so there is nothing for a custom property to resolve against and no compiler to
+	resolve a LESS variable. Each is named in a comment beside its value. The line heights are set to
+	suit a message read at arm's length, and are nobody's tokens.
+
+	The one thing fetched from the network is fetched by the reader: an invitation to a wiki they
+	have not seen is useless without the way in, so the login page is linked. What the link says is
+	the address it goes to, character for character, so that nothing here hides where a click lands.
+	There is no image, since clients block remote ones by default and would show a broken box where a
+	logo went. The address is left to read as an address: a client that finds a link in it of its own
+	accord is doing that on its own.
+
+	Every string arrives localised, in the wiki's own language, which is why the direction to read it
+	in is given here too. The URL keeps its own direction, being read left to right in every
+	language. Mustache escapes what it interpolates, so none of it can carry markup out of a wiki's
+	site name.
+}}
+<!DOCTYPE html>
+<html dir="{{dir}}" lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<title>{{siteName}}</title>
+</head>
+{{! background-color-neutral }}
+<body style="margin:0;padding:0;background-color:#eaecf0;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#eaecf0" style="border-collapse:collapse;background-color:#eaecf0;">
+	<tr>
+		{{! spacing-150, spacing-75 }}
+		<td align="center" style="padding:24px 12px;">
+			<!--[if mso]><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="480" align="center"><tr><td><![endif]-->
+			{{! background-color-base, border-color-subtle, border-radius-base }}
+			<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#ffffff" style="border-collapse:collapse;max-width:480px;background-color:#ffffff;border:1px solid #c8ccd1;border-radius:2px;">
+				<tr>
+					{{! font-size-x-large, font-weight-bold, color-base, spacing-150 }}
+					<td align="center" style="padding:24px 24px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,Helvetica,Arial,sans-serif;font-size:20px;font-weight:700;line-height:28px;color:#202122;text-align:center;">
+						{{siteName}}
+					</td>
+				</tr>
+				<tr>
+					{{! font-size-medium, color-base, spacing-25 }}
+					<td align="center" style="padding:4px 24px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,Helvetica,Arial,sans-serif;font-size:16px;line-height:26px;color:#202122;text-align:center;">
+						{{intro}}
+					</td>
+				</tr>
+				<tr>
+					{{! spacing-100, spacing-150 }}
+					<td align="center" style="padding:16px 24px 0;">
+						{{! background-color-neutral-subtle, border-color-subtle }}
+						<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f8f9fa" style="border-collapse:collapse;background-color:#f8f9fa;border:1px solid #c8ccd1;">
+							<tr>
+								{{! font-size-medium, color-base, spacing-100 }}
+								<td align="center" dir="ltr" style="padding:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,Helvetica,Arial,sans-serif;font-size:16px;line-height:24px;color:#202122;text-align:center;word-break:break-all;">
+									{{! color-progressive }}
+									<a href="{{loginUrl}}" style="color:#3366cc;text-decoration:underline;">{{loginUrl}}</a>
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+				<tr>
+					{{! font-size-small, color-subtle, spacing-150 }}
+					<td align="center" style="padding:14px 24px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px;color:#54595d;text-align:center;">
+						{{instructions}}
+					</td>
+				</tr>
+				<tr>
+					{{! font-size-x-small, color-subtle, spacing-100, spacing-150 }}
+					<td align="center" style="padding:16px 24px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,Helvetica,Arial,sans-serif;font-size:12px;line-height:19px;color:#54595d;text-align:center;">
+						{{disclaimer}}
+					</td>
+				</tr>
+			</table>
+			<!--[if mso]></td></tr></table><![endif]-->
+		</td>
+	</tr>
+</table>
+</body>
+</html>

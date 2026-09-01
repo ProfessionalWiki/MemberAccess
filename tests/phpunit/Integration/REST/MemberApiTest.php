@@ -6,7 +6,6 @@ namespace ProfessionalWiki\MemberAccess\Tests\Integration\REST;
 
 use MediaWiki\Block\DatabaseBlock;
 use MediaWiki\Permissions\Authority;
-use MediaWiki\Rest\RequestData;
 use MediaWiki\Rest\ResponseInterface;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\MemberAccessExtension;
@@ -289,7 +288,7 @@ class MemberApiTest extends RestApiTestCase {
 
 		$response = $this->runHandler(
 			MemberAccessExtension::newDeactivateMemberApi(),
-			$this->emptyBodyRequest( $userId )
+			$this->emptyBodyRequest( [ 'userId' => (string)$userId ] )
 		);
 
 		$this->assertSame( 200, $response->getStatusCode() );
@@ -301,19 +300,10 @@ class MemberApiTest extends RestApiTestCase {
 
 		$response = $this->runHandler(
 			MemberAccessExtension::newReactivateMemberApi(),
-			$this->emptyBodyRequest( $userId )
+			$this->emptyBodyRequest( [ 'userId' => (string)$userId ] )
 		);
 
 		$this->assertSame( 200, $response->getStatusCode() );
-	}
-
-	private function emptyBodyRequest( int $userId ): RequestData {
-		return new RequestData( [
-			'method' => 'POST',
-			'pathParams' => [ 'userId' => (string)$userId ],
-			'headers' => [ 'content-type' => 'application/json', 'content-length' => '0' ],
-			'bodyContents' => ''
-		] );
 	}
 
 	/**

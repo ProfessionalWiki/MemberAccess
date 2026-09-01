@@ -7,7 +7,7 @@ CREATE TABLE /*_*/memberaccess_entry (
   mae_group_id INTEGER UNSIGNED NOT NULL,
   mae_value BLOB NOT NULL, mae_kind BLOB NOT NULL,
   mae_actor BIGINT UNSIGNED DEFAULT 0 NOT NULL,
-  mae_timestamp BLOB NOT NULL
+  mae_timestamp BLOB NOT NULL, mae_invited BLOB DEFAULT NULL
 );
 
 CREATE UNIQUE INDEX mae_value ON /*_*/memberaccess_entry (mae_value);

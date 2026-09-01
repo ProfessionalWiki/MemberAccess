@@ -91,6 +91,33 @@ abstract class RestApiTestCase extends MediaWikiIntegrationTestCase {
 		return new RequestData( $data );
 	}
 
+	/**
+	 * An endpoint that takes no body has to accept a request carrying none, which needs a length
+	 * header of its own: without it the framework reports no body at all rather than an empty one.
+	 *
+	 * @param array<string, string> $pathParams
+	 */
+	protected function emptyBodyRequest( array $pathParams ): RequestData {
+		return new RequestData( [
+			'method' => 'POST',
+			'pathParams' => $pathParams,
+			'headers' => [ 'content-type' => 'application/json', 'content-length' => '0' ],
+			'bodyContents' => ''
+		] );
+	}
+
+	/**
+	 * @return array<int, array<string, mixed>>
+	 */
+	protected function listEntries( int $groupId ): array {
+		$body = $this->bodyOf( $this->runHandler(
+			MemberAccessExtension::newListEntriesApi(),
+			$this->newRequest( 'GET', [], [ 'id' => (string)$groupId ] )
+		) );
+
+		return $body['entries'];
+	}
+
 	protected function runHandler(
 		Handler $handler,
 		RequestData $request,
