@@ -71,10 +71,14 @@ class InMemoryMemberRepository implements MemberRepository {
 		) !== [];
 	}
 
-	public function findMemberByEmail( NormalizedEmail $email ): ?Member {
+	public function findMemberByEmail( NormalizedEmail $email, ReadConsistency $consistency ): ?Member {
 		$this->addressLookups++;
 
-		foreach ( $this->members as $member ) {
+		$members = $consistency === ReadConsistency::UpToDate
+			? $this->members + $this->unreplicatedMembers
+			: $this->members;
+
+		foreach ( $members as $member ) {
 			if ( $member->email === $email->value ) {
 				return $member;
 			}

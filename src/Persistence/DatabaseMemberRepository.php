@@ -40,8 +40,8 @@ class DatabaseMemberRepository extends DatabaseRepository implements MemberRepos
 		return $this->findMemberWhere( [ 'mam_user_id' => $userId ], $consistency );
 	}
 
-	public function findMemberByEmail( NormalizedEmail $email ): ?Member {
-		return $this->findMemberWhere( [ 'mam_email' => $email->value ], ReadConsistency::MayBeStale );
+	public function findMemberByEmail( NormalizedEmail $email, ReadConsistency $consistency ): ?Member {
+		return $this->findMemberWhere( [ 'mam_email' => $email->value ], $consistency );
 	}
 
 	/**

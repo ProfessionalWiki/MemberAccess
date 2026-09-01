@@ -8,6 +8,7 @@ use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Deferred\DeferredUpdates;
 use MediaWiki\MainConfigNames;
 use MediaWiki\Permissions\Authority;
+use MediaWiki\RenameUser\RenameuserSQL;
 use MediaWiki\Tests\Api\ApiTestCase;
 use MediaWiki\User\User;
 use PermissionsError;
@@ -22,8 +23,9 @@ use SpecialPageExecutor;
 use Wikimedia\ObjectCache\HashBagOStuff;
 
 /**
- * A member's username is their email address, so the core logs that name accounts name the whole
- * roster. This checks each way of reading them is closed to members and open to admins.
+ * The core logs that record members: who joined and when, who was deactivated, and what members
+ * were called before the update that gave them opaque names. This checks each way of reading them
+ * is closed to members and open to admins.
  *
  * @group Database
  * @covers \ProfessionalWiki\MemberAccess\EntryPoints\RegistrationHandler
@@ -35,7 +37,6 @@ class MemberLogVisibilityTest extends ApiTestCase {
 
 	private const CODE = '12345678';
 	private const MEMBER_EMAIL = 'jane@example.com';
-	private const MEMBER_NAME = 'Jane@example.com';
 	private const RETURN_TO_URL = 'https://wiki.example.com/return';
 
 	protected function setUp(): void {
@@ -68,11 +69,11 @@ class MemberLogVisibilityTest extends ApiTestCase {
 	}
 
 	public function testNewUserLogNamesTheMemberToAnAdmin(): void {
-		$this->admitAMember();
+		$member = $this->admitAMember();
 
 		$entries = $this->logEventsFor( $this->admin(), 'newusers' );
 
-		$this->assertSame( [ self::MEMBER_NAME ], array_column( $entries, 'user' ) );
+		$this->assertSame( [ $member->getName() ], array_column( $entries, 'user' ) );
 	}
 
 	public function testNewUserLogIsClosedToAMember(): void {
@@ -82,11 +83,12 @@ class MemberLogVisibilityTest extends ApiTestCase {
 	}
 
 	public function testBlockLogNamesTheDeactivatedMemberToAnAdmin(): void {
-		$this->deactivate( $this->admitAMember() );
+		$member = $this->admitAMember();
+		$this->deactivate( $member );
 
 		$entries = $this->logEventsFor( $this->admin(), 'block' );
 
-		$this->assertSame( [ 'User:' . self::MEMBER_NAME ], array_column( $entries, 'title' ) );
+		$this->assertSame( [ 'User:' . $member->getName() ], array_column( $entries, 'title' ) );
 	}
 
 	public function testBlockLogIsClosedToAMember(): void {
@@ -96,23 +98,41 @@ class MemberLogVisibilityTest extends ApiTestCase {
 	}
 
 	/**
-	 * Removing a member renames their account away from their address, and the rename log records
-	 * the address it renamed away from, with the removal as the recorded reason.
+	 * The rename log holds what members were called before the update that gave them opaque names,
+	 * which is an address apiece.
 	 */
-	public function testRenameLogNamesTheRemovedMemberToAnAdmin(): void {
-		$this->remove( $this->admitAMember() );
+	public function testRenameLogNamesTheRenamedAccountToAnAdmin(): void {
+		$renamed = $this->renameAnAccount();
 
 		$entries = $this->logEventsFor( $this->admin(), 'renameuser' );
 
-		$this->assertSame( [ 'User:' . self::MEMBER_NAME ], array_column( $entries, 'title' ) );
-		$this->assertSame( [ 'Member removed' ], array_column( $entries, 'comment' ) );
-		$this->assertSame( [ $this->getTestSysop()->getUser()->getName() ], array_column( $entries, 'user' ) );
+		$this->assertSame( [ 'User:' . $renamed ], array_column( $entries, 'title' ) );
 	}
 
 	public function testRenameLogIsClosedToAMember(): void {
-		$this->remove( $this->admitAMember() );
+		$this->renameAnAccount();
 
 		$this->assertSame( [], $this->logEventsFor( $this->member(), 'renameuser' ) );
+	}
+
+	/**
+	 * @return string The name the account was renamed away from
+	 */
+	private function renameAnAccount(): string {
+		$account = $this->getMutableTestUser()->getUser();
+		$oldName = $account->getName();
+
+		$renamed = ( new RenameuserSQL(
+			$oldName,
+			'Member AB2345',
+			$account->getId(),
+			$this->getTestSysop()->getUser()
+		) )->rename();
+
+		$this->assertTrue( $renamed );
+		DeferredUpdates::doUpdates();
+
+		return $oldName;
 	}
 
 	/**
@@ -130,11 +150,11 @@ class MemberLogVisibilityTest extends ApiTestCase {
 	}
 
 	public function testSpecialLogNamesTheMemberToAnAdmin(): void {
-		$this->admitAMember();
+		$member = $this->admitAMember();
 
 		$html = $this->specialLogFor( $this->admin(), 'newusers' );
 
-		$this->assertStringContainsString( self::MEMBER_NAME, $html );
+		$this->assertStringContainsString( $member->getName(), $html );
 	}
 
 	public function testSpecialLogRefusesTheNewUserLogToAMember(): void {
@@ -145,9 +165,9 @@ class MemberLogVisibilityTest extends ApiTestCase {
 	}
 
 	public function testSpecialLogWithoutAChosenTypeNamesNoMember(): void {
-		$this->admitAMember();
+		$member = $this->admitAMember();
 
-		$this->assertStringNotContainsString( self::MEMBER_NAME, $this->specialLogFor( $this->member(), '' ) );
+		$this->assertStringNotContainsString( $member->getName(), $this->specialLogFor( $this->member(), '' ) );
 	}
 
 	private function admin(): Authority {
@@ -209,16 +229,17 @@ class MemberLogVisibilityTest extends ApiTestCase {
 			actorId: 1
 		);
 
-		$this->logIn();
-
-		$user = $this->getServiceContainer()->getUserFactory()->newFromName( self::MEMBER_NAME );
+		$user = $this->getServiceContainer()->getUserFactory()->newFromName( $this->logIn() );
 
 		$this->assertNotNull( $user );
 
 		return $user;
 	}
 
-	private function logIn(): void {
+	/**
+	 * @return string The name the member's account was created under
+	 */
+	private function logIn(): string {
 		$this->getServiceContainer()->getAuthManager()
 			->beginAuthentication( $this->submittedCodeRequest( self::MEMBER_EMAIL ), self::RETURN_TO_URL );
 		DeferredUpdates::doUpdates();
@@ -231,15 +252,8 @@ class MemberLogVisibilityTest extends ApiTestCase {
 		$this->assertSame( AuthenticationResponse::PASS, $response->status );
 
 		DeferredUpdates::doUpdates();
-	}
 
-	private function remove( User $member ): void {
-		MemberAccessExtension::getInstance()->newRemoveMemberUseCase()->remove(
-			$member->getId(),
-			$this->getTestSysop()->getUser()->getId()
-		);
-
-		DeferredUpdates::doUpdates();
+		return (string)$response->username;
 	}
 
 	private function deactivate( User $member ): void {

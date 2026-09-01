@@ -4,17 +4,15 @@ declare( strict_types = 1 );
 
 namespace ProfessionalWiki\MemberAccess\Tests\Integration;
 
+use MediaWiki\Session\SessionManager;
 use MediaWiki\User\User;
-use MediaWiki\User\UserIdentityLookup;
-use MediaWiki\User\UserIdentityValue;
 use MediaWikiIntegrationTestCase;
 use ProfessionalWiki\MemberAccess\Application\Member;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\Application\ReadConsistency;
-use ProfessionalWiki\MemberAccess\Application\RemovalResult;
 use ProfessionalWiki\MemberAccess\MemberAccessExtension;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiMemberRemover;
-use Psr\Log\NullLogger;
+use RuntimeException;
 use Wikimedia\Rdbms\IDBAccessObject;
 
 /**
@@ -24,20 +22,32 @@ use Wikimedia\Rdbms\IDBAccessObject;
 class MediaWikiMemberRemoverTest extends MediaWikiIntegrationTestCase {
 
 	/**
-	 * A removal that cannot finish has to leave nothing of itself behind: forgetting the roster
-	 * row and stripping the address happen before the rename, so refusing the rename has to take
-	 * them back. A rename refuses when the account is not under the name it was read as, which is
-	 * what a lookup answering a name no account carries stands in for here.
+	 * A removal that cannot finish has to leave nothing of itself behind: the roster row is
+	 * forgotten before the account gives up its address, and a forgotten row whose account kept
+	 * the address is a way back into a reader account.
 	 */
-	public function testFailedRenameLeavesTheMemberAsTheyWere(): void {
+	public function testFailureToCloseTheAccountLeavesTheMemberAsTheyWere(): void {
 		$member = $this->newMemberWithAddress( 'jane@example.com' );
 
-		$result = $this->newRemoverReadingTheAccountAs( 'A name no account has' )
-			->removeMember( $member->getId(), $this->getTestSysop()->getUser()->getId() );
+		$this->removeExpectingItToFail( $member->getId() );
 
-		$this->assertSame( RemovalResult::RemovalFailed, $result );
 		$this->assertNotNull( $this->rosterRowOf( $member->getId() ) );
 		$this->assertSame( 'jane@example.com', $this->emailOf( $member->getId() ) );
+	}
+
+	public function testFailureToCloseTheAccountIsNotSwallowed(): void {
+		$member = $this->newMemberWithAddress( 'jane@example.com' );
+		$remover = $this->newRemoverThatCannotDropTheSessions();
+
+		$this->expectException( RuntimeException::class );
+		$remover->removeMember( $member->getId() );
+	}
+
+	private function removeExpectingItToFail( int $userId ): void {
+		try {
+			$this->newRemoverThatCannotDropTheSessions()->removeMember( $userId );
+		} catch ( RuntimeException ) {
+		}
 	}
 
 	private function newMemberWithAddress( string $email ): User {
@@ -56,21 +66,20 @@ class MediaWikiMemberRemoverTest extends MediaWikiIntegrationTestCase {
 		return $user;
 	}
 
-	private function newRemoverReadingTheAccountAs( string $staleName ): MediaWikiMemberRemover {
-		$lookup = $this->createMock( UserIdentityLookup::class );
-		$lookup->method( 'getUserIdentityByUserId' )->willReturnCallback(
-			static fn ( int $userId ) => new UserIdentityValue( $userId, $staleName )
-		);
-		$lookup->method( 'getUserIdentityByName' )->willReturn( null );
-
-		$services = $this->getServiceContainer();
+	/**
+	 * Stands in for whatever can go wrong once the address has been written off the account, which
+	 * is the last thing a removal does and the write a cancelled section has to take back.
+	 */
+	private function newRemoverThatCannotDropTheSessions(): MediaWikiMemberRemover {
+		$sessions = $this->createMock( SessionManager::class );
+		$sessions->method( 'invalidateSessionsForUser' )
+			->willThrowException( new RuntimeException( 'the sessions could not be dropped' ) );
 
 		return new MediaWikiMemberRemover(
-			connectionProvider: $services->getConnectionProvider(),
+			connectionProvider: $this->getServiceContainer()->getConnectionProvider(),
 			members: MemberAccessExtension::getInstance()->newMemberRepository(),
-			userFactory: $services->getUserFactory(),
-			userLookup: $lookup,
-			logger: new NullLogger()
+			userFactory: $this->getServiceContainer()->getUserFactory(),
+			sessions: $sessions
 		);
 	}
 

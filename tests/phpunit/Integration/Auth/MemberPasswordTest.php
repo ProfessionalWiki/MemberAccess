@@ -27,6 +27,12 @@ class MemberPasswordTest extends ApiTestCase {
 
 	private const NEW_PASSWORD = 'a-password-long-enough-to-be-valid';
 
+	/**
+	 * A member's account is named after nobody, which is the name the refusals here have to be
+	 * reached under.
+	 */
+	private const MEMBER_NAME = 'Member AB2345';
+
 	private SpyEmailer $emailer;
 
 	protected function setUp(): void {
@@ -154,7 +160,7 @@ class MemberPasswordTest extends ApiTestCase {
 
 	private function newMember( string $email ): User {
 		$extension = MemberAccessExtension::getInstance();
-		$user = $this->getServiceContainer()->getUserFactory()->newFromName( $email );
+		$user = $this->getServiceContainer()->getUserFactory()->newFromName( self::MEMBER_NAME );
 
 		$this->assertNotNull( $user );
 		$user->addToDatabase();

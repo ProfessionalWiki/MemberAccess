@@ -11,8 +11,8 @@ use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
  * provisioned with, held in the authentication session for the moment between admitting the login
  * and the account existing.
  *
- * The name is the one whichever provider creates the account has settled on, which outside the
- * one-time code route is not the address.
+ * The name is the one whichever provider creates the account has settled on, which for a member is
+ * always an opaque one. {@see \ProfessionalWiki\MemberAccess\Application\OpaqueUsername}
  */
 final class PendingProvisioning {
 

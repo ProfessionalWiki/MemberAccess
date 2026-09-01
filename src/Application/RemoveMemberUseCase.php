@@ -7,8 +7,8 @@ namespace ProfessionalWiki\MemberAccess\Application;
 use Psr\Log\LoggerInterface;
 
 /**
- * Removes a member: the roster forgets them and their account stops holding the username their
- * address maps to, so the address can be admitted again and arrive at a new account.
+ * Removes a member: the roster forgets them and their account gives up their address, so the
+ * address can be admitted again and arrive at a new account.
  *
  * Deactivation ends a member's access while keeping who they were, which is why a deactivated
  * member can still be removed. Removal is the act that forgets them.
@@ -29,28 +29,14 @@ class RemoveMemberUseCase {
 			return RemovalResult::NotAMember;
 		}
 
-		$result = $this->remover->removeMember( $userId, $performerId );
+		$this->remover->removeMember( $userId );
 
-		$this->record( $result, $member, $performerId );
-
-		return $result;
-	}
-
-	private function record( RemovalResult $result, Member $member, int $performerId ): void {
-		if ( $result === RemovalResult::Removed ) {
-			$this->logger->info( 'Member removed', [
-				'email' => NormalizedEmail::hashOf( $member->email ),
-				'performer' => $performerId
-			] );
-
-			return;
-		}
-
-		$this->logger->error( 'Member not removed', [
+		$this->logger->info( 'Member removed', [
 			'email' => NormalizedEmail::hashOf( $member->email ),
-			'performer' => $performerId,
-			'reason' => $result->name
+			'performer' => $performerId
 		] );
+
+		return RemovalResult::Removed;
 	}
 
 }

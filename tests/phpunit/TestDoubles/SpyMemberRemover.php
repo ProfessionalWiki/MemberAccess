@@ -5,28 +5,20 @@ declare( strict_types = 1 );
 namespace ProfessionalWiki\MemberAccess\Tests\TestDoubles;
 
 use ProfessionalWiki\MemberAccess\Application\MemberRemover;
-use ProfessionalWiki\MemberAccess\Application\RemovalResult;
 
 class SpyMemberRemover implements MemberRemover {
 
 	/**
-	 * @var array<int, int> Performer id per removed user id
+	 * @var int[] The user ids that were removed
 	 */
 	private array $removed = [];
 
-	public function __construct(
-		private readonly RemovalResult $result = RemovalResult::Removed
-	) {
+	public function removeMember( int $userId ): void {
+		$this->removed[] = $userId;
 	}
 
-	public function removeMember( int $userId, int $performerId ): RemovalResult {
-		$this->removed[$userId] = $performerId;
-
-		return $this->result;
-	}
-
-	public function performerWhoRemoved( int $userId ): ?int {
-		return $this->removed[$userId] ?? null;
+	public function hasRemoved( int $userId ): bool {
+		return in_array( $userId, $this->removed, true );
 	}
 
 }

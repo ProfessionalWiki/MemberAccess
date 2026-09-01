@@ -4,12 +4,14 @@ declare( strict_types = 1 );
 
 namespace ProfessionalWiki\MemberAccess;
 
+use Closure;
 use MailAddress;
 use MediaWiki\Context\RequestContext;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\Html\TemplateParser;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Session\CsrfTokenSet;
+use MediaWiki\Session\SessionManager;
 use ProfessionalWiki\MemberAccess\Application\AddEntriesUseCase;
 use ProfessionalWiki\MemberAccess\Application\AllowlistMatcher;
 use ProfessionalWiki\MemberAccess\Application\AllowlistRepository;
@@ -26,6 +28,7 @@ use ProfessionalWiki\MemberAccess\Application\MemberBlocker;
 use ProfessionalWiki\MemberAccess\Application\MemberGroupRepository;
 use ProfessionalWiki\MemberAccess\Application\MemberRemover;
 use ProfessionalWiki\MemberAccess\Application\MemberRepository;
+use ProfessionalWiki\MemberAccess\Application\OpaqueUsername;
 use ProfessionalWiki\MemberAccess\Application\ReactivateMemberUseCase;
 use ProfessionalWiki\MemberAccess\Application\RemoveMemberUseCase;
 use ProfessionalWiki\MemberAccess\Application\RenameGroupUseCase;
@@ -34,6 +37,7 @@ use ProfessionalWiki\MemberAccess\Application\RequestCodeUseCase;
 use ProfessionalWiki\MemberAccess\Application\RequestThrottle;
 use ProfessionalWiki\MemberAccess\Application\Schema;
 use ProfessionalWiki\MemberAccess\Application\SecretGenerator;
+use ProfessionalWiki\MemberAccess\Application\UsernameMinter;
 use ProfessionalWiki\MemberAccess\Application\VerifyCodeUseCase;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\MemberAuthenticationProvider;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\MemberProvisioner;
@@ -51,6 +55,7 @@ use ProfessionalWiki\MemberAccess\EntryPoints\REST\RemoveEntryApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\RemoveMemberApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\RenameGroupApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\SsoAuthorizationHandler;
+use ProfessionalWiki\MemberAccess\EntryPoints\Auth\SsoUsernameProcessor;
 use ProfessionalWiki\MemberAccess\EntryPoints\UserListApiHandler;
 use ProfessionalWiki\MemberAccess\EntryPoints\UserListSpecialPageHandler;
 use ProfessionalWiki\MemberAccess\Persistence\DatabaseAllowlistRepository;
@@ -61,6 +66,8 @@ use ProfessionalWiki\MemberAccess\Persistence\DeferredCodeMailer;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiCodeMailer;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiMemberBlocker;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiMemberRemover;
+use ProfessionalWiki\MemberAccess\Persistence\MediaWikiUsernameMinter;
+use ProfessionalWiki\MemberAccess\Persistence\OpaqueNameUpdate;
 use ProfessionalWiki\MemberAccess\Persistence\StashCodeRepository;
 use ProfessionalWiki\MemberAccess\Persistence\StashCounterStore;
 use Psr\Log\LoggerInterface;
@@ -76,6 +83,18 @@ class MemberAccessExtension {
 	private ?LoggerInterface $loggerOverride = null;
 
 	private ?Schema $schemaOverride = null;
+
+	private ?MemberRepository $memberRepositoryOverride = null;
+
+	private ?UsernameMinter $usernameMinterOverride = null;
+
+	/**
+	 * The address OpenIDConnect resolved for the single sign-on login being handled, for the rest of
+	 * that request. Written by the processor the registration handler wraps around the plugin's own,
+	 * which the plugin calls before it asks what to name the account.
+	 * {@see \ProfessionalWiki\MemberAccess\EntryPoints\RegistrationHandler}
+	 */
+	private ?string $ssoAddress = null;
 
 	private ?Schema $schema = null;
 
@@ -102,6 +121,22 @@ class MemberAccessExtension {
 		$this->schemaOverride = $schema;
 	}
 
+	public function setMemberRepositoryOverride( ?MemberRepository $members ): void {
+		$this->memberRepositoryOverride = $members;
+	}
+
+	public function setUsernameMinterOverride( ?UsernameMinter $minter ): void {
+		$this->usernameMinterOverride = $minter;
+	}
+
+	public function recordSsoAddress( ?string $address ): void {
+		$this->ssoAddress = $address;
+	}
+
+	public function getSsoAddress(): ?string {
+		return $this->ssoAddress;
+	}
+
 	public static function newMemberAuthenticationProvider(): MemberAuthenticationProvider {
 		return self::getInstance()->newAuthenticationProvider();
 	}
@@ -114,9 +149,24 @@ class MemberAccessExtension {
 			matcher: $this->newAllowlistMatcher(),
 			members: $this->newMemberRepository(),
 			provisioner: $this->newMemberProvisioner(),
+			minter: $this->newUsernameMinter(),
 			userLookup: MediaWikiServices::getInstance()->getUserIdentityLookup(),
 			auditLogger: $this->newLogger(),
 			codeLifetime: $this->newCodeLifetime()
+		);
+	}
+
+	/**
+	 * @param ?Closure $wrapped The processor the wiki configured itself, if any
+	 */
+	public static function newSsoUsernameProcessor( ?Closure $wrapped ): SsoUsernameProcessor {
+		$instance = self::getInstance();
+
+		return new SsoUsernameProcessor(
+			matcher: $instance->newAllowlistMatcher(),
+			minter: $instance->newUsernameMinter(),
+			wrapped: $wrapped,
+			resolvedAddress: $instance->getSsoAddress()
 		);
 	}
 
@@ -132,6 +182,7 @@ class MemberAccessExtension {
 			userGroups: MediaWikiServices::getInstance()->getUserGroupManager(),
 			authManager: MediaWikiServices::getInstance()->getAuthManager(),
 			logger: $this->newLogger(),
+			resolvedAddress: $this->getSsoAddress(),
 			readerGroup: $this->getReaderGroup()
 		);
 	}
@@ -288,6 +339,30 @@ class MemberAccessExtension {
 		return new PasswordResetHandler( members: $this->newMemberRepository() );
 	}
 
+	public function newOpaqueNameUpdate(): OpaqueNameUpdate {
+		return new OpaqueNameUpdate(
+			connectionProvider: $this->getConnectionProvider(),
+			loadBalancers: MediaWikiServices::getInstance()->getDBLoadBalancerFactory(),
+			minter: $this->newUsernameMinter(),
+			logger: $this->newLogger(),
+			readerGroup: $this->getReaderGroup()
+		);
+	}
+
+	private function newUsernameMinter(): UsernameMinter {
+		if ( $this->usernameMinterOverride !== null ) {
+			return $this->usernameMinterOverride;
+		}
+
+		$services = MediaWikiServices::getInstance();
+
+		return new MediaWikiUsernameMinter(
+			generator: new OpaqueUsername(),
+			userNameUtils: $services->getUserNameUtils(),
+			userLookup: $services->getUserIdentityLookup()
+		);
+	}
+
 	private function newMemberProvisioner(): MemberProvisioner {
 		return new MemberProvisioner(
 			members: $this->newMemberRepository(),
@@ -358,8 +433,7 @@ class MemberAccessExtension {
 			connectionProvider: $this->getConnectionProvider(),
 			members: $this->newMemberRepository(),
 			userFactory: $services->getUserFactory(),
-			userLookup: $services->getUserIdentityLookup(),
-			logger: $this->newLogger()
+			sessions: SessionManager::singleton()
 		);
 	}
 
@@ -392,7 +466,8 @@ class MemberAccessExtension {
 	}
 
 	public function newMemberRepository(): MemberRepository {
-		return new DatabaseMemberRepository( connectionProvider: $this->getConnectionProvider() );
+		return $this->memberRepositoryOverride
+			?? new DatabaseMemberRepository( connectionProvider: $this->getConnectionProvider() );
 	}
 
 	private function newRequestThrottle(): RequestThrottle {

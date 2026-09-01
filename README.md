@@ -14,10 +14,11 @@ admitted by an allowlist of addresses and domains organized into named groups.
   the scenes is revoked.
 * Accounts create themselves at first login. Removing an allowlist entry ends access at the next
   login; deactivating a member blocks them at once.
-* Single sign-on logins through [PluggableAuth] can be held to the same allowlist; staff accounts
+* Single sign-on logins through [OpenIDConnect] can be held to the same allowlist; staff accounts
   are exempt.
-* Nothing gives the member list away: code and password-reset requests answer the same for every
-  address, and account listings and the logs that record members are restricted.
+* Nothing gives the member list away: a member's account is named after nobody, code and
+  password-reset requests answer the same for every address, and account listings and the logs that
+  record members are restricted.
 * Groups, allowlist entries and the member roster are managed over a REST API.
 * It does not make the wiki private: restricting who may read stays a wiki configuration decision.
 
@@ -52,17 +53,21 @@ can ask for another code, which replaces the one before it, or go back and enter
 address. Asking for another is counted by the same rate limits as asking for the first; once they
 are spent the offer is withdrawn, and the code already sent goes on working.
 
-Entering the right code logs the visitor in, and the first time also creates their account: the
-username is their email address, they are placed in the reader group, and the address is recorded as
-confirmed. The allowlist is consulted again at that point, so removing an entry ends access at the
-next login. A code never opens an account that was created some other way.
+Entering the right code logs the visitor in, and the first time also creates their account: it is
+named after nobody, placed in the reader group, and the address is recorded as confirmed. The
+allowlist is consulted again at that point, so removing an entry ends access at the next login. A
+code never opens an account that was created some other way.
 
 ### Usernames
 
-The username is the address lowercased and then put through MediaWiki's username rules: the first
-letter is capitalized and underscores become spaces, so `John_Doe@Example.com` logs in as
-`John doe@example.com`. Addresses that cannot become a username, and addresses whose username is
-already taken by an account that is not that member, are refused.
+A member's account is named `Member` and six characters drawn at random, `Member A7K2M4` for
+instance, which says nothing about who holds it. Everywhere MediaWiki names an account is a place a
+member could be recognised, which a name that identifies nobody makes harmless.
+
+The address is on the account as its confirmed email and in the roster, which is what joins an
+address to an account: a code login goes to the account the roster names for that address. Nothing
+about the address constrains the name, so an address that could never have been a username is
+admitted like any other.
 
 ### Passwords
 
@@ -79,9 +84,17 @@ address checked is the one recorded when they were admitted, so removing their e
 too. Accounts that are not members are exempt, so staff signing in through the identity provider are
 unaffected; when such a login uses an address the allowlist would not admit, it is written to the log
 channel. An account that carries the reader group without being on the roster is no staff account
-but a forgotten member account — a removed member's parked account, or one left behind by a failed
+but a forgotten member account — a removed member's closed account, or one left behind by a failed
 provisioning — and is refused rather than exempted. A refusal is final: no other handler of the same
 hook can hand the login back. Without PluggableAuth the check never runs.
+
+The account is created by the identity provider's plugin, which settles on its name before the
+extension is asked anything. [OpenIDConnect] offers a say over that name, which the extension takes
+for the logins the allowlist admits, so that a member is named after nobody here as well. A
+processor the wiki configured itself is kept and runs first, and decides the name of every login
+that is not a member's. A plugin offering no such say would name the account itself, so a login the
+allowlist admits arriving through one is refused, and the refusal is written to the log channel.
+Holding single sign-on to the allowlist therefore works with OpenIDConnect and no other plugin.
 
 ### Deactivation and removal
 
@@ -95,13 +108,12 @@ A block placed by hand, for some other reason, is neither replaced when the memb
 nor lifted when they are reactivated. Deactivating is refused while such a block would not keep the
 member out by itself, because it runs out or is only partial.
 
-Removing a member makes the roster forget them and renames their account to
-`Removed member <userId>`, so their address is free again and reaches a new account at the next
-code login. The rename ends the account's open sessions, but not the member's admission: the
-allowlist entry that admits them stays, and a deactivation block stays behind on the renamed
-account rather than reaching the new one. An identity provider that recorded the account still
-points at the parked one, so a removed member's single sign-on logins arrive there and are refused
-rather than reaching a fresh account.
+Removing a member makes the roster forget them and closes their account: the address goes off it
+and the open sessions with it, so their address is free again and reaches a new account at the next
+code login. What is removed is the member, not their admission: the allowlist entry that admits
+them stays, and a deactivation block stays behind on the closed account rather than reaching the new
+one. An identity provider that recorded the account still points at the closed one, so a removed
+member's single sign-on logins arrive there and are refused rather than reaching a fresh account.
 
 ### Rate limits and logging
 
@@ -112,15 +124,15 @@ address hashed.
 
 ### The roster
 
-A member's username is their email address, so anything that names accounts names the roster. The
-action API query modules whose purpose is enumerating accounts are closed to the reader group, and
-three logs are closed to anyone who cannot manage members: the new user log, where every member's
-account creation is recorded, the block log, where every deactivation is, and the rename log, which
-names what a removed member was called. Restricting a log type also keeps it out of recent changes.
-The special pages that list or resolve accounts are closed to the reader group as well, and
-transcluding `Special:ListUsers` renders it empty for everyone, since what a transclusion renders
-is not kept to the reader who asked for it. `Special:Redirect` is closed whole, so members lose its
-other lookups too, and `Special:FilePath`, which redirects through it.
+A member's name gives nothing away, so what is left to keep is that they exist at all. The action
+API query modules whose purpose is enumerating accounts are closed to the reader group, and three
+logs are closed to anyone who cannot manage members: the new user log, where every member's account
+creation is recorded, the block log, where every deactivation is, and the rename log, which holds
+what members were called before the update that gave them opaque names. Restricting a log type also
+keeps it out of recent changes. The special pages that list or resolve accounts are closed to the
+reader group as well, and transcluding `Special:ListUsers` renders it empty for everyone, since what
+a transclusion renders is not kept to the reader who asked for it. `Special:Redirect` is closed
+whole, so members lose its other lookups too, and `Special:FilePath`, which redirects through it.
 
 Page histories and recent changes still name whoever acted, which on a members-only wiki means the
 staff who edit: members cannot appear there, since they cannot change anything.
@@ -173,18 +185,24 @@ Whatever the login routes are set to, loading the extension:
   information or preferences, which closes `Special:ChangeEmail` to them;
 * sets `$wgBlockDisablesLogin`, so blocking a member keeps them out of a private wiki;
 * restricts the `newusers`, `block` and `renameuser` logs to the `memberaccess-manage` right, unless
-  the wiki already restricted them;
+  the wiki already restricted them, so that who joined, who was deactivated, and what members were
+  called before the update renamed them stay out of view;
+* reserves the username `MemberAccess`, which the update that renames members records its renames as,
+  so that no real account can be there for it to take over;
 * refuses members a password, whatever the routes: setting one and having a temporary one mailed
   stay refused;
 * closes the account-listing API modules to the reader group;
 * closes the special pages that list or resolve accounts to the reader group, and transcluding
-  `Special:ListUsers` to everyone;
-* removes `@` from `$wgInvalidUsernameCharacters`, and changes `$wgUserrightsInterwikiDelimiter` from
-  `@` to `@@`, so that staff can use `Special:UserRights` on an account named after an address.
+  `Special:ListUsers` to everyone.
 
 While the code route is turned on, it also turns off ConfirmEdit's `badloginperuser` captcha trigger,
 so failed logins no longer escalate to a captcha for the account they name, for everyone on the wiki
 and not only for members; the per-IP `badlogin` trigger is left alone.
+
+While the allowlist governs single sign-on, it also sets `$wgOpenIDConnect_PreferredUsernameProcessor`,
+so that the accounts that route creates for members are named after nobody, and
+`$wgOpenIDConnect_EmailProcessor`, so that the address the plugin resolved is the one the allowlist is
+asked about. Processors the wiki configured itself are kept and run first.
 
 While any route can log a member in — the code route turned on, or the allowlist governing single
 sign-on — it also:
@@ -194,10 +212,10 @@ sign-on — it also:
 * sets `$wgExtendedLoginCookieExpiration` to `$wgMemberAccessSessionDurationSeconds`, which decides
   how long a remembered login lasts for everyone on the wiki, not only for members.
 
-A wiki with the code route off and single sign-on left alone gets the first list and nothing else: what
-an anonymous visitor may do, what ConfirmEdit does, and how long a remembered login lasts are left as
-the wiki has them. That is a wiki that has just loaded the extension, since neither route is offered
-until a setting says so.
+A wiki with the code route off and single sign-on left alone gets the first list and nothing else:
+what an anonymous visitor may do, what ConfirmEdit does, how single sign-on names the accounts it
+creates, and how long a remembered login lasts are left as the wiki has them. That is a wiki that has
+just loaded the extension, since neither route is offered until a setting says so.
 
 ## Installation
 
@@ -207,6 +225,14 @@ Platform requirements:
 * [MediaWiki] 1.43 or later
 * MySQL, MariaDB or SQLite. No PostgreSQL schema is shipped
 * Working outgoing email while the code route is offered, since login codes are sent by mail
+* [OpenIDConnect] 8.3 or later while single sign-on is held to the allowlist, with
+  `$wgOpenIDConnect_UseRandomUsernames` left off and its preferred username processor left to this
+  extension rather than set per provider. Every other way of naming a single sign-on account is one
+  the extension cannot make opaque, and a member's login is then refused.
+  `$wgOpenIDConnect_MigrateUsersByUserName` has to be off as well, since it hands a login the account
+  whose name it presents as its `preferred_username`, which is a member's account claimed without
+  their address. `$wgOpenIDConnect_MigrateUsersByEmail` is what joins a single sign-on login to the
+  account the code route created for the same address; without it that address gets a second account
 
 Clone into the wiki's `extensions/` directory:
 
@@ -233,6 +259,13 @@ $wgAllowHTMLEmail = true;
 Run `php maintenance/run.php update --quick` to create the extension's tables. Until it has run, a
 warning on the `MemberAccess` log channel says so, and anything that reads them fails with a database
 error.
+
+The same command gives an opaque name to every member the extension did not name, which is what
+earlier versions left them under. It is recorded in the rename log, which is why that log is
+restricted, and on the `MemberAccess` log channel by user id alone. It does not move a `User:` or
+`User talk:` page titled after the old name, so a wiki that has any moves them by hand, without
+leaving a redirect. Core's rename code names both the old and the new name at debug level, so run it
+without `$wgDebugLogFile` pointing at a file you keep. Running it again has nothing left to rename.
 
 ## Management API
 
@@ -289,9 +322,8 @@ human-readable `error`: `not_logged_in`, `permission_denied`, `invalid_csrf_toke
 `invalid_request_body`, `invalid_group_name`, `group_name_too_long`, `duplicate_group_name`,
 `group_not_found`, `group_not_empty`, `group_has_members`, `too_many_entry_values`, `entry_not_found`,
 `not_a_member`, `cannot_deactivate_self`, `block_right_required`, `block_failed`, `unblock_failed`,
-`cannot_remove_self`, `reserved_name_taken`, `removal_failed`. A request the REST framework refuses
-first — an id that is not a number, a body it cannot read — carries MediaWiki's error shape rather
-than this one.
+`cannot_remove_self`. A request the REST framework refuses first — an id that is not a number, a
+body it cannot read — carries MediaWiki's error shape rather than this one.
 
 ## Configuration
 
@@ -356,7 +388,8 @@ Initial version for MediaWiki 1.43+ with these features:
 * A code screen that names the address the code went to, offers another code in its place, and
   offers a way back to enter a different address
 * An allowlist of email addresses and domains, organized into named groups, decides who is admitted
-* Accounts create themselves at first login, into a reader group that may read and nothing else
+* Accounts create themselves at first login, into a reader group that may read and nothing else,
+  under a name that identifies nobody
 * Single sign-on logins through [PluggableAuth] can be held to the same allowlist, with staff
   accounts exempt
 * Settable login routes, neither offered until a setting says so: the code route admits the addresses
@@ -364,7 +397,7 @@ Initial version for MediaWiki 1.43+ with these features:
   left alone
 * Members never have a password: setting one and having a temporary one mailed are both refused
 * Deactivation blocks a member's account sitewide, reactivation lifts that block again, and
-  removal frees their address for a new account
+  removal closes the account and frees their address for a new one
 * Code requests rate limited per email address and per client IP, with a burst and a daily limit,
   and codes stored hashed and burned after five wrong entries
 * Uniform responses, restricted account-listing API modules and special pages, and restricted new
@@ -380,3 +413,4 @@ Initial version for MediaWiki 1.43+ with these features:
 [MediaWiki Consulting]: https://professional.wiki/en/mediawiki-consulting-services
 [PHP]: https://www.php.net
 [PluggableAuth]: https://www.mediawiki.org/wiki/Extension:PluggableAuth
+[OpenIDConnect]: https://www.mediawiki.org/wiki/Extension:OpenID_Connect

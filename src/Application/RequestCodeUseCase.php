@@ -62,7 +62,7 @@ class RequestCodeUseCase {
 		// admitted address, an unlisted one and a deactivated member. The group is also what an
 		// admitted address is attributed to, which an open route still records.
 		$group = $this->matcher->match( $email );
-		$member = $this->members->findMemberByEmail( $email );
+		$member = $this->members->findMemberByEmail( $email, ReadConsistency::MayBeStale );
 
 		if ( !$this->mode->admits( $group ) ) {
 			$this->logger->info( 'Login code requested for an address that is not admitted', [

@@ -20,6 +20,7 @@ use RuntimeException;
 class MemberProvisionerTest extends MediaWikiIntegrationTestCase {
 
 	private const MEMBER_EMAIL = 'jane@example.com';
+	private const MEMBER_NAME = 'Member AB2345';
 
 	private SpyLogger $logger;
 
@@ -112,7 +113,7 @@ class MemberProvisionerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	private function newAccount(): User {
-		$user = $this->getServiceContainer()->getUserFactory()->newFromName( 'Jane@example.com' );
+		$user = $this->getServiceContainer()->getUserFactory()->newFromName( self::MEMBER_NAME );
 
 		$this->assertNotNull( $user );
 		$user->addToDatabase();
