@@ -23,6 +23,7 @@ use ProfessionalWiki\MemberAccess\EntryPoints\Auth\EnterCodeRequest;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\LoginCodeRequest;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\MemberAuthenticationProvider;
 use ProfessionalWiki\MemberAccess\MemberAccessExtension;
+use ProfessionalWiki\MemberAccess\Tests\TestDoubles\CrashingUsernameMinter;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\FixedSecretGenerator;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\InMemoryMemberRepository;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\RefusingUsernameMinter;
@@ -129,6 +130,21 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	public function testLoginIsRefusedWhenNoNameCanBeMintedForTheAccount(): void {
 		$this->allow( 'jane@example.com' );
 		MemberAccessExtension::getInstance()->setUsernameMinterOverride( new RefusingUsernameMinter() );
+
+		$response = $this->logIn( 'jane@example.com' );
+
+		$this->assertSame( AuthenticationResponse::FAIL, $response->status );
+		$this->assertSame( 'memberaccess-auth-failed', $response->message?->getKey() );
+	}
+
+	/**
+	 * The random source failing is not the minter refusing, and arrives as an exception of another
+	 * class. It refuses the login the same way, rather than answering a proven address with
+	 * MediaWiki's error page.
+	 */
+	public function testLoginIsRefusedWhenTheRandomSourceFails(): void {
+		$this->allow( 'jane@example.com' );
+		MemberAccessExtension::getInstance()->setUsernameMinterOverride( new CrashingUsernameMinter() );
 
 		$response = $this->logIn( 'jane@example.com' );
 

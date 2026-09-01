@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace ProfessionalWiki\MemberAccess\EntryPoints\Auth;
 
+use Exception;
 use MediaWiki\Auth\AbstractPrimaryAuthenticationProvider;
 use MediaWiki\Auth\AuthenticationRequest;
 use MediaWiki\Auth\AuthenticationResponse;
@@ -28,7 +29,6 @@ use ProfessionalWiki\MemberAccess\Application\RequestCodeUseCase;
 use ProfessionalWiki\MemberAccess\Application\UsernameMinter;
 use ProfessionalWiki\MemberAccess\Application\VerifyCodeUseCase;
 use Psr\Log\LoggerInterface;
-use RuntimeException;
 use StatusValue;
 use Wikimedia\Rdbms\IDBAccessObject;
 
@@ -278,7 +278,7 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 	private function admitToANewAccount( NormalizedEmail $email, ?MemberGroup $group ): AuthenticationResponse {
 		try {
 			$username = $this->minter->mintUsername();
-		} catch ( RuntimeException ) {
+		} catch ( Exception ) {
 			return $this->refuse( 'No name could be minted for a new member account', $email );
 		}
 

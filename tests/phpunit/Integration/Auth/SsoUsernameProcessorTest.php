@@ -10,6 +10,7 @@ use ProfessionalWiki\MemberAccess\Application\AllowlistValue;
 use ProfessionalWiki\MemberAccess\Application\OpaqueUsername;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\SsoUsernameProcessor;
 use ProfessionalWiki\MemberAccess\MemberAccessExtension;
+use ProfessionalWiki\MemberAccess\Tests\TestDoubles\CrashingUsernameMinter;
 use ProfessionalWiki\MemberAccess\Tests\TestDoubles\RefusingUsernameMinter;
 
 /**
@@ -74,6 +75,17 @@ class SsoUsernameProcessorTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testLoginKeepsThePluginsNameWhenNoNameCanBeMinted(): void {
 		MemberAccessExtension::getInstance()->setUsernameMinterOverride( new RefusingUsernameMinter() );
+
+		$this->assertSame( self::PLUGIN_NAME, $this->processName( self::PLUGIN_NAME, 'jane@example.com' ) );
+	}
+
+	/**
+	 * The random source failing arrives as an exception that is no RuntimeException. It leaves the
+	 * plugin's name the same way, rather than surfacing on PluggableAuth's error screen for the
+	 * visitor.
+	 */
+	public function testLoginKeepsThePluginsNameWhenTheRandomSourceFails(): void {
+		MemberAccessExtension::getInstance()->setUsernameMinterOverride( new CrashingUsernameMinter() );
 
 		$this->assertSame( self::PLUGIN_NAME, $this->processName( self::PLUGIN_NAME, 'jane@example.com' ) );
 	}

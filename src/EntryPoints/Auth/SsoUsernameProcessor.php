@@ -5,10 +5,10 @@ declare( strict_types = 1 );
 namespace ProfessionalWiki\MemberAccess\EntryPoints\Auth;
 
 use Closure;
+use Exception;
 use ProfessionalWiki\MemberAccess\Application\AllowlistMatcher;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use ProfessionalWiki\MemberAccess\Application\UsernameMinter;
-use RuntimeException;
 
 /**
  * Names the account a single sign-on login is about to be given, where the allowlist admits the
@@ -60,7 +60,7 @@ class SsoUsernameProcessor {
 	private function mintedName( ?string $fallback ): ?string {
 		try {
 			return $this->minter->mintUsername();
-		} catch ( RuntimeException ) {
+		} catch ( Exception ) {
 			return $fallback;
 		}
 	}
