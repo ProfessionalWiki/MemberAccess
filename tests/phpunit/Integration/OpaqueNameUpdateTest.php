@@ -202,6 +202,34 @@ class OpaqueNameUpdateTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
+	 * Core's rename opens an atomic section that stays open when a failure escapes it. Left
+	 * dangling, it takes every rename after it down with it, or worse, silently rolls them back
+	 * while they were reported as done. The hook above fires before the section opens; this
+	 * failure fires inside it.
+	 */
+	public function testFailureInsideOneRenameLeavesTheOtherAccountsRenamed(): void {
+		$failing = $this->newMemberNamed( self::ADDRESS_NAME );
+		$other = $this->newMemberNamed( 'john@example.com' );
+		$this->failTheRenameOfInsideItsSection( 'Jane@example.com' );
+
+		$this->runTheUpdate();
+
+		$this->assertSame( 'Jane@example.com', $this->nameOf( $failing->getId() ) );
+		$this->assertTrue( OpaqueUsername::isOpaque( $this->nameOf( $other->getId() ) ) );
+	}
+
+	private function failTheRenameOfInsideItsSection( string $name ): void {
+		$this->setTemporaryHook(
+			'RenameUserPreRename',
+			static function ( int $uid, string $old, string $new ) use ( $name ): void {
+				if ( $old === $name ) {
+					throw new RuntimeException( 'Renaming this account is not possible here' );
+				}
+			}
+		);
+	}
+
+	/**
 	 * The rename is an act of the extension's own, not of whoever happens to be running update.php.
 	 */
 	public function testRenameIsRecordedAsPerformedByTheExtension(): void {
