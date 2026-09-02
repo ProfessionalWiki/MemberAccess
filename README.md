@@ -16,9 +16,8 @@ admitted by an allowlist of addresses and domains organized into named groups.
   login; deactivating a member blocks them at once.
 * Single sign-on logins through [OpenIDConnect] can be held to the same allowlist; staff accounts
   are exempt.
-* Nothing gives the member list away: a member's account is named after nobody, code and
-  password-reset requests answer the same for every address, and account listings and the logs that
-  record members are restricted.
+* Nothing says which addresses are members: a member's account is named after nobody, and code and
+  password-reset requests answer the same for every address.
 * An admitted address can be mailed an invitation naming the login page and how to log in.
 * Groups, allowlist entries and the member roster are managed over a REST API.
 * It does not make the wiki private: restricting who may read stays a wiki configuration decision.
@@ -135,18 +134,12 @@ address hashed.
 
 ### The roster
 
-A member's name gives nothing away, so what is left to keep is that they exist at all. The action
-API query modules whose purpose is enumerating accounts are closed to the reader group, and three
-logs are closed to anyone who cannot manage members: the new user log, where every member's account
-creation is recorded, the block log, where every deactivation is, and the rename log, which holds
-what members were called before the update that gave them opaque names. Restricting a log type also
-keeps it out of recent changes. The special pages that list or resolve accounts are closed to the
-reader group as well, and transcluding `Special:ListUsers` renders it empty for everyone, since what
-a transclusion renders is not kept to the reader who asked for it. `Special:Redirect` is closed
-whole, so members lose its other lookups too, and `Special:FilePath`, which redirects through it.
+An account's name identifies nobody, so the wiki's account lists tell a member that other members
+exist and no more. The name an account carried before a rename says more, so the rename log is closed
+to anyone who cannot manage members, which keeps it out of recent changes as well.
 
-Page histories and recent changes still name whoever acted, which on a members-only wiki means the
-staff who edit: members cannot appear there, since they cannot change anything.
+Page histories and recent changes name whoever acted, which on a members-only wiki means the staff
+who edit: members cannot appear there, since they cannot change anything.
 
 ### Login routes
 
@@ -195,16 +188,13 @@ Whatever the login routes are set to, loading the extension:
   sending email, reading the abuse filters and their log, and reading or changing their own private
   information or preferences, which closes `Special:ChangeEmail` to them;
 * sets `$wgBlockDisablesLogin`, so blocking a member keeps them out of a private wiki;
-* restricts the `newusers`, `block` and `renameuser` logs to the `memberaccess-manage` right, unless
-  the wiki already restricted them, so that who joined, who was deactivated, and what members were
-  called before the update renamed them stay out of view;
+* restricts the `renameuser` log to the `memberaccess-manage` right, unless the wiki already
+  restricted it, since an entry there names what an account was called before, which for a member
+  can be their email address;
 * reserves the username `MemberAccess`, which the update that renames members records its renames as,
   so that no real account can be there for it to take over;
 * refuses members a password, whatever the routes: setting one and having a temporary one mailed
-  stay refused;
-* closes the account-listing API modules to the reader group;
-* closes the special pages that list or resolve accounts to the reader group, and transcluding
-  `Special:ListUsers` to everyone.
+  stay refused.
 
 While the code route is turned on, it also turns off ConfirmEdit's `badloginperuser` captcha trigger,
 so failed logins no longer escalate to a captcha for the account they name, for everyone on the wiki
@@ -354,8 +344,6 @@ body it cannot read — carries MediaWiki's error shape rather than this one.
 | `$wgMemberAccessIpDailyLimit` | int | `50` | Maximum code requests per client IP within 24 hours |
 | `$wgMemberAccessSenderAddress` | ?string | `null` | Address that login codes and invitations are sent from. Falls back to `$wgPasswordSender` |
 | `$wgMemberAccessSessionDurationSeconds` | int | `2592000` | How long a remembered login lasts, wiki-wide. Thirty days, against core's 180 days. `0` leaves `$wgExtendedLoginCookieExpiration` alone |
-| `$wgMemberAccessBlockedApiModules` | string[] | `[ 'allusers', 'users', 'blocks' ]` | Action API query submodules the reader group may not use |
-| `$wgMemberAccessBlockedSpecialPages` | string[] | `[ 'Listusers', 'Activeusers', 'BlockList', 'Redirect', 'Userrights' ]` | Special pages the reader group may not open. Canonical names; an alias does not match. Setting it adds to the shipped list rather than replacing it, so those pages cannot be dropped |
 
 Issued codes and rate-limit counters are held in the main object stash (`$wgMainStash`), which is
 database-backed by default. Point it at Redis or Valkey to keep them out of the database.
@@ -427,8 +415,7 @@ Initial version for MediaWiki 1.43+ with these features:
   removal closes the account and frees their address for a new one
 * Code requests rate limited per email address and per client IP, with a burst and a daily limit,
   and codes stored hashed and burned after five wrong entries
-* Uniform responses, restricted account-listing API modules and special pages, and restricted new
-  user, block and rename logs, so the member list is not given away
+* Uniform responses and a restricted rename log, so no address is given away
 * Every code issue, login success, failure and rate-limit hit logged through the `MemberAccess` log
   channel, with the email address hashed
 * An invitation mailed to an admitted address on request, and again as often as needed, naming the

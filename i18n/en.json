@@ -41,8 +41,6 @@
 	"memberaccess-auth-not-authorized": "This address cannot be used to log in here.",
 	"memberaccess-auth-failed": "Logging in did not complete. Request a new login code; if this keeps happening, contact an administrator of this wiki.",
 	"memberaccess-auth-password-refused": "Members log in with a one-time code, so this account cannot have a password.",
-	"memberaccess-api-module-denied": "The \"$1\" API module is not available to members.",
-	"memberaccess-special-page-denied": "This special page is not available to members.",
 	"memberaccess-block-reason": "Membership ended",
 	"memberaccess-unblock-reason": "Membership resumed",
 	"memberaccess-opaque-name-reason": "Email addresses are no longer used as usernames",

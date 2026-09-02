@@ -60,8 +60,6 @@ use ProfessionalWiki\MemberAccess\EntryPoints\REST\RenameGroupApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\REST\SendInvitationApi;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\SsoAuthorizationHandler;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\SsoUsernameProcessor;
-use ProfessionalWiki\MemberAccess\EntryPoints\UserListApiHandler;
-use ProfessionalWiki\MemberAccess\EntryPoints\UserListSpecialPageHandler;
 use ProfessionalWiki\MemberAccess\Persistence\DatabaseAllowlistRepository;
 use ProfessionalWiki\MemberAccess\Persistence\DatabaseMemberGroupRepository;
 use ProfessionalWiki\MemberAccess\Persistence\DatabaseMemberRepository;
@@ -316,30 +314,6 @@ class MemberAccessExtension {
 
 	private function newCsrfTokenSet(): CsrfTokenSet {
 		return new CsrfTokenSet( RequestContext::getMain()->getRequest() );
-	}
-
-	public static function newUserListApiHookHandler(): UserListApiHandler {
-		return self::getInstance()->newUserListApiHandler();
-	}
-
-	private function newUserListApiHandler(): UserListApiHandler {
-		return new UserListApiHandler(
-			userGroups: MediaWikiServices::getInstance()->getUserGroupManager(),
-			readerGroup: $this->getReaderGroup(),
-			blockedModules: $this->getStringListConfig( 'MemberAccessBlockedApiModules' )
-		);
-	}
-
-	public static function newUserListSpecialPageHookHandler(): UserListSpecialPageHandler {
-		return self::getInstance()->newUserListSpecialPageHandler();
-	}
-
-	private function newUserListSpecialPageHandler(): UserListSpecialPageHandler {
-		return new UserListSpecialPageHandler(
-			userGroups: MediaWikiServices::getInstance()->getUserGroupManager(),
-			readerGroup: $this->getReaderGroup(),
-			blockedPages: $this->getStringListConfig( 'MemberAccessBlockedSpecialPages' )
-		);
 	}
 
 	public static function newMemberLoginHookHandler(): MemberLoginHandler {
@@ -630,22 +604,6 @@ class MemberAccessExtension {
 		$value = $this->getConfigValue( $name );
 
 		return is_scalar( $value ) ? intval( $value ) : 0;
-	}
-
-	/**
-	 * @return string[]
-	 */
-	private function getStringListConfig( string $name ): array {
-		$value = $this->getConfigValue( $name );
-		$names = [];
-
-		foreach ( is_array( $value ) ? $value : [] as $entry ) {
-			if ( is_string( $entry ) ) {
-				$names[] = $entry;
-			}
-		}
-
-		return $names;
 	}
 
 	private function getConfigValue( string $name ): mixed {

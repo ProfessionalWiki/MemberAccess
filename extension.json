@@ -35,12 +35,6 @@
 		"passwordReset": {
 			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newPasswordResetHookHandler"
 		},
-		"api": {
-			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newUserListApiHookHandler"
-		},
-		"specialPages": {
-			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newUserListSpecialPageHookHandler"
-		},
 		"loginForm": {
 			"class": "ProfessionalWiki\\MemberAccess\\EntryPoints\\LoginFormHandler"
 		}
@@ -50,8 +44,6 @@
 		"PluggableAuthUserAuthorization": "sso",
 		"UserLoggedIn": "login",
 		"SpecialPasswordResetOnSubmit": "passwordReset",
-		"ApiCheckCanExecute": "api",
-		"SpecialPageBeforeExecute": "specialPages",
 		"AuthChangeFormFields": "loginForm",
 		"BeforePageDisplay": "loginForm"
 	},
@@ -145,14 +137,6 @@
 		"MemberAccessSessionDurationSeconds": {
 			"value": 2592000,
 			"description": "How long a remembered login lasts, in seconds. Sets $wgExtendedLoginCookieExpiration while a route can log a member in, so it applies to everyone on the wiki, not only to members. Set to 0 to leave that setting alone."
-		},
-		"MemberAccessBlockedApiModules": {
-			"value": [ "allusers", "users", "blocks" ],
-			"description": "Names of action API query submodules the reader group may not use."
-		},
-		"MemberAccessBlockedSpecialPages": {
-			"value": [ "Listusers", "Activeusers", "BlockList", "Redirect", "Userrights" ],
-			"description": "Canonical names of special pages the reader group may not open."
 		}
 	},
 	"RestRoutes": [

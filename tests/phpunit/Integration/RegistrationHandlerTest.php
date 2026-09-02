@@ -49,10 +49,10 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * extension.json has to name the callback for any of what follows to reach a wiki. Nothing else
-	 * closes the new user log.
+	 * closes the rename log.
 	 */
 	public function testLoadingTheExtensionAppliesItsSettings(): void {
-		$this->assertSame( 'memberaccess-manage', $GLOBALS['wgLogRestrictions']['newusers'] ?? null );
+		$this->assertSame( 'memberaccess-manage', $GLOBALS['wgLogRestrictions']['renameuser'] ?? null );
 	}
 
 	/**
@@ -117,9 +117,13 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
+	 * A rename log entry names what an account was called before, which for a member can be their
+	 * email address. Every other log names accounts under the names the wiki shows anyway, so the
+	 * rename log is the only one the extension closes.
+	 *
 	 * @dataProvider everyRouteStateProvider
 	 */
-	public function testAccountCreationsAreKeptOutOfTheReadableNewUserLog(
+	public function testTheRenameLogIsTheOnlyLogClosed(
 		string $codeLogin,
 		bool $allowlistAppliesToSso
 	): void {
@@ -127,51 +131,23 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 
 		$this->registerWithRoutes( $codeLogin, $allowlistAppliesToSso );
 
-		$this->assertSame( 'memberaccess-manage', $GLOBALS['wgLogRestrictions']['newusers'] ?? null );
-	}
-
-	/**
-	 * @dataProvider everyRouteStateProvider
-	 */
-	public function testDeactivationsAreKeptOutOfTheReadableBlockLog(
-		string $codeLogin,
-		bool $allowlistAppliesToSso
-	): void {
-		$this->setMwGlobals( 'wgLogRestrictions', [] );
-
-		$this->registerWithRoutes( $codeLogin, $allowlistAppliesToSso );
-
-		$this->assertSame( 'memberaccess-manage', $GLOBALS['wgLogRestrictions']['block'] ?? null );
+		$this->assertSame( [ 'renameuser' => 'memberaccess-manage' ], $GLOBALS['wgLogRestrictions'] );
 	}
 
 	public function testALogTypeTheWikiRestrictedFurtherIsLeftAlone(): void {
-		$this->setMwGlobals( 'wgLogRestrictions', [ 'newusers' => 'suppressionlog' ] );
+		$this->setMwGlobals( 'wgLogRestrictions', [ 'renameuser' => 'suppressionlog' ] );
 
 		$this->registerWithRoutes( 'allowlisted', true );
 
-		$this->assertSame( 'suppressionlog', $GLOBALS['wgLogRestrictions']['newusers'] );
+		$this->assertSame( 'suppressionlog', $GLOBALS['wgLogRestrictions']['renameuser'] );
 	}
 
 	public function testALogTypeTheWikiDeclaredPublicIsStillClosed(): void {
-		$this->setMwGlobals( 'wgLogRestrictions', [ 'newusers' => '*' ] );
+		$this->setMwGlobals( 'wgLogRestrictions', [ 'renameuser' => '*' ] );
 
 		$this->registerWithRoutes( 'allowlisted', true );
 
-		$this->assertSame( 'memberaccess-manage', $GLOBALS['wgLogRestrictions']['newusers'] );
-	}
-
-	/**
-	 * @dataProvider everyRouteStateProvider
-	 */
-	public function testRenamesAreKeptOutOfTheReadableRenameLog(
-		string $codeLogin,
-		bool $allowlistAppliesToSso
-	): void {
-		$this->setMwGlobals( 'wgLogRestrictions', [] );
-
-		$this->registerWithRoutes( $codeLogin, $allowlistAppliesToSso );
-
-		$this->assertSame( 'memberaccess-manage', $GLOBALS['wgLogRestrictions']['renameuser'] ?? null );
+		$this->assertSame( 'memberaccess-manage', $GLOBALS['wgLogRestrictions']['renameuser'] );
 	}
 
 	/**
