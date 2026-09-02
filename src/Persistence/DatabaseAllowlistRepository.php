@@ -63,6 +63,20 @@ class DatabaseAllowlistRepository extends DatabaseRepository implements Allowlis
 			->execute();
 	}
 
+	public function recordInvitation( int $entryId ): string {
+		$database = $this->connectionProvider->getPrimaryDatabase();
+		$timestamp = $this->now();
+
+		$database->newUpdateQueryBuilder()
+			->update( self::ENTRY_TABLE )
+			->set( [ 'mae_invited' => $database->timestamp( $timestamp ) ] )
+			->where( [ 'mae_id' => $entryId ] )
+			->caller( __METHOD__ )
+			->execute();
+
+		return $timestamp;
+	}
+
 	public function listEntries( int $groupId ): array {
 		$rows = $this->toRows(
 			$this->connectionProvider->getReplicaDatabase()->newSelectQueryBuilder()
@@ -122,7 +136,7 @@ class DatabaseAllowlistRepository extends DatabaseRepository implements Allowlis
 	 * @return string[]
 	 */
 	private function entryFields(): array {
-		return [ 'mae_id', 'mae_group_id', 'mae_value', 'mae_kind', 'mae_actor', 'mae_timestamp' ];
+		return [ 'mae_id', 'mae_group_id', 'mae_value', 'mae_kind', 'mae_actor', 'mae_timestamp', 'mae_invited' ];
 	}
 
 	private function newEntryFromRow( stdClass $row ): AllowlistEntry {
@@ -134,7 +148,8 @@ class DatabaseAllowlistRepository extends DatabaseRepository implements Allowlis
 				kind: EntryKind::from( $this->asString( $row->mae_kind ) )
 			),
 			actorId: $this->asInt( $row->mae_actor ),
-			creationTimestamp: $this->asTimestamp( $row->mae_timestamp )
+			creationTimestamp: $this->asTimestamp( $row->mae_timestamp ),
+			invitationTimestamp: $this->asOptionalTimestamp( $row->mae_invited )
 		);
 	}
 

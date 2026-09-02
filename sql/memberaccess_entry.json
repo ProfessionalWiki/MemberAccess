@@ -56,6 +56,14 @@
 				"options": {
 					"notnull": true
 				}
+			},
+			{
+				"name": "mae_invited",
+				"comment": "When an invitation was last sent to the address; null when none was, and always for a domain rule",
+				"type": "mwtimestamp",
+				"options": {
+					"notnull": false
+				}
 			}
 		],
 		"indexes": [

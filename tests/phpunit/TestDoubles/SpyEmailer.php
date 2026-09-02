@@ -42,7 +42,15 @@ class SpyEmailer implements IEmailer {
 			'bodyHtml' => $bodyHtml
 		];
 
-		return $this->sendSucceeds ? StatusValue::newGood() : StatusValue::newFatal( 'mail-failed' );
+		return $this->sendSucceeds ? StatusValue::newGood() : self::newRefusal( $recipients[0] );
+	}
+
+	/**
+	 * A refusal the way a mail server gives one: quoting back the address it would not deliver to.
+	 * Anything putting a rendered status in a log puts that address there with it.
+	 */
+	private static function newRefusal( MailAddress $recipient ): StatusValue {
+		return StatusValue::newFatal( 'pear-mail-error', '550 5.1.1 <' . $recipient->address . '>: unknown user' );
 	}
 
 	/**

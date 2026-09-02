@@ -19,6 +19,7 @@ admitted by an allowlist of addresses and domains organized into named groups.
 * Nothing gives the member list away: a member's account is named after nobody, code and
   password-reset requests answer the same for every address, and account listings and the logs that
   record members are restricted.
+* An admitted address can be mailed an invitation naming the login page and how to log in.
 * Groups, allowlist entries and the member roster are managed over a REST API.
 * It does not make the wiki private: restricting who may read stays a wiki configuration decision.
 
@@ -57,6 +58,16 @@ Entering the right code logs the visitor in, and the first time also creates the
 named after nobody, placed in the reader group, and the address is recorded as confirmed. The
 allowlist is consulted again at that point, so removing an entry ends access at the next login. A
 code never opens an account that was created some other way.
+
+### Invitations
+
+Adding an address to the allowlist grants access but sends no mail. An invitation is asked for
+separately: it mails that address the login page, the address to log in with, and that a code arrives
+by mail instead of a password. It names no username and no inviter.
+
+Only an address entry can be invited, not a domain rule, and only while the
+[code route](#login-routes) is offered, since the mail tells the recipient to log in with a code.
+Inviting again sends another mail; the entry records when the last one was sent.
 
 ### Usernames
 
@@ -224,7 +235,7 @@ Platform requirements:
 * [PHP] 8.3 or later
 * [MediaWiki] 1.43 or later
 * MySQL, MariaDB or SQLite. No PostgreSQL schema is shipped
-* Working outgoing email while the code route is offered, since login codes are sent by mail
+* Working outgoing email while the code route is offered, since login codes and invitations are sent by mail
 * [OpenIDConnect] 8.3 or later while single sign-on is held to the allowlist, with
   `$wgOpenIDConnect_UseRandomUsernames` left off and its preferred username processor left to this
   extension rather than set per provider. Every other way of naming a single sign-on account is one
@@ -250,15 +261,16 @@ $wgMemberAccessCodeLogin = 'allowlisted';
 Loading alone admits nobody: the second line turns on the code login route, held to the allowlist.
 See [Login routes](#login-routes) for what each route setting admits.
 
-To send the login code as rich email rather than plain text, set:
+To send the login code and the invitation as rich email rather than plain text, set:
 
 ```php
 $wgAllowHTMLEmail = true;
 ```
 
-Run `php maintenance/run.php update --quick` to create the extension's tables. Until it has run, a
-warning on the `MemberAccess` log channel says so, and anything that reads them fails with a database
-error.
+Run `php maintenance/run.php update --quick` to create the extension's tables, and again after every
+upgrade, since one may add a column to a table the wiki already has. Until it has run, anything that
+reads those tables fails with a database error; a wiki missing them altogether also says so, with a
+warning on the `MemberAccess` log channel.
 
 The same command gives an opaque name to every member the extension did not name, which is what
 earlier versions left them under. It is recorded in the rename log, which is why that log is
@@ -282,6 +294,7 @@ wiki's CSRF token in an `X-CSRF-TOKEN` header, unless the session provider is in
 | `GET /groups/{id}/entries` | The group's allowlist entries |
 | `POST /groups/{id}/entries` | Adds entries, at most 500 per request. Body: `values`, a list of email addresses and `@domain`s |
 | `DELETE /entries/{id}` | Removes an allowlist entry |
+| `POST /entries/{id}/invitation` | Mails an invitation to the entry's address and records the time as the entry's `invited`. Refused for a domain rule, or while the code route is off |
 | `GET /members` | The roster: each member's address, group, creation, last login and active flag, plus the totals overall and per group |
 | `POST /members/{userId}/deactivate` | Ends a member's access. Also requires the `block` right, and refuses your own account |
 | `POST /members/{userId}/reactivate` | Restores a member's access. Also requires the `block` right. The response's `blocked` says whether a block placed for another reason is still on the account |
@@ -299,7 +312,7 @@ already admits the value.
 		{
 			"value": "jane@example.com",
 			"added": true,
-			"entry": { "id": 7, "value": "jane@example.com", "kind": "email", "created": "2026-05-04T09:12:33Z" }
+			"entry": { "id": 7, "value": "jane@example.com", "kind": "email", "created": "2026-05-04T09:12:33Z", "invited": null }
 		},
 		{
 			"value": "john@example.net",
@@ -320,8 +333,9 @@ group (`group_not_found`), a body without a `values` list or with a value that i
 A failed request answers with the HTTP status and a body carrying a stable `errorCode` next to a
 human-readable `error`: `not_logged_in`, `permission_denied`, `invalid_csrf_token`,
 `invalid_request_body`, `invalid_group_name`, `group_name_too_long`, `duplicate_group_name`,
-`group_not_found`, `group_not_empty`, `group_has_members`, `too_many_entry_values`, `entry_not_found`,
-`not_a_member`, `cannot_deactivate_self`, `block_right_required`, `block_failed`, `unblock_failed`,
+`group_not_found`, `group_not_empty`, `group_has_members`, `too_many_entry_values`,
+`entry_not_found`, `not_an_address`, `code_login_off`, `invitation_not_sent`, `not_a_member`,
+`cannot_deactivate_self`, `block_right_required`, `block_failed`, `unblock_failed`,
 `cannot_remove_self`. A request the REST framework refuses first — an id that is not a number, a
 body it cannot read — carries MediaWiki's error shape rather than this one.
 
@@ -338,7 +352,7 @@ body it cannot read — carries MediaWiki's error shape rather than this one.
 | `$wgMemberAccessEmailDailyLimit` | int | `10` | Maximum code requests per email address within 24 hours |
 | `$wgMemberAccessIpBurstLimit` | int | `10` | Maximum code requests per client IP within 15 minutes |
 | `$wgMemberAccessIpDailyLimit` | int | `50` | Maximum code requests per client IP within 24 hours |
-| `$wgMemberAccessSenderAddress` | ?string | `null` | Address login codes are sent from. Falls back to `$wgPasswordSender` |
+| `$wgMemberAccessSenderAddress` | ?string | `null` | Address that login codes and invitations are sent from. Falls back to `$wgPasswordSender` |
 | `$wgMemberAccessSessionDurationSeconds` | int | `2592000` | How long a remembered login lasts, wiki-wide. Thirty days, against core's 180 days. `0` leaves `$wgExtendedLoginCookieExpiration` alone |
 | `$wgMemberAccessBlockedApiModules` | string[] | `[ 'allusers', 'users', 'blocks' ]` | Action API query submodules the reader group may not use |
 | `$wgMemberAccessBlockedSpecialPages` | string[] | `[ 'Listusers', 'Activeusers', 'BlockList', 'Redirect', 'Userrights' ]` | Special pages the reader group may not open. Canonical names; an alias does not match. Setting it adds to the shipped list rather than replacing it, so those pages cannot be dropped |
@@ -375,6 +389,19 @@ php maintenance/run.php generateSchemaSql --json extensions/MemberAccess/sql/<ta
 	--sql extensions/MemberAccess/sql/sqlite/<table>.sql --type sqlite
 ```
 
+Changing a table that installs already run also needs a patch, so that they get the change. Add an
+abstract schema change under `sql/abstractSchemaChanges/`, generate its SQL for both database types,
+and register it in `SchemaChangesHandler` after the `addExtensionTable` calls:
+
+```shell
+php maintenance/run.php generateSchemaChangeSql \
+	--json extensions/MemberAccess/sql/abstractSchemaChanges/<patch>.json \
+	--sql extensions/MemberAccess/sql/mysql/<patch>.sql --type mysql
+php maintenance/run.php generateSchemaChangeSql \
+	--json extensions/MemberAccess/sql/abstractSchemaChanges/<patch>.json \
+	--sql extensions/MemberAccess/sql/sqlite/<patch>.sql --type sqlite
+```
+
 ## Release notes
 
 ### Version 0.1.0 (unreleased)
@@ -404,6 +431,8 @@ Initial version for MediaWiki 1.43+ with these features:
   user, block and rename logs, so the member list is not given away
 * Every code issue, login success, failure and rate-limit hit logged through the `MemberAccess` log
   channel, with the email address hashed
+* An invitation mailed to an admitted address on request, and again as often as needed, naming the
+  login page and the address to log in with
 * A REST API under `/rest.php/member-access/v0/` for managing groups, allowlist entries and the roster
 
 [MediaWiki]: https://www.mediawiki.org

@@ -296,18 +296,6 @@ class EntryApiTest extends RestApiTestCase {
 	}
 
 	/**
-	 * @return array<int, array<string, mixed>>
-	 */
-	private function listEntries( int $groupId ): array {
-		$body = $this->bodyOf( $this->runHandler(
-			MemberAccessExtension::newListEntriesApi(),
-			$this->newRequest( 'GET', [], [ 'id' => (string)$groupId ] )
-		) );
-
-		return $body['entries'];
-	}
-
-	/**
 	 * @return string[]
 	 */
 	private function listedValues( int $groupId ): array {

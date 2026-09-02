@@ -9,6 +9,7 @@ CREATE TABLE /*_*/memberaccess_entry (
   mae_kind VARBINARY(8) NOT NULL,
   mae_actor BIGINT UNSIGNED DEFAULT 0 NOT NULL,
   mae_timestamp BINARY(14) NOT NULL,
+  mae_invited BINARY(14) DEFAULT NULL,
   UNIQUE INDEX mae_value (mae_value),
   INDEX mae_group_id_value (mae_group_id, mae_value),
   PRIMARY KEY(mae_id)

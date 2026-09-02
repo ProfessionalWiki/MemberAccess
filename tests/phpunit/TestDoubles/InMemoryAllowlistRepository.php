@@ -25,6 +25,8 @@ class InMemoryAllowlistRepository implements AllowlistRepository {
 
 	private int $nextId = 1;
 
+	private int $invitations = 0;
+
 	public function __construct(
 		private readonly MemberGroupRepository $groups
 	) {
@@ -55,6 +57,29 @@ class InMemoryAllowlistRepository implements AllowlistRepository {
 
 	public function removeEntry( int $entryId ): void {
 		unset( $this->entries[$entryId] );
+	}
+
+	public function recordInvitation( int $entryId ): string {
+		$entry = $this->entries[$entryId];
+		$invitationTimestamp = $this->nextInvitationTimestamp();
+
+		$this->entries[$entryId] = new AllowlistEntry(
+			id: $entry->id,
+			groupId: $entry->groupId,
+			value: $entry->value,
+			actorId: $entry->actorId,
+			creationTimestamp: $entry->creationTimestamp,
+			invitationTimestamp: $invitationTimestamp
+		);
+
+		return $invitationTimestamp;
+	}
+
+	/**
+	 * A different one each time, so that a test can tell a fresh recording from the one before it.
+	 */
+	private function nextInvitationTimestamp(): string {
+		return sprintf( '202601011200%02d', ++$this->invitations );
 	}
 
 	/**

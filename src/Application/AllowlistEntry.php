@@ -11,7 +11,12 @@ final class AllowlistEntry {
 		public readonly int $groupId,
 		public readonly AllowlistValue $value,
 		public readonly int $actorId,
-		public readonly string $creationTimestamp
+		public readonly string $creationTimestamp,
+		/**
+		 * When an invitation was last sent to the address. Null when none was, and always for a
+		 * domain rule, which has nobody to invite.
+		 */
+		public readonly ?string $invitationTimestamp = null
 	) {
 	}
 

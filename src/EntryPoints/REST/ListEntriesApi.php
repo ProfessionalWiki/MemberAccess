@@ -32,7 +32,8 @@ class ListEntriesApi extends MemberAccessApiHandler {
 					'id' => $entry->id,
 					'value' => $entry->value->value,
 					'kind' => $entry->value->kind->value,
-					'created' => self::toIso8601( $entry->creationTimestamp )
+					'created' => self::toIso8601( $entry->creationTimestamp ),
+					'invited' => self::toIso8601( $entry->invitationTimestamp )
 				],
 				$this->allowlist->listEntries( $id )
 			)

@@ -43,14 +43,33 @@ class ExtensionManifestTest extends TestCase {
 		$this->assertTrue( $permissions['bureaucrat']['memberaccess-manage'] );
 	}
 
+	/**
+	 * A route names its handler as text, so a factory that was renamed or never written answers the
+	 * first request with a fatal rather than the endpoint.
+	 *
+	 * @dataProvider restRouteProvider
+	 */
+	public function testRouteNamesAFactoryThatExists( string $factory ): void {
+		$this->assertIsCallable( $factory );
+	}
+
+	/**
+	 * @return iterable<string, array{string}>
+	 */
+	public static function restRouteProvider(): iterable {
+		foreach ( self::manifest()['RestRoutes'] as $route ) {
+			yield implode( '|', $route['method'] ) . ' ' . $route['path'] => [ $route['factory'] ];
+		}
+	}
+
 	private function configDefault( string $name ): mixed {
-		return $this->manifest()['config'][$name]['value'];
+		return self::manifest()['config'][$name]['value'];
 	}
 
 	/**
 	 * @return array<string, mixed>
 	 */
-	private function manifest(): array {
+	private static function manifest(): array {
 		return json_decode( (string)file_get_contents( __DIR__ . '/../../extension.json' ), true );
 	}
 

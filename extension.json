@@ -140,7 +140,7 @@
 		},
 		"MemberAccessSenderAddress": {
 			"value": null,
-			"description": "Email address login codes are sent from. Falls back to $wgPasswordSender when null."
+			"description": "Email address login codes and invitations are sent from. Falls back to $wgPasswordSender when null."
 		},
 		"MemberAccessSessionDurationSeconds": {
 			"value": 2592000,
@@ -190,6 +190,11 @@
 			"path": "/member-access/v0/entries/{id}",
 			"method": [ "DELETE" ],
 			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newRemoveEntryApi"
+		},
+		{
+			"path": "/member-access/v0/entries/{id}/invitation",
+			"method": [ "POST" ],
+			"factory": "ProfessionalWiki\\MemberAccess\\MemberAccessExtension::newSendInvitationApi"
 		},
 		{
 			"path": "/member-access/v0/members",

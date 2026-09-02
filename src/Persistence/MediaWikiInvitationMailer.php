@@ -8,16 +8,15 @@ use MailAddress;
 use MediaWiki\Html\TemplateParser;
 use MediaWiki\Language\Language;
 use MediaWiki\Mail\IEmailer;
-use ProfessionalWiki\MemberAccess\Application\CodeMailer;
-use ProfessionalWiki\MemberAccess\Application\DisplayedCode;
+use ProfessionalWiki\MemberAccess\Application\InvitationMailer;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use Psr\Log\LoggerInterface;
 use StatusValue;
 use Wikimedia\Message\MessageSpecifier;
 
-class MediaWikiCodeMailer implements CodeMailer {
+class MediaWikiInvitationMailer implements InvitationMailer {
 
-	private const string TEMPLATE = 'CodeEmail';
+	private const string TEMPLATE = 'InvitationEmail';
 
 	public function __construct(
 		private readonly IEmailer $emailer,
@@ -25,41 +24,45 @@ class MediaWikiCodeMailer implements CodeMailer {
 		private readonly TemplateParser $templates,
 		private readonly Language $contentLanguage,
 		private readonly string $siteName,
+		private readonly string $loginUrl,
 		private readonly LoggerInterface $logger
 	) {
 	}
 
 	/**
-	 * Sent as both a formatted part and a plain one. Which of them a member sees is their mail
+	 * Sent as both a formatted part and a plain one. Which of them the recipient sees is their mail
 	 * client's to decide, and a wiki that has not turned formatted mail on sends only the second, so
-	 * it carries the same code and the same warning rather than a note to read the mail elsewhere.
+	 * it carries the same way in and the same address to log in with rather than a note to read the
+	 * mail elsewhere.
 	 */
-	public function sendCode( NormalizedEmail $email, string $code, int $expiryInMinutes ): void {
-		$displayed = DisplayedCode::grouped( $code );
-
+	public function sendInvitation( NormalizedEmail $email ): bool {
 		$status = $this->emailer->send(
 			to: new MailAddress( $email->value ),
 			from: $this->sender,
-			subject: $this->text( 'memberaccess-code-email-subject' ),
-			bodyText: $this->text( 'memberaccess-code-email-body', $displayed, $expiryInMinutes ),
+			subject: $this->text( 'memberaccess-invitation-email-subject' ),
+			bodyText: $this->text( 'memberaccess-invitation-email-body', $this->loginUrl, $email->value ),
 			bodyHtml: $this->templates->processTemplate( self::TEMPLATE, [
 				// The same name the plain part gets from {{SITENAME}}, so the two cannot disagree.
 				'siteName' => $this->siteName,
-				'intro' => $this->text( 'memberaccess-code-email-intro' ),
-				'code' => $displayed,
-				'validity' => $this->text( 'memberaccess-code-email-validity', $expiryInMinutes ),
-				'disclaimer' => $this->text( 'memberaccess-code-email-disclaimer' ),
+				'intro' => $this->text( 'memberaccess-invitation-email-intro' ),
+				'loginUrl' => $this->loginUrl,
+				'instructions' => $this->text( 'memberaccess-invitation-email-instructions', $email->value ),
+				'disclaimer' => $this->text( 'memberaccess-invitation-email-disclaimer' ),
 				'lang' => $this->contentLanguage->getHtmlCode(),
 				'dir' => $this->contentLanguage->getDir()
 			] )
 		);
 
 		if ( !$status->isGood() ) {
-			$this->logger->warning( 'Sending a login code failed', [
+			$this->logger->warning( 'Sending an invitation failed', [
 				'email' => $email->hash(),
 				'reasons' => self::reasonsFor( $status )
 			] );
+
+			return false;
 		}
+
+		return true;
 	}
 
 	/**
@@ -77,27 +80,16 @@ class MediaWikiCodeMailer implements CodeMailer {
 	}
 
 	/**
-	 * In the wiki's own language, since who the mail is going to is exactly what has not been
-	 * established yet.
+	 * In the wiki's own language: an invitation goes to an address rather than to an account, so
+	 * there is nobody whose language preference could be read.
 	 *
 	 * A message is preprocessed as wikitext before it is put together, so anything substituted into
-	 * one as an ordinary parameter is preprocessed with it. Only a count is passed that way, because
-	 * PLURAL has to be able to read it; everything else goes in afterwards, out of the preprocessor's
-	 * reach. Nothing given here is a visitor's to write, and this is what keeps it that way should
-	 * something one day be. {@see \MediaWiki\Message\Message::transformText}
+	 * one as an ordinary parameter is preprocessed with it. Everything here goes in afterwards, out
+	 * of the preprocessor's reach, since neither the address nor the wiki's own URL is anything the
+	 * preprocessor should be reading. {@see \MediaWiki\Message\Message::transformText}
 	 */
-	private function text( string $key, string|int ...$params ): string {
-		$message = wfMessage( $key );
-
-		foreach ( $params as $param ) {
-			if ( is_int( $param ) ) {
-				$message->numParams( $param );
-			} else {
-				$message->plaintextParams( $param );
-			}
-		}
-
-		return $message->inContentLanguage()->text();
+	private function text( string $key, string ...$params ): string {
+		return wfMessage( $key )->plaintextParams( ...$params )->inContentLanguage()->text();
 	}
 
 }

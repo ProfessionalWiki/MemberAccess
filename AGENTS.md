@@ -8,9 +8,11 @@ it from a clone inside a MediaWiki installation's `extensions/` directory — se
 
 ## Schema changes
 
-The schema has never shipped, so change a table definition in place rather than through a patch file.
-`addExtensionTable` leaves installs that already have the table untouched, so after regenerating the SQL:
+The schema is running on installs, so every table change needs both parts:
 
-* drop the extension's tables and re-run `update.php` on every wiki that has them;
-* bump the MediaWiki cache key in `.github/workflows/ci.yml`, which otherwise restores an install
-  carrying the old table.
+* Fresh installs: the regenerated table definition in `sql/`.
+* Existing installs: an abstract schema change registered in `SchemaChangesHandler`, since
+  `addExtensionTable` skips them.
+
+Both are described under [Development](README.md#development). Prove the second part by running
+`update.php` on an install that already has the table.

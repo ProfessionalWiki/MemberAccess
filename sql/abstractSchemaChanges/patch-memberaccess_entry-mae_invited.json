@@ -1,0 +1,173 @@
+{
+	"comment": "Record when an invitation was last sent to an admitted address",
+	"before": {
+		"name": "memberaccess_entry",
+		"comment": "Allowlist entries: one email address, or one whole domain written as @example.com",
+		"columns": [
+			{
+				"name": "mae_id",
+				"type": "integer",
+				"options": {
+					"autoincrement": true,
+					"unsigned": true,
+					"notnull": true
+				}
+			},
+			{
+				"name": "mae_group_id",
+				"comment": "The memberaccess_group this entry belongs to",
+				"type": "integer",
+				"options": {
+					"unsigned": true,
+					"notnull": true
+				}
+			},
+			{
+				"name": "mae_value",
+				"comment": "Lowercased email address, or @ followed by a lowercased domain",
+				"type": "binary",
+				"options": {
+					"length": 255,
+					"notnull": true
+				}
+			},
+			{
+				"name": "mae_kind",
+				"comment": "Either email or domain",
+				"type": "binary",
+				"options": {
+					"length": 8,
+					"notnull": true
+				}
+			},
+			{
+				"name": "mae_actor",
+				"comment": "Actor that added the entry",
+				"type": "bigint",
+				"options": {
+					"unsigned": true,
+					"notnull": true,
+					"default": 0
+				}
+			},
+			{
+				"name": "mae_timestamp",
+				"comment": "When the entry was added",
+				"type": "mwtimestamp",
+				"options": {
+					"notnull": true
+				}
+			}
+		],
+		"indexes": [
+			{
+				"name": "mae_value",
+				"comment": "An address or domain belongs to exactly one group",
+				"columns": [
+					"mae_value"
+				],
+				"unique": true
+			},
+			{
+				"name": "mae_group_id_value",
+				"columns": [
+					"mae_group_id",
+					"mae_value"
+				],
+				"unique": false
+			}
+		],
+		"pk": [
+			"mae_id"
+		]
+	},
+	"after": {
+		"name": "memberaccess_entry",
+		"comment": "Allowlist entries: one email address, or one whole domain written as @example.com",
+		"columns": [
+			{
+				"name": "mae_id",
+				"type": "integer",
+				"options": {
+					"autoincrement": true,
+					"unsigned": true,
+					"notnull": true
+				}
+			},
+			{
+				"name": "mae_group_id",
+				"comment": "The memberaccess_group this entry belongs to",
+				"type": "integer",
+				"options": {
+					"unsigned": true,
+					"notnull": true
+				}
+			},
+			{
+				"name": "mae_value",
+				"comment": "Lowercased email address, or @ followed by a lowercased domain",
+				"type": "binary",
+				"options": {
+					"length": 255,
+					"notnull": true
+				}
+			},
+			{
+				"name": "mae_kind",
+				"comment": "Either email or domain",
+				"type": "binary",
+				"options": {
+					"length": 8,
+					"notnull": true
+				}
+			},
+			{
+				"name": "mae_actor",
+				"comment": "Actor that added the entry",
+				"type": "bigint",
+				"options": {
+					"unsigned": true,
+					"notnull": true,
+					"default": 0
+				}
+			},
+			{
+				"name": "mae_timestamp",
+				"comment": "When the entry was added",
+				"type": "mwtimestamp",
+				"options": {
+					"notnull": true
+				}
+			},
+			{
+				"name": "mae_invited",
+				"comment": "When an invitation was last sent to the address; null when none was, and always for a domain rule",
+				"type": "mwtimestamp",
+				"options": {
+					"notnull": false
+				}
+			}
+		],
+		"indexes": [
+			{
+				"name": "mae_value",
+				"comment": "An address or domain belongs to exactly one group",
+				"columns": [
+					"mae_value"
+				],
+				"unique": true
+			},
+			{
+				"name": "mae_group_id_value",
+				"columns": [
+					"mae_group_id",
+					"mae_value"
+				],
+				"unique": false
+			}
+		],
+		"pk": [
+			"mae_id"
+		]
+	}
+}

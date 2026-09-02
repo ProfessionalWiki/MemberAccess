@@ -16,6 +16,14 @@ interface AllowlistRepository {
 	public function removeEntry( int $entryId ): void;
 
 	/**
+	 * Writes down that an invitation just went to the entry's address, replacing what an earlier
+	 * one wrote.
+	 *
+	 * @return string When it was recorded, as the entry now carries it
+	 */
+	public function recordInvitation( int $entryId ): string;
+
+	/**
 	 * @return AllowlistEntry[]
 	 */
 	public function listEntries( int $groupId ): array;
