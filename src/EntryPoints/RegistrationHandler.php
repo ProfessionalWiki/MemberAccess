@@ -21,7 +21,7 @@ class RegistrationHandler {
 
 	private const MANAGE_RIGHT = 'memberaccess-manage';
 	private const PUBLIC_LOG = '*';
-	private const LOGS_THAT_RECORD_MEMBERS = [ 'newusers', 'block', 'renameuser' ];
+	private const RENAME_LOG = 'renameuser';
 	private const PER_ADDRESS_CAPTCHA_TRIGGER = 'badloginperuser';
 	private const SSO_EMAIL_PROCESSOR_SETTING = 'wgOpenIDConnect_EmailProcessor';
 	private const SSO_USERNAME_PROCESSOR_SETTING = 'wgOpenIDConnect_PreferredUsernameProcessor';
@@ -39,7 +39,7 @@ class RegistrationHandler {
 	 */
 	private static function applyWhatMembersNeed(): void {
 		self::moveReaderRevocationsToTheConfiguredGroup();
-		self::closeTheLogsThatRecordMembers();
+		self::closeTheRenameLog();
 
 		// A deactivated member is blocked, and only this makes a block keep them out of a private wiki.
 		$GLOBALS['wgBlockDisablesLogin'] = true;
@@ -64,24 +64,21 @@ class RegistrationHandler {
 	}
 
 	/**
-	 * Three core logs record members: the new user log, where every account creation is, the block
-	 * log, where every deactivation is, and the rename log, where a rename performed by hand names
-	 * the account on both sides of it. All are closed to everyone who cannot manage members, which
-	 * also keeps them out of recent changes, since a restricted log type is never written there.
+	 * A rename log entry names what an account was called before, which for a member can be their
+	 * email address, and the entry is there for good, so the log is closed to everyone who cannot
+	 * manage members. That also keeps it out of recent changes, since a restricted log type is never
+	 * written there.
 	 *
-	 * A member's name says nothing about them, so what they give away is that somebody joined, was
-	 * deactivated or was renamed, and when. A member still under a name from before the extension
-	 * minted them is the one whose rename would name an address.
+	 * Every other log names accounts under the names the wiki shows anyway, and a member's name says
+	 * nothing about them, so this is the only log the extension closes.
 	 *
-	 * A wiki that restricted one of them further keeps its own setting.
+	 * A wiki that restricted it further keeps its own setting.
 	 */
-	private static function closeTheLogsThatRecordMembers(): void {
+	private static function closeTheRenameLog(): void {
 		$restrictions = self::globalArray( 'wgLogRestrictions' );
 
-		foreach ( self::LOGS_THAT_RECORD_MEMBERS as $logType ) {
-			if ( ( $restrictions[$logType] ?? self::PUBLIC_LOG ) === self::PUBLIC_LOG ) {
-				$restrictions[$logType] = self::MANAGE_RIGHT;
-			}
+		if ( ( $restrictions[self::RENAME_LOG] ?? self::PUBLIC_LOG ) === self::PUBLIC_LOG ) {
+			$restrictions[self::RENAME_LOG] = self::MANAGE_RIGHT;
 		}
 
 		$GLOBALS['wgLogRestrictions'] = $restrictions;

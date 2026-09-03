@@ -134,21 +134,6 @@ limit. Codes are stored hashed and are burned after five wrong entries. Every is
 failure and rate-limit hit is logged through the `MemberAccess` log channel, with the email
 address hashed.
 
-### The roster
-
-A member's name gives nothing away, so what is left to keep is that they exist at all. The action
-API query modules whose purpose is enumerating accounts are closed to the reader group, and three
-logs are closed to anyone who cannot manage members: the new user log, where every member's account
-creation is recorded, the block log, where every deactivation is, and the rename log, which names
-both sides of a rename performed by hand. Restricting a log type also keeps it out of recent
-changes. The special pages that list or resolve accounts are closed to the reader group as well, and
-transcluding `Special:ListUsers` renders it empty for everyone, since what a transclusion renders is
-not kept to the reader who asked for it. `Special:Redirect` is closed whole, so members lose its
-other lookups too, and `Special:FilePath`, which redirects through it.
-
-Page histories and recent changes still name whoever acted, which on a members-only wiki means the
-staff who edit: members cannot appear there, since they cannot change anything.
-
 ### Login routes
 
 Two settings, one per login route, say what the allowlist governs there and whether the code route
@@ -196,14 +181,11 @@ Whatever the login routes are set to, loading the extension:
   sending email, reading the abuse filters and their log, and reading or changing their own private
   information or preferences, which closes `Special:ChangeEmail` to them;
 * sets `$wgBlockDisablesLogin`, so blocking a member keeps them out of a private wiki;
-* restricts the `newusers`, `block` and `renameuser` logs to the `memberaccess-manage` right, unless
-  the wiki already restricted them, so that who joined, who was deactivated, and what an account
-  renamed by hand was called before stay out of view;
+* restricts the `renameuser` log to the `memberaccess-manage` right, unless the wiki already
+  restricted it, since an entry there names what an account was called before, which for a member
+  can be their email address;
 * refuses members a password, whatever the routes: setting one and having a temporary one mailed
-  stay refused;
-* closes the account-listing API modules to the reader group;
-* closes the special pages that list or resolve accounts to the reader group, and transcluding
-  `Special:ListUsers` to everyone.
+  stay refused.
 
 While the code route is turned on, it also turns off ConfirmEdit's `badloginperuser` captcha trigger,
 so failed logins no longer escalate to a captcha for the account they name, for everyone on the wiki
@@ -346,8 +328,6 @@ body it cannot read — carries MediaWiki's error shape rather than this one.
 | `$wgMemberAccessIpDailyLimit` | int | `50` | Maximum code requests per client IP within 24 hours |
 | `$wgMemberAccessSenderAddress` | ?string | `null` | Address that login codes and invitations are sent from. Falls back to `$wgPasswordSender` |
 | `$wgMemberAccessSessionDurationSeconds` | int | `2592000` | How long a remembered login lasts, wiki-wide. Thirty days, against core's 180 days. `0` leaves `$wgExtendedLoginCookieExpiration` alone |
-| `$wgMemberAccessBlockedApiModules` | string[] | `[ 'allusers', 'users', 'blocks' ]` | Action API query submodules the reader group may not use |
-| `$wgMemberAccessBlockedSpecialPages` | string[] | `[ 'Listusers', 'Activeusers', 'BlockList', 'Redirect', 'Userrights' ]` | Special pages the reader group may not open. Canonical names; an alias does not match. Setting it adds to the shipped list rather than replacing it, so those pages cannot be dropped |
 
 Issued codes and rate-limit counters are held in the main object stash (`$wgMainStash`), which is
 database-backed by default. Point it at Redis or Valkey to keep them out of the database.
