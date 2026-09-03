@@ -5,11 +5,13 @@ declare( strict_types = 1 );
 namespace ProfessionalWiki\MemberAccess\Tests\Integration;
 
 use MediaWiki\Auth\AuthManager;
+use MediaWiki\SpecialPage\AuthManagerSpecialPage;
 use MediaWikiIntegrationTestCase;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\EnterCodeRequest;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\LoginCodeRequest;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\ResendCodeRequest;
 use ProfessionalWiki\MemberAccess\EntryPoints\LoginFormHandler;
+use ReflectionMethod;
 
 /**
  * How the login form is laid out is decided from the requests and the described fields alone, so it
@@ -19,7 +21,11 @@ use ProfessionalWiki\MemberAccess\EntryPoints\LoginFormHandler;
  */
 class LoginFormHandlerTest extends MediaWikiIntegrationTestCase {
 
+	private const CORE_LOGIN_BUTTON = 'loginattempt';
 	private const CORE_LOGIN_BUTTON_WEIGHT = 100;
+	private const CORE_HELP_LINK_WEIGHT = 200;
+	private const DEFAULT_SUBMIT_FIELD = 'memberaccessDefaultSubmit';
+	private const MOBILE_WATERMARK_FIELD = 'mfLogo';
 
 	public function testCodeScreenOffersAWayBackAndAWayToAnotherCode(): void {
 		$descriptor = $this->codeScreen();
@@ -90,51 +96,193 @@ class LoginFormHandlerTest extends MediaWikiIntegrationTestCase {
 		return '/^(?:' . $this->codeScreen()[EnterCodeRequest::CODE_FIELD]['pattern'] . ')$/';
 	}
 
-	/**
-	 * Core's log in button stays the form's first, so Enter in the address box submits through it,
-	 * which is what the code request allows for. {@see LoginCodeRequest}
-	 */
-	public function testCodeButtonStaysBelowTheLogInButton(): void {
-		$descriptor = $this->handle(
-			AuthManager::ACTION_LOGIN,
-			[ LoginCodeRequest::EMAIL_FIELD => [ 'type' => 'text' ], LoginCodeRequest::BUTTON_NAME => [ 'type' => 'submit' ] ],
-			[ new LoginCodeRequest() ]
-		);
+	public function testAddressBoxSaysItTakesAnAddress(): void {
+		$this->assertSame( 'email', $this->loginScreen()[LoginCodeRequest::EMAIL_FIELD]['type'] );
+	}
 
-		$this->assertGreaterThan(
-			self::CORE_LOGIN_BUTTON_WEIGHT,
-			$descriptor[LoginCodeRequest::BUTTON_NAME]['weight']
+	public function testMemberRouteIsLaidOutAboveThePasswordForm(): void {
+		$this->assertSame(
+			[
+				self::DEFAULT_SUBMIT_FIELD,
+				LoginCodeRequest::EMAIL_FIELD,
+				LoginCodeRequest::BUTTON_NAME,
+				'memberaccessDivider',
+				'username',
+				'password',
+				self::CORE_LOGIN_BUTTON,
+				'linkcontainer'
+			],
+			array_keys( $this->laidOutByCore( $this->loginScreen() ) )
 		);
 	}
 
-	public function testLoginFormSetsTheMemberRouteApart(): void {
-		$descriptor = $this->handle(
-			AuthManager::ACTION_LOGIN,
-			[ LoginCodeRequest::EMAIL_FIELD => [ 'type' => 'text' ], LoginCodeRequest::BUTTON_NAME => [ 'type' => 'submit' ] ],
-			[ new LoginCodeRequest() ]
-		);
+	public function testAddressBoxIsFirstInTheTabOrder(): void {
+		$this->assertSame( 1, $this->laidOutByCore( $this->loginScreen() )[LoginCodeRequest::EMAIL_FIELD]['tabindex'] );
+	}
 
-		$this->assertArrayHasKey( 'memberaccessDivider', $descriptor );
-		$this->assertSame( 'email', $descriptor[LoginCodeRequest::EMAIL_FIELD]['type'] );
+	public function testAddressBoxIsWhereTheFormOpens(): void {
+		$this->assertTrue( $this->loginScreen()[LoginCodeRequest::EMAIL_FIELD]['autofocus'] );
 	}
 
 	/**
-	 * The log in button above it is the form's one primary button.
+	 * MobileFrontend heads the mobile login form with a watermark it leaves unweighted, which led
+	 * the form until the member section was described below zero.
 	 */
-	public function testMemberRouteButtonIsProgressiveWithoutBeingPrimary(): void {
+	public function testMobileWatermarkGoesOnLeadingTheForm(): void {
+		$laidOut = $this->laidOutByCore( $this->handle(
+			AuthManager::ACTION_LOGIN,
+			[ self::MOBILE_WATERMARK_FIELD => [ 'type' => 'info' ] ] + $this->coreLoginForm(),
+			[ new LoginCodeRequest() ]
+		) );
+
+		$this->assertSame( self::MOBILE_WATERMARK_FIELD, array_key_first( $laidOut ) );
+	}
+
+	public function testCaptchaIsLaidOutBelowBothRoutes(): void {
+		$laidOut = $this->laidOutByCore( $this->handle(
+			AuthManager::ACTION_LOGIN,
+			$this->coreLoginForm() + [ 'captchaInfo' => [ 'type' => 'info' ], 'captchaWord' => [ 'type' => 'text' ] ],
+			[ new LoginCodeRequest() ]
+		) );
+
+		$this->assertSame(
+			[ self::CORE_LOGIN_BUTTON, 'captchaInfo', 'captchaWord', 'linkcontainer' ],
+			array_slice( array_keys( $laidOut ), -4 )
+		);
+	}
+
+	public function testMemberRouteButtonIsTheFormsPrimaryButton(): void {
+		$this->assertSame(
+			[ 'primary', 'progressive' ],
+			$this->loginScreen()[LoginCodeRequest::BUTTON_NAME]['flags']
+		);
+	}
+
+	public function testPasswordLoginButtonIsNoLongerPrimary(): void {
+		$this->assertSame( [ 'progressive' ], $this->loginScreen()[self::CORE_LOGIN_BUTTON]['flags'] );
+	}
+
+	/**
+	 * A wiki that offers no password login has single sign-on buttons under the member route
+	 * instead, which a divider naming the password form would name wrongly.
+	 */
+	public function testNoDividerIsDescribedWhereNoPasswordFormIs(): void {
+		$this->assertArrayNotHasKey( 'memberaccessDivider', $this->loginScreenWithoutAPasswordForm() );
+	}
+
+	/**
+	 * Core describes its button before this hook runs; a form that did not would be handed a field
+	 * with nothing in it, which it cannot draw.
+	 */
+	public function testPasswordLoginButtonIsNotInventedWhereTheFormDescribedNone(): void {
 		$descriptor = $this->handle(
 			AuthManager::ACTION_LOGIN,
 			[ LoginCodeRequest::EMAIL_FIELD => [ 'type' => 'text' ], LoginCodeRequest::BUTTON_NAME => [ 'type' => 'submit' ] ],
 			[ new LoginCodeRequest() ]
 		);
 
-		$this->assertSame( [ 'progressive' ], $descriptor[LoginCodeRequest::BUTTON_NAME]['flags'] );
+		$this->assertArrayNotHasKey( self::CORE_LOGIN_BUTTON, $descriptor );
+	}
+
+	/**
+	 * Enter submits through the form's first submit control, so what that one is named decides the
+	 * route for the visitor. Named after neither, it leaves the decision with the boxes.
+	 */
+	public function testDefaultButtonNamesNeitherRoute(): void {
+		$button = $this->loginScreen()[self::DEFAULT_SUBMIT_FIELD]['default'];
+
+		$this->assertStringContainsString( 'type="submit"', $button );
+		$this->assertStringNotContainsString( 'name=', $button );
+	}
+
+	public function testDefaultButtonIsReachedByNeitherTabNorScreenReader(): void {
+		$button = $this->loginScreen()[self::DEFAULT_SUBMIT_FIELD]['default'];
+
+		$this->assertStringContainsString( 'tabindex="-1"', $button );
+		$this->assertStringContainsString( 'aria-hidden="true"', $button );
+	}
+
+	public function testDefaultButtonIsDrawnAsMarkupRatherThanAsEscapedText(): void {
+		$this->assertTrue( $this->loginScreen()[self::DEFAULT_SUBMIT_FIELD]['raw'] );
+	}
+
+	public function testDefaultButtonIsLeftOutOfTheTabOrder(): void {
+		$this->assertArrayNotHasKey( 'tabindex', $this->laidOutByCore( $this->loginScreen() )[self::DEFAULT_SUBMIT_FIELD] );
+	}
+
+	/**
+	 * The stylesheet is all that hides the field, so the class it carries has to be one the
+	 * stylesheet knows.
+	 */
+	public function testDefaultButtonIsHiddenByTheStylesheet(): void {
+		$this->assertStringContainsString(
+			'.' . $this->loginScreen()[self::DEFAULT_SUBMIT_FIELD]['cssclass'] . ' {',
+			file_get_contents( __DIR__ . '/../../../modules/ext.memberAccess.loginForm.less' )
+		);
 	}
 
 	public function testFormsWithoutOurFieldsAreLeftAlone(): void {
-		$descriptor = $this->handle( AuthManager::ACTION_LOGIN, [ 'username' => [ 'type' => 'text' ] ], [] );
+		$form = [
+			'username' => [ 'type' => 'text' ],
+			self::CORE_LOGIN_BUTTON => [ 'type' => 'submit', 'weight' => self::CORE_LOGIN_BUTTON_WEIGHT ]
+		];
 
-		$this->assertSame( [ 'username' => [ 'type' => 'text' ] ], $descriptor );
+		$this->assertSame( $form, $this->handle( AuthManager::ACTION_LOGIN, $form, [] ) );
+	}
+
+	/**
+	 * The login form as core hands it to this hook: its own fields first, the boxes unweighted and
+	 * the log in button and help link weighted as core weights them, then the member route's.
+	 * {@see \MediaWiki\SpecialPage\LoginSignupSpecialPage::getFieldDefinitions}
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function coreLoginForm(): array {
+		return [
+			'username' => [ 'type' => 'text' ],
+			'password' => [ 'type' => 'password' ],
+			self::CORE_LOGIN_BUTTON => [ 'type' => 'submit', 'weight' => self::CORE_LOGIN_BUTTON_WEIGHT ],
+			'linkcontainer' => [ 'type' => 'info', 'weight' => self::CORE_HELP_LINK_WEIGHT ],
+			LoginCodeRequest::EMAIL_FIELD => [ 'type' => 'text' ],
+			LoginCodeRequest::BUTTON_NAME => [ 'type' => 'submit' ]
+		];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function loginScreen(): array {
+		return $this->handle( AuthManager::ACTION_LOGIN, $this->coreLoginForm(), [ new LoginCodeRequest() ] );
+	}
+
+	/**
+	 * A wiki whose other route is single sign-on: no password login is described.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function loginScreenWithoutAPasswordForm(): array {
+		$form = $this->coreLoginForm();
+		unset( $form['username'], $form['password'] );
+
+		return $this->handle( AuthManager::ACTION_LOGIN, $form, [ new LoginCodeRequest() ] );
+	}
+
+	/**
+	 * What core makes of the described fields once every handler has had its say: laid out by
+	 * weight, an absent one counting as zero, with the tab order numbered from what that leaves.
+	 *
+	 * @param array<string, mixed> $descriptor
+	 * @return array<string, mixed>
+	 */
+	private function laidOutByCore( array $descriptor ): array {
+		$loginPage = $this->getServiceContainer()->getSpecialPageFactory()->getPage( 'Userlogin' );
+
+		( new ReflectionMethod( AuthManagerSpecialPage::class, 'sortFormDescriptorFields' ) )
+			->invokeArgs( null, [ &$descriptor ] );
+		( new ReflectionMethod( AuthManagerSpecialPage::class, 'addTabIndex' ) )
+			->invokeArgs( $loginPage, [ &$descriptor ] );
+
+		return $descriptor;
 	}
 
 	/**

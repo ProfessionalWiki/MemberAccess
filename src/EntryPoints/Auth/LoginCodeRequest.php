@@ -24,9 +24,9 @@ use MediaWiki\Message\Message;
  * field is mandatory only where every provider asking for it says so. An empty box is refused when
  * this button is pressed instead.
  *
- * Pressing Enter in the box submits the form through its first button, which is the password
- * login's, so the request cannot wait for its own button: an address in the box asks for a code as
- * the button does. What a username and password beside the address mean is the provider's to say.
+ * Pressing Enter in the box submits the form through a button that names no route, so the request
+ * cannot wait for its own button: an address in the box asks for a code as the button does. What a
+ * username and password beside the address mean is the provider's to say.
  * {@see MemberAuthenticationProvider::beginPrimaryAuthentication}
  */
 class LoginCodeRequest extends ButtonAuthenticationRequest {

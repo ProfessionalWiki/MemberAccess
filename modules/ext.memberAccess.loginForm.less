@@ -1,7 +1,8 @@
 /**
- * Sets the member login route apart from the password form above it.
+ * Sets the member login route apart from the password form below it.
  */
 
+@import 'mediawiki.mixins.less';
 @import 'mediawiki.skin.variables.less';
 
 .mw-memberaccess-divider {
@@ -89,4 +90,14 @@ button.mw-memberaccess-inline-action {
  */
 .mw-memberaccess-collector {
 	display: none;
+}
+
+/**
+ * The button Enter submits the form through, there to be pressed and not seen. Clipped away rather
+ * than not displayed, since a browser need not submit through a button it does not render, and
+ * Safari did not before 16.4. The mixin hides from sight alone; the button's own markup hides it
+ * from a screen reader as well.
+ */
+.mw-memberaccess-default-submit {
+	.mixin-screen-reader-text();
 }

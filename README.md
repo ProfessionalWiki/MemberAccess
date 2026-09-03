@@ -43,11 +43,11 @@ says so: see [Login routes](#login-routes).
 
 ### Login codes
 
-A visitor asks for a login code by entering their email address in the login form's own box for it.
-Whether one is sent depends on the allowlist, where each entry belongs to exactly one group. A code
-is six digits, valid for ten minutes and usable once, and leads the subject line of the mail that
-carries it, so it can be read off a notification. The response to a code request is the same either
-way, so it never reveals who is on the list.
+A visitor asks for a login code by entering their email address in the box the login form leads
+with. Whether one is sent depends on the allowlist, where each entry belongs to exactly one group. A
+code is six digits, valid for ten minutes and usable once, and leads the subject line of the mail
+that carries it, so it can be read off a notification. The response to a code request is the same
+either way, so it never reveals who is on the list.
 
 The screen that asks for the code names the address back, so an address typed wrongly can be seen
 rather than waited on. It names it whether or not the allowlist admits it. From there the visitor
