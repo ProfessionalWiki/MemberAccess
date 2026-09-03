@@ -397,8 +397,7 @@ php maintenance/run.php generateSchemaChangeSql \
 
 ### Version 1.0.1 - 2026-09-03
 
-* Removed the update that gave an opaque name to members named after their address. Removing such a
-  member frees their address, and their next login opens an account named after nobody
+* Removed the update that gave an opaque name to members named after their address
 * The username `MemberAccess` is no longer reserved
 
 ### Version 1.0.0 - 2026-09-03
