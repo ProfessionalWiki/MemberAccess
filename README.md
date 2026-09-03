@@ -44,8 +44,7 @@ says so: see [Login routes](#login-routes).
 ### Login codes
 
 A visitor asks for a login code by entering their email address in the login form's own box for it.
-Pressing Enter there asks as the button does; a username and password filled in beside the address
-make it a password login instead. Whether a code is sent depends on the allowlist, where each entry belongs to exactly one group. A code
+Whether one is sent depends on the allowlist, where each entry belongs to exactly one group. A code
 is six digits, valid for ten minutes and usable once, and leads the subject line of the mail that
 carries it, so it can be read off a notification. The response to a code request is the same either
 way, so it never reveals who is on the list.

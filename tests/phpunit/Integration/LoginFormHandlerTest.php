@@ -90,6 +90,23 @@ class LoginFormHandlerTest extends MediaWikiIntegrationTestCase {
 		return '/^(?:' . $this->codeScreen()[EnterCodeRequest::CODE_FIELD]['pattern'] . ')$/';
 	}
 
+	/**
+	 * Core's log in button stays the form's first, so Enter in the address box submits through it,
+	 * which is what the code request allows for. {@see LoginCodeRequest}
+	 */
+	public function testCodeButtonStaysBelowTheLogInButton(): void {
+		$descriptor = $this->handle(
+			AuthManager::ACTION_LOGIN,
+			[ LoginCodeRequest::EMAIL_FIELD => [ 'type' => 'text' ], LoginCodeRequest::BUTTON_NAME => [ 'type' => 'submit' ] ],
+			[ new LoginCodeRequest() ]
+		);
+
+		$this->assertGreaterThan(
+			self::CORE_LOGIN_BUTTON_WEIGHT,
+			$descriptor[LoginCodeRequest::BUTTON_NAME]['weight']
+		);
+	}
+
 	public function testLoginFormSetsTheMemberRouteApart(): void {
 		$descriptor = $this->handle(
 			AuthManager::ACTION_LOGIN,

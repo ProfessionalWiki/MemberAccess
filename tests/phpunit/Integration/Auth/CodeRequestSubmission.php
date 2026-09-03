@@ -9,12 +9,15 @@ use MediaWiki\Auth\AuthManager;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\LoginCodeRequest;
 
 /**
- * Builds a code request the way the login form does, so that what the tests hand to MediaWiki is
- * what a visitor pressing the button hands it, down to the fields the request keeps and discards.
+ * What the tests hand to MediaWiki as a login form submission, so that it is what a visitor's
+ * browser hands it, down to the fields the requests keep and discard.
  */
 trait CodeRequestSubmission {
 
 	/**
+	 * A code request alone, as pressing the button submits it. Built by hand rather than from the
+	 * form's own requests, since some tests submit one while the route is off and the form has none.
+	 *
 	 * @return AuthenticationRequest[]
 	 */
 	private function submittedCodeRequest( string $address ): array {
@@ -34,18 +37,17 @@ trait CodeRequestSubmission {
 	}
 
 	/**
-	 * What the login form submits: every box, filled or not, and whether the code button was pressed.
-	 * Not pressed, the submission went through the form's first button, the password login's, which
-	 * is where Enter in any box sends it. The requests are the ones the form is built from, so what
-	 * they make of it is what is handed on, and a submission none of them claims comes back empty.
+	 * What the login form submits, as the requests it is built from make of it: every box, and
+	 * whether the code button was pressed. Not pressed, the submission went through the password
+	 * login's button, which is where Enter sends it. {@see LoginCodeRequest}
 	 *
 	 * @return AuthenticationRequest[]
 	 */
 	private function loginFormSubmission(
-		string $username,
-		string $password,
 		string $address,
-		bool $codeButtonPressed
+		bool $codeButtonPressed,
+		string $username = '',
+		string $password = ''
 	): array {
 		return AuthenticationRequest::loadRequestsFromSubmission(
 			$this->getServiceContainer()->getAuthManager()->getAuthenticationRequests( AuthManager::ACTION_LOGIN ),

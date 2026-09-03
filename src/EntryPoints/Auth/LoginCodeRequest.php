@@ -26,9 +26,8 @@ use MediaWiki\Message\Message;
  *
  * Pressing Enter in the box submits the form through its first button, which is the password
  * login's, so the request cannot wait for its own button: an address in the box asks for a code as
- * the button does. A username and password filled in beside it are the password login they look
- * like, whoever filled them in, unless the button was pressed. An empty box without the button is a
- * password login too, which is none of this request's business; with the button it is answered on.
+ * the button does. What a username and password beside the address mean is the provider's to say.
+ * {@see MemberAuthenticationProvider::beginPrimaryAuthentication}
  */
 class LoginCodeRequest extends ButtonAuthenticationRequest {
 
@@ -43,9 +42,8 @@ class LoginCodeRequest extends ButtonAuthenticationRequest {
 			self::BUTTON_NAME,
 			new Message( 'memberaccess-auth-button-label' ),
 			new Message( 'memberaccess-auth-button-help' ),
-			// A required request of a primary provider, which is what keeps the username and password
-			// boxes optional on the form: a field is mandatory only where every such request asks for
-			// it, and this one asks for neither. Whether the button has to be pressed is another matter.
+			// Required as a request, which keeps the username and password boxes optional for everyone:
+			// a field is mandatory only where every required primary request has it.
 			true
 		);
 	}
@@ -55,6 +53,7 @@ class LoginCodeRequest extends ButtonAuthenticationRequest {
 	 */
 	public function getFieldInfo() {
 		$button = parent::getFieldInfo();
+		// Loadable without the button pressed; whether it is a request is loadFromSubmission's to say.
 		$button[self::BUTTON_NAME]['optional'] = true;
 
 		return array_merge(
@@ -79,18 +78,11 @@ class LoginCodeRequest extends ButtonAuthenticationRequest {
 			return false;
 		}
 
-		return parent::loadFromSubmission( $data )
-			&& ( $this->memberaccessLogin || ( $this->address() !== '' && !self::carriesAPasswordLogin( $data ) ) );
-	}
+		if ( !parent::loadFromSubmission( $data ) ) {
+			return false;
+		}
 
-	/**
-	 * Both boxes of core's password login, by the names its request gives them.
-	 * {@see \MediaWiki\Auth\PasswordAuthenticationRequest}
-	 *
-	 * @param array<string, mixed> $data
-	 */
-	private static function carriesAPasswordLogin( array $data ): bool {
-		return ( $data['username'] ?? '' ) !== '' && ( $data['password'] ?? '' ) !== '';
+		return $this->memberaccessLogin || $this->address() !== '';
 	}
 
 	/**
