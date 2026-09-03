@@ -68,23 +68,19 @@ class LoginFormHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertArrayNotHasKey( ResendCodeRequest::BUTTON_NAME, $descriptor );
 	}
 
-	/**
-	 * Room for the code as the mail shows it, spaces and all. Measured for the digits alone, the box
-	 * would cut the last one off a copied code and then refuse what was left.
-	 */
 	public function testCodeBoxSaysWhatItTakes(): void {
 		$descriptor = $this->codeScreen();
 
 		$this->assertSame( 'one-time-code', $descriptor[EnterCodeRequest::CODE_FIELD]['autocomplete'] );
-		$this->assertSame( 9, $descriptor[EnterCodeRequest::CODE_FIELD]['maxlength'] );
+		$this->assertSame( 6, $descriptor[EnterCodeRequest::CODE_FIELD]['maxlength'] );
 	}
 
 	public function testCodeBoxTakesACodeCopiedFromTheMail(): void {
-		$this->assertMatchesRegularExpression( $this->codeBoxPattern(), '4063 2370' );
+		$this->assertMatchesRegularExpression( $this->codeBoxPattern(), '406323' );
 	}
 
 	public function testCodeBoxRefusesLessThanAWholeCode(): void {
-		$this->assertDoesNotMatchRegularExpression( $this->codeBoxPattern(), '4063 237' );
+		$this->assertDoesNotMatchRegularExpression( $this->codeBoxPattern(), '40632' );
 	}
 
 	/**

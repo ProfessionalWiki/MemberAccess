@@ -44,8 +44,7 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	use CodeRequestSubmission;
 	use AuthenticationProviderTestTrait;
 
-	private const CODE = '12345678';
-	private const GROUPED_CODE = '1234 5678';
+	private const CODE = '123456';
 	private const RETURN_TO_URL = 'https://wiki.example.com/return';
 	/**
 	 * The name the identity provider's plugin creates the account under, which for a member is the
@@ -88,22 +87,9 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( AuthenticationResponse::UI, $response->status );
 		$this->assertCount( 1, $this->emailer->getSentMails() );
 		$this->assertStringContainsString(
-			self::GROUPED_CODE,
+			self::CODE,
 			$this->emailer->getSentMails()[0]['bodyText']
 		);
-	}
-
-	/**
-	 * The mail shows the code in groups, so a member copying it brings the spaces along. Refusing
-	 * that would be refusing the code exactly as it was given to them.
-	 */
-	public function testCodeIsAcceptedAsItWasShownInTheMail(): void {
-		$this->allow( 'jane@example.com' );
-		$this->requestCode( 'jane@example.com' );
-
-		$response = $this->enterCode( self::GROUPED_CODE );
-
-		$this->assertSame( AuthenticationResponse::PASS, $response->status );
 	}
 
 	public function testCorrectCodeLogsTheMemberInAndCreatesTheAccount(): void {

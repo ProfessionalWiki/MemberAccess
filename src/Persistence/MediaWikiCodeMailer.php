@@ -9,7 +9,6 @@ use MediaWiki\Html\TemplateParser;
 use MediaWiki\Language\Language;
 use MediaWiki\Mail\IEmailer;
 use ProfessionalWiki\MemberAccess\Application\CodeMailer;
-use ProfessionalWiki\MemberAccess\Application\DisplayedCode;
 use ProfessionalWiki\MemberAccess\Application\NormalizedEmail;
 use Psr\Log\LoggerInterface;
 use StatusValue;
@@ -30,23 +29,25 @@ class MediaWikiCodeMailer implements CodeMailer {
 	}
 
 	/**
+	 * The subject leads with the code, so that it can be read off a notification or an inbox listing
+	 * without the mail being opened. Everywhere it appears, nothing comes between its digits, so
+	 * that copying it out of the mail copies the code alone.
+	 *
 	 * Sent as both a formatted part and a plain one. Which of them a member sees is their mail
 	 * client's to decide, and a wiki that has not turned formatted mail on sends only the second, so
 	 * it carries the same code and the same warning rather than a note to read the mail elsewhere.
 	 */
 	public function sendCode( NormalizedEmail $email, string $code, int $expiryInMinutes ): void {
-		$displayed = DisplayedCode::grouped( $code );
-
 		$status = $this->emailer->send(
 			to: new MailAddress( $email->value ),
 			from: $this->sender,
-			subject: $this->text( 'memberaccess-code-email-subject' ),
-			bodyText: $this->text( 'memberaccess-code-email-body', $displayed, $expiryInMinutes ),
+			subject: $this->text( 'memberaccess-code-email-subject', $code ),
+			bodyText: $this->text( 'memberaccess-code-email-body', $code, $expiryInMinutes ),
 			bodyHtml: $this->templates->processTemplate( self::TEMPLATE, [
 				// The same name the plain part gets from {{SITENAME}}, so the two cannot disagree.
 				'siteName' => $this->siteName,
 				'intro' => $this->text( 'memberaccess-code-email-intro' ),
-				'code' => $displayed,
+				'code' => $code,
 				'validity' => $this->text( 'memberaccess-code-email-validity', $expiryInMinutes ),
 				'disclaimer' => $this->text( 'memberaccess-code-email-disclaimer' ),
 				'lang' => $this->contentLanguage->getHtmlCode(),

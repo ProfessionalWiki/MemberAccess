@@ -15,14 +15,12 @@ use ProfessionalWiki\MemberAccess\Tests\TestDoubles\SpyLogger;
 
 /**
  * @covers \ProfessionalWiki\MemberAccess\Persistence\MediaWikiCodeMailer
- * @covers \ProfessionalWiki\MemberAccess\Application\DisplayedCode
  */
 class MediaWikiCodeMailerTest extends MediaWikiIntegrationTestCase {
 
 	private const string SENDER = 'no-reply@example.com';
 	private const string RECIPIENT = 'jane@example.com';
-	private const string CODE = '12345678';
-	private const string GROUPED_CODE = '1234 5678';
+	private const string CODE = '123456';
 
 	private SpyLogger $logger;
 
@@ -47,8 +45,8 @@ class MediaWikiCodeMailerTest extends MediaWikiIntegrationTestCase {
 	public function testEachPartCarriesTheCode(): void {
 		$emailer = $this->sendCode();
 
-		$this->assertStringContainsString( self::GROUPED_CODE, $emailer->getSentMails()[0]['bodyText'] );
-		$this->assertStringContainsString( self::GROUPED_CODE, $this->htmlPart( $emailer ) );
+		$this->assertStringContainsString( self::CODE, $emailer->getSentMails()[0]['bodyText'] );
+		$this->assertStringContainsString( self::CODE, $this->htmlPart( $emailer ) );
 	}
 
 	/**
@@ -109,13 +107,12 @@ class MediaWikiCodeMailerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * Grouped for reading, and only for reading: what is verified is still the digits as issued.
-	 * {@see \ProfessionalWiki\MemberAccess\Application\DisplayedCode}
+	 * A notification or an inbox listing shows the subject and little else.
 	 */
-	public function testTheCodeIsShownInGroups(): void {
-		$emailer = $this->sendCode();
+	public function testSubjectLeadsWithTheCode(): void {
+		$subject = $this->sendCode()->getSentMails()[0]['subject'];
 
-		$this->assertStringNotContainsString( self::CODE, $this->htmlPart( $emailer ) );
+		$this->assertStringStartsWith( self::CODE, $subject );
 	}
 
 	public function testBodyCarriesHowLongTheCodeLasts(): void {
@@ -155,7 +152,6 @@ class MediaWikiCodeMailerTest extends MediaWikiIntegrationTestCase {
 
 		$this->assertStringNotContainsString( self::RECIPIENT, $this->logger->getLog() );
 		$this->assertStringNotContainsString( self::CODE, $this->logger->getLog() );
-		$this->assertStringNotContainsString( self::GROUPED_CODE, $this->logger->getLog() );
 	}
 
 	private function sendCode( int $expiryInMinutes = 10, bool $sendSucceeds = true ): SpyEmailer {
