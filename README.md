@@ -138,12 +138,12 @@ address hashed.
 A member's name gives nothing away, so what is left to keep is that they exist at all. The action
 API query modules whose purpose is enumerating accounts are closed to the reader group, and three
 logs are closed to anyone who cannot manage members: the new user log, where every member's account
-creation is recorded, the block log, where every deactivation is, and the rename log, which holds
-what members were called before the update that gave them opaque names. Restricting a log type also
-keeps it out of recent changes. The special pages that list or resolve accounts are closed to the
-reader group as well, and transcluding `Special:ListUsers` renders it empty for everyone, since what
-a transclusion renders is not kept to the reader who asked for it. `Special:Redirect` is closed
-whole, so members lose its other lookups too, and `Special:FilePath`, which redirects through it.
+creation is recorded, the block log, where every deactivation is, and the rename log, which names
+both sides of a rename performed by hand. Restricting a log type also keeps it out of recent
+changes. The special pages that list or resolve accounts are closed to the reader group as well, and
+transcluding `Special:ListUsers` renders it empty for everyone, since what a transclusion renders is
+not kept to the reader who asked for it. `Special:Redirect` is closed whole, so members lose its
+other lookups too, and `Special:FilePath`, which redirects through it.
 
 Page histories and recent changes still name whoever acted, which on a members-only wiki means the
 staff who edit: members cannot appear there, since they cannot change anything.
@@ -196,10 +196,8 @@ Whatever the login routes are set to, loading the extension:
   information or preferences, which closes `Special:ChangeEmail` to them;
 * sets `$wgBlockDisablesLogin`, so blocking a member keeps them out of a private wiki;
 * restricts the `newusers`, `block` and `renameuser` logs to the `memberaccess-manage` right, unless
-  the wiki already restricted them, so that who joined, who was deactivated, and what members were
-  called before the update renamed them stay out of view;
-* reserves the username `MemberAccess`, which the update that renames members records its renames as,
-  so that no real account can be there for it to take over;
+  the wiki already restricted them, so that who joined, who was deactivated, and what an account
+  renamed by hand was called before stay out of view;
 * refuses members a password, whatever the routes: setting one and having a temporary one mailed
   stay refused;
 * closes the account-listing API modules to the reader group;
@@ -271,13 +269,6 @@ Run `php maintenance/run.php update --quick` to create the extension's tables, a
 upgrade, since one may add a column to a table the wiki already has. Until it has run, anything that
 reads those tables fails with a database error; a wiki missing them altogether also says so, with a
 warning on the `MemberAccess` log channel.
-
-The same command gives an opaque name to every member the extension did not name, which is what
-earlier versions left them under. It is recorded in the rename log, which is why that log is
-restricted, and on the `MemberAccess` log channel by user id alone. It does not move a `User:` or
-`User talk:` page titled after the old name, so a wiki that has any moves them by hand, without
-leaving a redirect. Core's rename code names both the old and the new name at debug level, so run it
-without `$wgDebugLogFile` pointing at a file you keep. Running it again has nothing left to rename.
 
 ## Management API
 

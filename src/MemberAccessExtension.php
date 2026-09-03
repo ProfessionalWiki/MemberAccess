@@ -72,7 +72,6 @@ use ProfessionalWiki\MemberAccess\Persistence\MediaWikiInvitationMailer;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiMemberBlocker;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiMemberRemover;
 use ProfessionalWiki\MemberAccess\Persistence\MediaWikiUsernameMinter;
-use ProfessionalWiki\MemberAccess\Persistence\OpaqueNameUpdate;
 use ProfessionalWiki\MemberAccess\Persistence\StashCodeRepository;
 use ProfessionalWiki\MemberAccess\Persistence\StashCounterStore;
 use Psr\Log\LoggerInterface;
@@ -356,16 +355,6 @@ class MemberAccessExtension {
 
 	private function newPasswordResetHandler(): PasswordResetHandler {
 		return new PasswordResetHandler( members: $this->newMemberRepository() );
-	}
-
-	public function newOpaqueNameUpdate(): OpaqueNameUpdate {
-		return new OpaqueNameUpdate(
-			connectionProvider: $this->getConnectionProvider(),
-			loadBalancers: MediaWikiServices::getInstance()->getDBLoadBalancerFactory(),
-			minter: $this->newUsernameMinter(),
-			logger: $this->newLogger(),
-			readerGroup: $this->getReaderGroup()
-		);
 	}
 
 	private function newUsernameMinter(): UsernameMinter {

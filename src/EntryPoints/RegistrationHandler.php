@@ -26,12 +26,6 @@ class RegistrationHandler {
 	private const SSO_EMAIL_PROCESSOR_SETTING = 'wgOpenIDConnect_EmailProcessor';
 	private const SSO_USERNAME_PROCESSOR_SETTING = 'wgOpenIDConnect_PreferredUsernameProcessor';
 
-	/**
-	 * The account the update that gives members opaque names records its renames as.
-	 * {@see \ProfessionalWiki\MemberAccess\Persistence\OpaqueNameUpdate}
-	 */
-	private const SYSTEM_USER = 'MemberAccess';
-
 	public static function onRegistration(): void {
 		self::applyWhatMembersNeed();
 		self::applyWhatTheLoginRoutesNeed();
@@ -46,25 +40,9 @@ class RegistrationHandler {
 	private static function applyWhatMembersNeed(): void {
 		self::moveReaderRevocationsToTheConfiguredGroup();
 		self::closeTheLogsThatRecordMembers();
-		self::reserveTheAccountTheRenamesAreRecordedAs();
 
 		// A deactivated member is blocked, and only this makes a block keep them out of a private wiki.
 		$GLOBALS['wgBlockDisablesLogin'] = true;
-	}
-
-	/**
-	 * The update that gives members opaque names takes the name over if the wiki has an account of
-	 * it, since it has to run whatever else the wiki called that account. Reserving the name is what
-	 * keeps a real account from being there to take over.
-	 */
-	private static function reserveTheAccountTheRenamesAreRecordedAs(): void {
-		$reserved = self::globalArray( 'wgReservedUsernames' );
-
-		if ( !in_array( self::SYSTEM_USER, $reserved, true ) ) {
-			$reserved[] = self::SYSTEM_USER;
-		}
-
-		$GLOBALS['wgReservedUsernames'] = $reserved;
 	}
 
 	/**
@@ -87,13 +65,13 @@ class RegistrationHandler {
 
 	/**
 	 * Three core logs record members: the new user log, where every account creation is, the block
-	 * log, where every deactivation is, and the rename log, which holds what members were called
-	 * before the update that gave them opaque names. All are closed to everyone who cannot manage
-	 * members, which also keeps them out of recent changes, since a restricted log type is never
-	 * written there.
+	 * log, where every deactivation is, and the rename log, where a rename performed by hand names
+	 * the account on both sides of it. All are closed to everyone who cannot manage members, which
+	 * also keeps them out of recent changes, since a restricted log type is never written there.
 	 *
-	 * A member's name says nothing about them, so what the first two give away is that somebody
-	 * joined or was deactivated, and when. The rename log is the one that still names addresses.
+	 * A member's name says nothing about them, so what they give away is that somebody joined, was
+	 * deactivated or was renamed, and when. A member still under a name from before the extension
+	 * minted them is the one whose rename would name an address.
 	 *
 	 * A wiki that restricted one of them further keeps its own setting.
 	 */
