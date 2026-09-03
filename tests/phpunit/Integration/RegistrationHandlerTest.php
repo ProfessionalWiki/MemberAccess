@@ -192,40 +192,6 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * update.php records its renames as an account of its own, stealing the name if the wiki has one
-	 * of it. Reserving the name is what keeps a real account from being there to steal.
-	 *
-	 * @dataProvider everyRouteStateProvider
-	 */
-	public function testTheAccountTheRenamesAreRecordedAsIsReserved(
-		string $codeLogin,
-		bool $allowlistAppliesToSso
-	): void {
-		$this->registerWithRoutes( $codeLogin, $allowlistAppliesToSso );
-
-		$this->assertContains( 'MemberAccess', $GLOBALS['wgReservedUsernames'] );
-	}
-
-	public function testReservingItLeavesTheNamesTheWikiReservedAlone(): void {
-		$this->setMwGlobals( 'wgReservedUsernames', [ 'Maintenance script' ] );
-
-		$this->registerWithRoutes( 'off', false );
-
-		$this->assertSame( [ 'Maintenance script', 'MemberAccess' ], $GLOBALS['wgReservedUsernames'] );
-	}
-
-	public function testTheNameIsNotReservedTwiceWhenTheExtensionIsRegisteredAgain(): void {
-		$this->registerWithRoutes( 'off', false );
-
-		$this->registerWithRoutes( 'off', false );
-
-		$this->assertSame( [ 'MemberAccess' ], array_values( array_filter(
-			$GLOBALS['wgReservedUsernames'],
-			static fn ( string $name ): bool => $name === 'MemberAccess'
-		) ) );
-	}
-
-	/**
 	 * @dataProvider everyRouteStateProvider
 	 */
 	public function testUserRightsReadsNamesAsTheWikiHasItRead(
@@ -551,7 +517,6 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 			// OpenIDConnect is an optional companion, so the wiki may well not have these settings.
 			self::SSO_EMAIL_PROCESSOR => $GLOBALS[self::SSO_EMAIL_PROCESSOR] ?? null,
 			self::SSO_USERNAME_PROCESSOR => $GLOBALS[self::SSO_USERNAME_PROCESSOR] ?? null,
-			'wgReservedUsernames' => $GLOBALS['wgReservedUsernames'],
 			'wgRevokePermissions' => $GLOBALS['wgRevokePermissions'],
 			'wgUserrightsInterwikiDelimiter' => $GLOBALS['wgUserrightsInterwikiDelimiter']
 		] );

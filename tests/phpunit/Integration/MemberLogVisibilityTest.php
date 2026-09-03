@@ -23,9 +23,9 @@ use SpecialPageExecutor;
 use Wikimedia\ObjectCache\HashBagOStuff;
 
 /**
- * The core logs that record members: who joined and when, who was deactivated, and what members
- * were called before the update that gave them opaque names. This checks each way of reading them
- * is closed to members and open to admins.
+ * The core logs that record members: who joined and when, who was deactivated, and what an account
+ * renamed by hand was called before. This checks each way of reading them is closed to members and
+ * open to admins.
  *
  * @group Database
  * @covers \ProfessionalWiki\MemberAccess\EntryPoints\RegistrationHandler
@@ -98,8 +98,8 @@ class MemberLogVisibilityTest extends ApiTestCase {
 	}
 
 	/**
-	 * The rename log holds what members were called before the update that gave them opaque names,
-	 * which is an address apiece.
+	 * The rename log holds what an account renamed by hand was called before, which on a member
+	 * still under a name from before the extension minted them is their address.
 	 */
 	public function testRenameLogNamesTheRenamedAccountToAnAdmin(): void {
 		$renamed = $this->renameAnAccount();
