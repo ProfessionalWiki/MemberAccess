@@ -5,7 +5,7 @@ declare( strict_types = 1 );
 namespace ProfessionalWiki\MemberAccess\Tests\Integration\Auth;
 
 use MediaWiki\Auth\AuthenticationRequest;
-use MediaWiki\Auth\PasswordAuthenticationRequest;
+use MediaWiki\Auth\AuthManager;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\LoginCodeRequest;
 
 /**
@@ -34,18 +34,19 @@ trait CodeRequestSubmission {
 	}
 
 	/**
-	 * What pressing Enter in the address box submits: the form goes through its first button, the
-	 * password login's, so the address arrives without the code button. Whatever the requests on the
-	 * form make of that is what is handed on, so a submission nothing claims comes back empty.
+	 * What the login form submits through its first button, the password login's, which is where
+	 * pressing Enter in any of its boxes sends it: every box, filled or not, and no code button.
+	 * The requests are the ones the form is built from, so what they make of it is what is handed
+	 * on, and a submission none of them claims comes back empty.
 	 *
 	 * @return AuthenticationRequest[]
 	 */
-	private function addressSubmittedThroughThePasswordLoginButton( string $address ): array {
+	private function loginFormSubmission( string $username, string $password, string $address ): array {
 		return AuthenticationRequest::loadRequestsFromSubmission(
-			[ new PasswordAuthenticationRequest(), new LoginCodeRequest() ],
+			$this->getServiceContainer()->getAuthManager()->getAuthenticationRequests( AuthManager::ACTION_LOGIN ),
 			[
-				'username' => '',
-				'password' => '',
+				'username' => $username,
+				'password' => $password,
 				LoginCodeRequest::EMAIL_FIELD => $address
 			]
 		);

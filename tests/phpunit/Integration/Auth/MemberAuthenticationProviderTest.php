@@ -99,11 +99,27 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	public function testAddressSubmittedThroughThePasswordLoginButtonIsMailedACode(): void {
 		$this->allow( 'jane@example.com' );
 
-		$response = $this->getServiceContainer()->getAuthManager()->beginAuthentication(
-			$this->addressSubmittedThroughThePasswordLoginButton( 'jane@example.com' ),
-			self::RETURN_TO_URL
+		$response = $this->beginAuthenticationWith(
+			$this->loginFormSubmission( username: '', password: '', address: 'jane@example.com' )
 		);
-		$this->runDeferredUpdates();
+
+		$this->assertSame( AuthenticationResponse::UI, $response->status );
+		$this->assertCount( 1, $this->emailer->getSentMails() );
+	}
+
+	/**
+	 * A browser that filled the username and password boxes in unasked leaves both requests on the
+	 * submission. The address the visitor typed is what they meant.
+	 */
+	public function testAddressInTheBoxWinsOverCredentialsABrowserFilledIn(): void {
+		$testUser = $this->getMutableTestUser();
+		$this->allow( 'jane@example.com' );
+
+		$response = $this->beginAuthenticationWith( $this->loginFormSubmission(
+			username: $testUser->getUser()->getName(),
+			password: $testUser->getPassword(),
+			address: 'jane@example.com'
+		) );
 
 		$this->assertSame( AuthenticationResponse::UI, $response->status );
 		$this->assertCount( 1, $this->emailer->getSentMails() );
@@ -591,6 +607,7 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		);
 
 		$this->assertCount( 1, $requests );
+		$this->assertSame( '', $requests[0]->address() );
 	}
 
 	public function testProviderAbstainsFromAPasswordLogin(): void {
@@ -600,14 +617,14 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( AuthenticationResponse::ABSTAIN, $response->status );
 	}
 
-	public function testPasswordLoginStillWorksAlongsideTheCodeButton(): void {
+	public function testPasswordLoginWithAnEmptyAddressBoxStillLogsIn(): void {
 		$testUser = $this->getMutableTestUser();
-		$request = new PasswordAuthenticationRequest();
-		$request->username = $testUser->getUser()->getName();
-		$request->password = $testUser->getPassword();
 
-		$response = $this->getServiceContainer()->getAuthManager()
-			->beginAuthentication( [ $request ], self::RETURN_TO_URL );
+		$response = $this->beginAuthenticationWith( $this->loginFormSubmission(
+			username: $testUser->getUser()->getName(),
+			password: $testUser->getPassword(),
+			address: ''
+		) );
 
 		$this->assertSame( AuthenticationResponse::PASS, $response->status );
 	}
@@ -737,8 +754,15 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	}
 
 	private function requestCode( string $email ): AuthenticationResponse {
+		return $this->beginAuthenticationWith( $this->submittedCodeRequest( $email ) );
+	}
+
+	/**
+	 * @param AuthenticationRequest[] $requests
+	 */
+	private function beginAuthenticationWith( array $requests ): AuthenticationResponse {
 		$response = $this->getServiceContainer()->getAuthManager()
-			->beginAuthentication( $this->submittedCodeRequest( $email ), self::RETURN_TO_URL );
+			->beginAuthentication( $requests, self::RETURN_TO_URL );
 
 		$this->runDeferredUpdates();
 

@@ -37,7 +37,8 @@ use Wikimedia\Rdbms\IDBAccessObject;
  *
  * A primary provider rather than a PluggableAuth plugin, because only core's newUI loop can ask for
  * the code and come back to the same provider with the login still in progress. Other primaries
- * keep working alongside it: this one abstains unless its own button was the one pressed.
+ * keep working alongside it: this one abstains unless a code was asked for, by its button or by an
+ * address in its box.
  */
 class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider {
 
