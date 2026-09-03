@@ -12,15 +12,15 @@ use ProfessionalWiki\MemberAccess\Application\RandomSecretGenerator;
  */
 class RandomSecretGeneratorTest extends TestCase {
 
-	public function testCodeIsEightDigits(): void {
-		$this->assertMatchesRegularExpression( '/^\d{8}$/', ( new RandomSecretGenerator() )->generateCode() );
+	public function testCodeIsSixDigits(): void {
+		$this->assertMatchesRegularExpression( '/^\d{6}$/', ( new RandomSecretGenerator() )->generateCode() );
 	}
 
-	public function testShortCodesAreLeftPaddedToEightDigits(): void {
+	public function testShortCodesAreLeftPaddedToSixDigits(): void {
 		$generator = new RandomSecretGenerator();
 
 		foreach ( range( 1, 200 ) as $ignored ) {
-			$this->assertSame( 8, strlen( $generator->generateCode() ) );
+			$this->assertSame( 6, strlen( $generator->generateCode() ) );
 		}
 	}
 

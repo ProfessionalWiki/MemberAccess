@@ -11,7 +11,6 @@ use MediaWiki\Output\Hook\BeforePageDisplayHook;
 use MediaWiki\Output\OutputPage;
 use MediaWiki\SpecialPage\Hook\AuthChangeFormFieldsHook;
 use MediaWiki\SpecialPage\SpecialPage;
-use ProfessionalWiki\MemberAccess\Application\DisplayedCode;
 use ProfessionalWiki\MemberAccess\Application\RandomSecretGenerator;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\EnterCodeRequest;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\LoginCodeRequest;
@@ -122,10 +121,8 @@ class LoginFormHandler implements AuthChangeFormFieldsHook, BeforePageDisplayHoo
 	 * arrived in, and how much of it there is. `inputmode` would say which keyboard to raise for it,
 	 * but HTMLForm passes no such attribute through, so that much is left unsaid.
 	 *
-	 * The box takes the code the way the mail shows it, spaces and all, since that is what a member
-	 * who copies it out brings back. What is asked for is the digits: as many as a code has, with
-	 * spaces allowed anywhere among them, which is as much as the box can say before the server takes
-	 * them out again. {@see \ProfessionalWiki\MemberAccess\Application\DisplayedCode}
+	 * The box takes the code as the mail shows it: the digits, as many as a code has, and nothing
+	 * else. The mail puts nothing between them, so a member who copies it out brings nothing else.
 	 *
 	 * @param array<string, mixed> &$formDescriptor
 	 */
@@ -135,8 +132,8 @@ class LoginFormHandler implements AuthChangeFormFieldsHook, BeforePageDisplayHoo
 			[
 				'autocomplete' => 'one-time-code',
 				'placeholder-message' => 'memberaccess-auth-code-placeholder',
-				'maxlength' => DisplayedCode::groupedLength( RandomSecretGenerator::CODE_DIGITS ),
-				'pattern' => ' *(?:[0-9] *){' . RandomSecretGenerator::CODE_DIGITS . '}'
+				'maxlength' => RandomSecretGenerator::CODE_DIGITS,
+				'pattern' => '[0-9]{' . RandomSecretGenerator::CODE_DIGITS . '}'
 			]
 		);
 	}

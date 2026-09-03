@@ -19,7 +19,6 @@ use ProfessionalWiki\MemberAccess\Application\CodeLifetime;
 use ProfessionalWiki\MemberAccess\Application\CodeLoginMode;
 use ProfessionalWiki\MemberAccess\Application\CodeRequestOutcome;
 use ProfessionalWiki\MemberAccess\Application\CodeVerificationOutcome;
-use ProfessionalWiki\MemberAccess\Application\DisplayedCode;
 use ProfessionalWiki\MemberAccess\Application\Member;
 use ProfessionalWiki\MemberAccess\Application\MemberGroup;
 use ProfessionalWiki\MemberAccess\Application\MemberRepository;
@@ -209,8 +208,7 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 			return $this->refuse( 'Code entry continued without a code request in the session' );
 		}
 
-		// Shown in groups in the mail, so a member who copied it brings the spaces along.
-		$code = DisplayedCode::ungrouped( $request->memberaccessCode );
+		$code = $request->memberaccessCode;
 
 		if ( $code === '' ) {
 			return $this->codeScreen( wfMessage( 'memberaccess-auth-code-missing' ), 'error' );
