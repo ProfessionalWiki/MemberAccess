@@ -34,20 +34,26 @@ trait CodeRequestSubmission {
 	}
 
 	/**
-	 * What the login form submits through its first button, the password login's, which is where
-	 * pressing Enter in any of its boxes sends it: every box, filled or not, and no code button.
-	 * The requests are the ones the form is built from, so what they make of it is what is handed
-	 * on, and a submission none of them claims comes back empty.
+	 * What the login form submits: every box, filled or not, and whether the code button was pressed.
+	 * Not pressed, the submission went through the form's first button, the password login's, which
+	 * is where Enter in any box sends it. The requests are the ones the form is built from, so what
+	 * they make of it is what is handed on, and a submission none of them claims comes back empty.
 	 *
 	 * @return AuthenticationRequest[]
 	 */
-	private function loginFormSubmission( string $username, string $password, string $address ): array {
+	private function loginFormSubmission(
+		string $username,
+		string $password,
+		string $address,
+		bool $codeButtonPressed
+	): array {
 		return AuthenticationRequest::loadRequestsFromSubmission(
 			$this->getServiceContainer()->getAuthManager()->getAuthenticationRequests( AuthManager::ACTION_LOGIN ),
 			[
 				'username' => $username,
 				'password' => $password,
-				LoginCodeRequest::EMAIL_FIELD => $address
+				LoginCodeRequest::EMAIL_FIELD => $address,
+				LoginCodeRequest::BUTTON_NAME => $codeButtonPressed
 			]
 		);
 	}
