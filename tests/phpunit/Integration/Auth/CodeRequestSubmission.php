@@ -5,6 +5,7 @@ declare( strict_types = 1 );
 namespace ProfessionalWiki\MemberAccess\Tests\Integration\Auth;
 
 use MediaWiki\Auth\AuthenticationRequest;
+use MediaWiki\Auth\PasswordAuthenticationRequest;
 use ProfessionalWiki\MemberAccess\EntryPoints\Auth\LoginCodeRequest;
 
 /**
@@ -30,6 +31,24 @@ trait CodeRequestSubmission {
 		$this->assertCount( 1, $requests, 'the submission carried no code request' );
 
 		return $requests;
+	}
+
+	/**
+	 * What pressing Enter in the address box submits: the form goes through its first button, the
+	 * password login's, so the address arrives without the code button. Whatever the requests on the
+	 * form make of that is what is handed on, so a submission nothing claims comes back empty.
+	 *
+	 * @return AuthenticationRequest[]
+	 */
+	private function addressSubmittedThroughThePasswordLoginButton( string $address ): array {
+		return AuthenticationRequest::loadRequestsFromSubmission(
+			[ new PasswordAuthenticationRequest(), new LoginCodeRequest() ],
+			[
+				'username' => '',
+				'password' => '',
+				LoginCodeRequest::EMAIL_FIELD => $address
+			]
+		);
 	}
 
 }

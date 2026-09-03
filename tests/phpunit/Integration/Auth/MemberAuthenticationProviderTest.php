@@ -92,6 +92,23 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		);
 	}
 
+	/**
+	 * Pressing Enter in the address box submits the form through its first button, which is the
+	 * password login's. The address is still a request for a code.
+	 */
+	public function testAddressSubmittedThroughThePasswordLoginButtonIsMailedACode(): void {
+		$this->allow( 'jane@example.com' );
+
+		$response = $this->getServiceContainer()->getAuthManager()->beginAuthentication(
+			$this->addressSubmittedThroughThePasswordLoginButton( 'jane@example.com' ),
+			self::RETURN_TO_URL
+		);
+		$this->runDeferredUpdates();
+
+		$this->assertSame( AuthenticationResponse::UI, $response->status );
+		$this->assertCount( 1, $this->emailer->getSentMails() );
+	}
+
 	public function testCorrectCodeLogsTheMemberInAndCreatesTheAccount(): void {
 		$this->allow( 'jane@example.com' );
 		$this->requestCode( 'jane@example.com' );
@@ -537,7 +554,46 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( [], $requests );
 	}
 
-	public function testProviderAbstainsWhenItsButtonWasNotPressed(): void {
+	/**
+	 * Pressing Enter in the address box submits the form through its first button, the password
+	 * login's, so the code request cannot wait for its own: the address is what asks for a code.
+	 */
+	public function testAnAddressInItsBoxSubmitsACodeRequestWithoutTheCodeButton(): void {
+		$requests = AuthenticationRequest::loadRequestsFromSubmission(
+			[ new LoginCodeRequest() ],
+			[ LoginCodeRequest::EMAIL_FIELD => 'jane@example.com' ]
+		);
+
+		$this->assertCount( 1, $requests );
+		$this->assertSame( 'jane@example.com', $requests[0]->address() );
+	}
+
+	/**
+	 * A password login leaves the address box empty, and must not carry a code request for the
+	 * provider to answer on.
+	 */
+	public function testAnEmptyAddressBoxWithoutTheCodeButtonSubmitsNoCodeRequest(): void {
+		$requests = AuthenticationRequest::loadRequestsFromSubmission(
+			[ new LoginCodeRequest() ],
+			[ LoginCodeRequest::EMAIL_FIELD => '' ]
+		);
+
+		$this->assertSame( [], $requests );
+	}
+
+	/**
+	 * The button asks for a code whatever the box holds, so that an empty box can be answered on.
+	 */
+	public function testTheCodeButtonSubmitsACodeRequestWithAnEmptyBox(): void {
+		$requests = AuthenticationRequest::loadRequestsFromSubmission(
+			[ new LoginCodeRequest() ],
+			[ LoginCodeRequest::EMAIL_FIELD => '', LoginCodeRequest::BUTTON_NAME => true ]
+		);
+
+		$this->assertCount( 1, $requests );
+	}
+
+	public function testProviderAbstainsFromAPasswordLogin(): void {
 		$response = $this->newInitializedProvider()
 			->beginPrimaryAuthentication( [ new PasswordAuthenticationRequest() ] );
 

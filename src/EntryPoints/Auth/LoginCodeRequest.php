@@ -23,6 +23,11 @@ use MediaWiki\Message\Message;
  * The field is optional: required, it would be required of every login button on the form, since a
  * field is mandatory only where every provider asking for it says so. An empty box is refused when
  * this button is pressed instead.
+ *
+ * Pressing Enter in the box submits the form through its first button, which is the password
+ * login's, so the request cannot wait for its own button to be pressed: an address in the box asks
+ * for a code as much as the button does. The button alone still does, so that an empty box can be
+ * answered on. An empty box without it is a password login, which is none of this request's business.
  */
 class LoginCodeRequest extends ButtonAuthenticationRequest {
 
@@ -45,6 +50,9 @@ class LoginCodeRequest extends ButtonAuthenticationRequest {
 	 * @return array<string, array<string, mixed>>
 	 */
 	public function getFieldInfo() {
+		$button = parent::getFieldInfo();
+		$button[self::BUTTON_NAME]['optional'] = true;
+
 		return array_merge(
 			[
 				self::EMAIL_FIELD => [
@@ -54,8 +62,16 @@ class LoginCodeRequest extends ButtonAuthenticationRequest {
 					'optional' => true
 				]
 			],
-			parent::getFieldInfo()
+			$button
 		);
+	}
+
+	/**
+	 * @param array<string, mixed> $data
+	 */
+	public function loadFromSubmission( array $data ) {
+		return parent::loadFromSubmission( $data )
+			&& ( $this->memberaccessLogin || $this->memberaccessEmail !== '' );
 	}
 
 	/**
