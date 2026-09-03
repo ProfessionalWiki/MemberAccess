@@ -25,8 +25,10 @@ use MediaWiki\Message\Message;
  * this button is pressed instead.
  *
  * Pressing Enter in the box submits the form through a button that names no route, so the request
- * cannot wait for its own button: an address in the box asks for a code as the button does. What a
- * username and password beside the address mean is the provider's to say.
+ * cannot wait for its own button: an address in the box asks for a code as the button does.
+ * {@see \ProfessionalWiki\MemberAccess\EntryPoints\LoginFormHandler::letEnterFollowWhatWasFilledIn}
+ *
+ * What a username and password beside the address mean is the provider's to say.
  * {@see MemberAuthenticationProvider::beginPrimaryAuthentication}
  */
 class LoginCodeRequest extends ButtonAuthenticationRequest {

@@ -125,8 +125,8 @@ class LoginFormHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * MobileFrontend heads the mobile login form with a watermark it leaves unweighted, which led
-	 * the form until the member section was described below zero.
+	 * MobileFrontend heads the mobile login form with a watermark it leaves unweighted, which would
+	 * leave it under the member section described below zero.
 	 */
 	public function testMobileWatermarkGoesOnLeadingTheForm(): void {
 		$laidOut = $this->laidOutByCore( $this->handle(
@@ -158,7 +158,7 @@ class LoginFormHandlerTest extends MediaWikiIntegrationTestCase {
 		);
 	}
 
-	public function testPasswordLoginButtonIsNoLongerPrimary(): void {
+	public function testPasswordLoginButtonIsNotTheFormsPrimaryButton(): void {
 		$this->assertSame( [ 'progressive' ], $this->loginScreen()[self::CORE_LOGIN_BUTTON]['flags'] );
 	}
 

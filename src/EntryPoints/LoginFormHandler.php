@@ -48,7 +48,11 @@ class LoginFormHandler implements AuthChangeFormFieldsHook, BeforePageDisplayHoo
 	private const COLLECTOR_CLASS = 'mw-memberaccess-collector';
 	private const DEFAULT_SUBMIT_CLASS = 'mw-memberaccess-default-submit';
 
-	/** Core's own password box and log in button. {@see \MediaWiki\SpecialPage\LoginSignupSpecialPage::getFieldDefinitions} */
+	/**
+	 * Core's own password box and log in button. The box is what says the password route is offered
+	 * at all; the button is what that route is entered by.
+	 * {@see \MediaWiki\SpecialPage\LoginSignupSpecialPage::getFieldDefinitions}
+	 */
 	private const PASSWORD_FIELD = 'password';
 	private const PASSWORD_LOGIN_BUTTON = 'loginattempt';
 	/** MobileFrontend's watermark, described by its own handler of this hook. */
@@ -131,8 +135,8 @@ class LoginFormHandler implements AuthChangeFormFieldsHook, BeforePageDisplayHoo
 	}
 
 	/**
-	 * A submit button recommends itself unless it is told not to, so core's has to be told, now that
-	 * the form recommends the member route. {@see \MediaWiki\HTMLForm\Field\HTMLSubmitField}
+	 * A submit button recommends itself unless it is told not to, so core's has to be told: the one
+	 * button this form recommends is the member route's. {@see \MediaWiki\HTMLForm\Field\HTMLSubmitField}
 	 *
 	 * Only where the form describes one, so that no field is invented.
 	 *
@@ -176,8 +180,8 @@ class LoginFormHandler implements AuthChangeFormFieldsHook, BeforePageDisplayHoo
 	}
 
 	/**
-	 * MobileFrontend heads the mobile form with a watermark it leaves unweighted, which led the form
-	 * while nothing was described below zero. It is the masthead either way, so it is weighted as one.
+	 * MobileFrontend heads the mobile form with a watermark it leaves unweighted, which would leave
+	 * it under the member section described below zero. It is the masthead, so it is weighted as one.
 	 *
 	 * Only where it is already described, which is where the wiki loads that extension before this
 	 * one: a field this handler cannot see is one it cannot place.
