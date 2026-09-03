@@ -404,36 +404,30 @@ php maintenance/run.php generateSchemaChangeSql \
 
 ## Release notes
 
-### Version 0.1.0 (unreleased)
+### Version 1.0.0 - 2026-09-03
 
-Initial version for MediaWiki 1.43+ with these features:
+Initial release for MediaWiki 1.43+ with these features:
 
 * Login with an eight-digit code mailed to the member's address, valid for ten minutes and usable
-  once, requested from the login form's own box for an address
-* The code mailed as a formatted message naming the wiki, with a plain-text alternative carrying the
-  same code and the same warning
-* A code screen that names the address the code went to, offers another code in its place, and
-  offers a way back to enter a different address
+  once; a login is remembered for thirty days
 * An allowlist of email addresses and domains, organized into named groups, decides who is admitted
 * Accounts create themselves at first login, into a reader group that may read and nothing else,
   under a name that identifies nobody
-* Single sign-on logins through [PluggableAuth] can be held to the same allowlist, with staff
+* Single sign-on logins through [OpenIDConnect] can be held to the same allowlist, with staff
   accounts exempt
-* Settable login routes, neither offered until a setting says so: the code route admits the addresses
-  an allowlist entry matches, every address, or nobody; single sign-on is held to the allowlist or
-  left alone
+* Login routes are off by default: the code route admits the addresses the allowlist matches, every
+  address, or nobody; single sign-on is held to the allowlist or left alone
 * Members never have a password: setting one and having a temporary one mailed are both refused
-* Deactivation blocks a member's account sitewide, reactivation lifts that block again, and
-  removal closes the account and frees their address for a new one
-* Code requests rate limited per email address and per client IP, with a burst and a daily limit,
-  and codes stored hashed and burned after five wrong entries
-* Uniform responses, restricted account-listing API modules and special pages, and restricted new
-  user, block and rename logs, so the member list is not given away
-* Every code issue, login success, failure and rate-limit hit logged through the `MemberAccess` log
-  channel, with the email address hashed
-* An invitation mailed to an admitted address on request, and again as often as needed, naming the
-  login page and the address to log in with
-* A REST API under `/rest.php/member-access/v0/` for managing groups, allowlist entries and the roster
+* Deactivation blocks a member's account, reactivation lifts the block, and removal closes the
+  account and frees the address for a new one
+* Code requests are rate limited per email address and per client IP; codes are stored hashed and
+  burned after five wrong entries
+* Nothing gives the member list away: code and password-reset requests answer the same for every
+  address, and account listings and the logs that record members are restricted
+* Every code issue, login success, login failure and rate-limit hit is logged on the `MemberAccess`
+  channel, with the address hashed
+* An invitation can be mailed to an admitted address, naming the login page and how to log in
+* A REST API for managing groups, allowlist entries and the roster
 
 [MediaWiki]: https://www.mediawiki.org
 [Professional Wiki]: https://professional.wiki
