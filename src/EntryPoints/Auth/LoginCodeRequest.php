@@ -23,6 +23,11 @@ use MediaWiki\Message\Message;
  * The field is optional: required, it would be required of every login button on the form, since a
  * field is mandatory only where every provider asking for it says so. An empty box is refused when
  * this button is pressed instead.
+ *
+ * Pressing Enter in the box submits the form through its first button, which is the password
+ * login's, so the request cannot wait for its own button: an address in the box asks for a code as
+ * the button does. What a username and password beside the address mean is the provider's to say.
+ * {@see MemberAuthenticationProvider::beginPrimaryAuthentication}
  */
 class LoginCodeRequest extends ButtonAuthenticationRequest {
 
@@ -37,6 +42,8 @@ class LoginCodeRequest extends ButtonAuthenticationRequest {
 			self::BUTTON_NAME,
 			new Message( 'memberaccess-auth-button-label' ),
 			new Message( 'memberaccess-auth-button-help' ),
+			// Required as a request, which keeps the username and password boxes optional for everyone:
+			// a field is mandatory only where every required primary request has it.
 			true
 		);
 	}
@@ -45,6 +52,10 @@ class LoginCodeRequest extends ButtonAuthenticationRequest {
 	 * @return array<string, array<string, mixed>>
 	 */
 	public function getFieldInfo() {
+		$button = parent::getFieldInfo();
+		// Loadable without the button pressed; whether it is a request is loadFromSubmission's to say.
+		$button[self::BUTTON_NAME]['optional'] = true;
+
 		return array_merge(
 			[
 				self::EMAIL_FIELD => [
@@ -54,8 +65,24 @@ class LoginCodeRequest extends ButtonAuthenticationRequest {
 					'optional' => true
 				]
 			],
-			parent::getFieldInfo()
+			$button
 		);
+	}
+
+	/**
+	 * @param array<string, mixed> $data
+	 */
+	public function loadFromSubmission( array $data ) {
+		// Only text can be an address, and the API hands over whatever it was sent.
+		if ( !is_string( $data[self::EMAIL_FIELD] ?? '' ) ) {
+			return false;
+		}
+
+		if ( !parent::loadFromSubmission( $data ) ) {
+			return false;
+		}
+
+		return $this->memberaccessLogin || $this->address() !== '';
 	}
 
 	/**

@@ -37,7 +37,9 @@ use Wikimedia\Rdbms\IDBAccessObject;
  *
  * A primary provider rather than a PluggableAuth plugin, because only core's newUI loop can ask for
  * the code and come back to the same provider with the login still in progress. Other primaries
- * keep working alongside it: this one abstains unless its own button was the one pressed.
+ * keep working alongside it: this one abstains unless the submission carries a code request, which
+ * is the request's own to decide, and leaves a password login beside the address to the password
+ * providers unless its button was pressed.
  */
 class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider {
 
@@ -88,7 +90,7 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 
 		$request = AuthenticationRequest::getRequestByClass( $reqs, LoginCodeRequest::class );
 
-		if ( $request === null ) {
+		if ( $request === null || $this->passwordLoginWasMeantInstead( $reqs, $request ) ) {
 			return AuthenticationResponse::newAbstain();
 		}
 
@@ -99,6 +101,19 @@ class MemberAuthenticationProvider extends AbstractPrimaryAuthenticationProvider
 		}
 
 		return $this->sendCodeTo( $address );
+	}
+
+	/**
+	 * A username and password beside the address are the password login they look like, whoever
+	 * filled them in: a browser that autofilled them, or a visitor on a form whose address box a link
+	 * had filled. Only the code button, pressed on purpose, asks for a code beside them. The password
+	 * providers answer after this one, so leaving the login to them is a matter of abstaining.
+	 *
+	 * @param AuthenticationRequest[] $reqs
+	 */
+	private function passwordLoginWasMeantInstead( array $reqs, LoginCodeRequest $request ): bool {
+		return !$request->memberaccessLogin
+			&& array_filter( $reqs, $this->isPasswordRequest( ... ) ) !== [];
 	}
 
 	/**

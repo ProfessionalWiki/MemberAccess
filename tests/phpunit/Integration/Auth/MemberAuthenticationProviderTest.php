@@ -92,6 +92,72 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		);
 	}
 
+	/**
+	 * Enter in the address box: the address arrives without the code button.
+	 * {@see LoginCodeRequest}
+	 */
+	public function testAddressSubmittedThroughThePasswordLoginButtonIsMailedACode(): void {
+		$this->allow( 'jane@example.com' );
+
+		$response = $this->beginAuthenticationWith(
+			$this->loginFormSubmission( address: 'jane@example.com', codeButtonPressed: false )
+		);
+
+		$this->assertSame( AuthenticationResponse::UI, $response->status );
+		$this->assertCount( 1, $this->emailer->getSentMails() );
+	}
+
+	/**
+	 * Filled in by the visitor or by their browser, a username and password beside the address are
+	 * the password login they look like.
+	 */
+	public function testCredentialsBesideAnAddressAreAPasswordLogin(): void {
+		$testUser = $this->getMutableTestUser();
+		$this->allow( 'jane@example.com' );
+
+		$response = $this->beginAuthenticationWith( $this->loginFormSubmission(
+			address: 'jane@example.com',
+			codeButtonPressed: false,
+			username: $testUser->getUser()->getName(),
+			password: $testUser->getPassword()
+		) );
+
+		$this->assertSame( AuthenticationResponse::PASS, $response->status );
+		$this->assertSame( [], $this->emailer->getSentMails() );
+	}
+
+	/**
+	 * A username alone is no password login, so the address beside it is what was meant.
+	 */
+	public function testAUsernameWithoutAPasswordBesideAnAddressAsksForACode(): void {
+		$this->allow( 'jane@example.com' );
+
+		$response = $this->beginAuthenticationWith(
+			$this->loginFormSubmission( address: 'jane@example.com', codeButtonPressed: false, username: 'Jane' )
+		);
+
+		$this->assertSame( AuthenticationResponse::UI, $response->status );
+		$this->assertCount( 1, $this->emailer->getSentMails() );
+	}
+
+	/**
+	 * Answered before the password providers get to the credentials.
+	 */
+	public function testTheCodeButtonBesideCredentialsAsksForACode(): void {
+		$testUser = $this->getMutableTestUser();
+		$this->allow( 'jane@example.com' );
+
+		$response = $this->beginAuthenticationWith( $this->loginFormSubmission(
+			address: 'jane@example.com',
+			codeButtonPressed: true,
+			username: $testUser->getUser()->getName(),
+			password: $testUser->getPassword()
+		) );
+
+		$this->assertSame( AuthenticationResponse::UI, $response->status );
+		$this->assertCount( 1, $this->emailer->getSentMails() );
+	}
+
 	public function testCorrectCodeLogsTheMemberInAndCreatesTheAccount(): void {
 		$this->allow( 'jane@example.com' );
 		$this->requestCode( 'jane@example.com' );
@@ -524,34 +590,22 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $fields[EnterCodeRequest::CODE_FIELD]['sensitive'] ?? false );
 	}
 
-	/**
-	 * What makes the provider abstain: a submission that pressed some other button carries no code
-	 * request, however filled in the username box it shares is.
-	 */
-	public function testAnotherProvidersButtonSubmitsNoCodeRequest(): void {
-		$requests = AuthenticationRequest::loadRequestsFromSubmission(
-			[ new LoginCodeRequest() ],
-			[ 'username' => 'jane@example.com' ]
-		);
-
-		$this->assertSame( [], $requests );
-	}
-
-	public function testProviderAbstainsWhenItsButtonWasNotPressed(): void {
+	public function testProviderAbstainsFromAPasswordLogin(): void {
 		$response = $this->newInitializedProvider()
 			->beginPrimaryAuthentication( [ new PasswordAuthenticationRequest() ] );
 
 		$this->assertSame( AuthenticationResponse::ABSTAIN, $response->status );
 	}
 
-	public function testPasswordLoginStillWorksAlongsideTheCodeButton(): void {
+	public function testPasswordLoginWithAnEmptyAddressBoxStillLogsIn(): void {
 		$testUser = $this->getMutableTestUser();
-		$request = new PasswordAuthenticationRequest();
-		$request->username = $testUser->getUser()->getName();
-		$request->password = $testUser->getPassword();
 
-		$response = $this->getServiceContainer()->getAuthManager()
-			->beginAuthentication( [ $request ], self::RETURN_TO_URL );
+		$response = $this->beginAuthenticationWith( $this->loginFormSubmission(
+			address: '',
+			codeButtonPressed: false,
+			username: $testUser->getUser()->getName(),
+			password: $testUser->getPassword()
+		) );
 
 		$this->assertSame( AuthenticationResponse::PASS, $response->status );
 	}
@@ -681,8 +735,15 @@ class MemberAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
 	}
 
 	private function requestCode( string $email ): AuthenticationResponse {
+		return $this->beginAuthenticationWith( $this->submittedCodeRequest( $email ) );
+	}
+
+	/**
+	 * @param AuthenticationRequest[] $requests
+	 */
+	private function beginAuthenticationWith( array $requests ): AuthenticationResponse {
 		$response = $this->getServiceContainer()->getAuthManager()
-			->beginAuthentication( $this->submittedCodeRequest( $email ), self::RETURN_TO_URL );
+			->beginAuthentication( $requests, self::RETURN_TO_URL );
 
 		$this->runDeferredUpdates();
 
