@@ -26,7 +26,7 @@
 	"memberaccess-auth-email-label": "Email address",
 	"memberaccess-auth-email-help": "The address you are a member with.",
 	"memberaccess-auth-email-placeholder": "Enter your email",
-	"memberaccess-auth-form-divider": "or",
+	"memberaccess-auth-form-divider": "or log in with a password",
 	"memberaccess-auth-email-missing": "Enter your email address to get a login code.",
 	"memberaccess-auth-email-invalid": "Enter a valid email address.",
 	"memberaccess-auth-throttled": "Too many login codes have been requested. Try again later.",
