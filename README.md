@@ -375,6 +375,12 @@ php maintenance/run.php generateSchemaChangeSql \
 
 ## Release notes
 
+### Version 1.1.0 - 2026-09-04
+
+* The login form leads with the code route where it is on: the address box takes focus, Enter there
+  asks for a code, and the password form follows under "or log in with a password"
+* The login code is six digits and leads the subject line of the mail that carries it
+
 ### Version 1.0.0 - 2026-09-03
 
 Initial release for MediaWiki 1.43+ with these features:
@@ -393,8 +399,8 @@ Initial release for MediaWiki 1.43+ with these features:
   account and frees the address for a new one
 * Code requests are rate limited per email address and per client IP; codes are stored hashed and
   burned after five wrong entries
-* Nothing gives the member list away: code and password-reset requests answer the same for every
-  address, and account listings and the logs that record members are restricted
+* Code and password-reset requests answer the same for every address, so neither reveals who is a
+  member
 * Every code issue, login success, login failure and rate-limit hit is logged on the `MemberAccess`
   channel, with the address hashed
 * An invitation can be mailed to an admitted address, naming the login page and how to log in
