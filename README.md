@@ -377,9 +377,11 @@ php maintenance/run.php generateSchemaChangeSql \
 
 ### Version 1.1.0 - 2026-09-04
 
-* The login form leads with the code route where it is on: the address box takes focus, Enter there
-  asks for a code, and the password form follows under "or log in with a password"
-* The login code is six digits and leads the subject line of the mail that carries it
+* Enhanced login form UX for code login: the email address box now comes first and has focus,
+  "Continue with email" is the primary button, Enter in the address box requests a code, and the
+  password form follows under "or log in with a password"
+* Improved the login code email by including the code in the email title
+* Reduced the login code from 8 to 6 digits for better UX
 
 ### Version 1.0.0 - 2026-09-03
 
