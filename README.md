@@ -16,9 +16,8 @@ admitted by an allowlist of addresses and domains organized into named groups.
   login; deactivating a member blocks them at once.
 * Single sign-on logins through [OpenIDConnect] can be held to the same allowlist; staff accounts
   are exempt.
-* Nothing gives the member list away: a member's account is named after nobody, code and
-  password-reset requests answer the same for every address, and account listings and the logs that
-  record members are restricted.
+* Nothing gives a member's identity away: their account is named after nobody, and code and
+  password-reset requests answer the same for every address.
 * An admitted address can be mailed an invitation naming the login page and how to log in.
 * Groups, allowlist entries and the member roster are managed over a REST API.
 * It does not make the wiki private: restricting who may read stays a wiki configuration decision.
