@@ -216,6 +216,9 @@ Platform requirements:
 * [MediaWiki] 1.43 or later
 * MySQL, MariaDB or SQLite. No PostgreSQL schema is shipped
 * Working outgoing email while the code route is offered, since login codes and invitations are sent by mail
+
+Optional platform requirements:
+
 * [OpenIDConnect] 8.3 or later while single sign-on is held to the allowlist, with
   `$wgOpenIDConnect_UseRandomUsernames` left off and its preferred username processor left to this
   extension rather than set per provider. Every other way of naming a single sign-on account is one
