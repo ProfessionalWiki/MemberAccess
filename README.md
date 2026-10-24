@@ -378,6 +378,10 @@ php maintenance/run.php generateSchemaChangeSql \
 
 ## Release notes
 
+### Version 1.1.1 - 2026-10-24
+
+* Added Vietnamese translation
+
 ### Version 1.1.0 - 2026-09-04
 
 * Enhanced login form UX for code login: the email address box now comes first and has focus,
