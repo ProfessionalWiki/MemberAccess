@@ -4,12 +4,12 @@
 			"Professional Wiki"
 		]
 	},
-	"memberaccess-description": "{{desc|name=MemberAccess|url=https://professional.wiki}}",
+	"memberaccess-description": "{{desc|name=MemberAccess|url=https://professional.wiki/en/extension/member-access}}",
 	"memberaccess-code-email-subject": "Subject line of the email carrying a one-time login code. Leads with the code, so that it can be read from a notification or an inbox listing without opening the mail. Parameters:\n* $1 - the login code",
 	"memberaccess-code-email-intro": "First line of the email carrying a login code, above the code itself.",
 	"memberaccess-code-email-validity": "Line below the login code saying how long it lasts. Parameters:\n* $1 - the number of minutes the code stays valid",
 	"memberaccess-code-email-disclaimer": "Closing line of the email carrying a login code, for someone who did not ask for one.",
-	"memberaccess-code-email-body": "Plain text alternative of the email carrying a one-time login code, shown by mail clients that do not display the formatted part. Parameters:\n* $1 - the login code\n* $2 - the number of minutes the code stays valid",
+	"memberaccess-code-email-body": "Plain text alternative of the email carrying a one-time login code, shown by mail clients that do not display the formatted part. Says the same as {{msg-mw|Memberaccess-code-email-intro}}, {{msg-mw|Memberaccess-code-email-validity}} and {{msg-mw|Memberaccess-code-email-disclaimer}} together. Keep the blank lines and the indentation before $1. Parameters:\n* $1 - the login code\n* $2 - the number of minutes the code stays valid",
 	"memberaccess-invitation-email-subject": "Subject line of the email inviting someone to log in to the wiki.",
 	"memberaccess-invitation-email-intro": "First line of the invitation email, directly above the login page URL. The heading above it names the wiki, so this line does not.",
 	"memberaccess-invitation-email-instructions": "Line below the login page URL, saying which address to log in with and that logging in uses a code sent by email, not a password. Parameters:\n* $1 - the email address to log in with",
