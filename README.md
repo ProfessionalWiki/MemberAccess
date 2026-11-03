@@ -379,6 +379,11 @@ php maintenance/run.php generateSchemaChangeSql \
 
 ## Release notes
 
+### Version 1.1.2 - 2026-11-03
+
+* Allowed members to change their own preferences, such as their language, skin and gadgets. To keep
+  them closed, set `$wgRevokePermissions['reader']['editmyoptions'] = true;`
+
 ### Version 1.1.1 - 2026-10-24
 
 * Added Vietnamese translation
