@@ -10,8 +10,8 @@ MediaWiki extension for members-only wikis: readers log in with an email one-tim
 admitted by an allowlist of addresses and domains organized into named groups.
 
 * A member never has a password, and a login is remembered for about a month.
-* Members can read and nothing else: everything that would let them change the wiki or see behind
-  the scenes is revoked.
+* Members can read and set their own preferences: everything that would let them change the wiki or
+  see behind the scenes is revoked.
 * Accounts create themselves at first login. Removing an allowlist entry ends access at the next
   login; deactivating a member blocks them at once.
 * Single sign-on logins through [OpenIDConnect] can be held to the same allowlist; staff accounts
@@ -178,7 +178,8 @@ Whatever the login routes are set to, loading the extension:
 * revokes from the reader group everything that would let a reader change the wiki or see behind the
   scenes: editing, commenting, moving, uploading, deleting, protecting, tagging, creating accounts,
   sending email, reading the abuse filters and their log, and reading or changing their own private
-  information or preferences, which closes `Special:ChangeEmail` to them;
+  information, which closes `Special:ChangeEmail` to them, though they can still set their own
+  preferences, such as their language, skin and gadgets;
 * sets `$wgBlockDisablesLogin`, so blocking a member keeps them out of a private wiki;
 * restricts the `renameuser` log to the `memberaccess-manage` right, unless the wiki already
   restricted it, since an entry there names what an account was called before, which for a member

@@ -87,7 +87,6 @@
 			"sendemail": true,
 			"viewmyprivateinfo": true,
 			"editmyprivateinfo": true,
-			"editmyoptions": true,
 			"cs-comment": true,
 			"abusefilter-view": true,
 			"abusefilter-log": true
