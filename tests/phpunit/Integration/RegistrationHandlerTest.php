@@ -41,7 +41,6 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 		'sendemail',
 		'viewmyprivateinfo',
 		'editmyprivateinfo',
-		'editmyoptions',
 		'cs-comment',
 		'abusefilter-view',
 		'abusefilter-log'
@@ -83,6 +82,14 @@ class RegistrationHandlerTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testReaderCannotReadTheirOwnPrivateInformation(): void {
 		$this->assertFalse( $this->reader()->isAllowed( 'viewmyprivateinfo' ) );
+	}
+
+	/**
+	 * Not revoked on purpose: skins, gadgets and the wiki's own scripts keep a member's choices as
+	 * preferences, and cannot save them without this right.
+	 */
+	public function testReaderCanChangeTheirOwnPreferences(): void {
+		$this->assertTrue( $this->reader()->isAllowed( 'editmyoptions' ) );
 	}
 
 	/**
