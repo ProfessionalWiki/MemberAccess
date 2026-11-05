@@ -1,0 +1,26 @@
+{
+	"@metadata": {
+		"authors": [
+			"Kghbln"
+		]
+	},
+	"memberaccess-code-email-disclaimer": "Sofern Sie sich nicht bei {{SITENAME}} anmelden wollten, ist nichts passiert und Sie können diese Nachricht ignorieren.",
+	"memberaccess-code-email-body": "Hier ist Ihr Einmalcode für die Anmeldung bei {{SITENAME}}:\n\n $1 \n\nEr funktioniert einmal und danach nur noch $2 Minute{{PLURAL:$2||n}}.\n\nSofern Sie sich nicht bei {{SITENAME}} anmelden wollten, ist nichts passiert und Sie können diese Nachricht ignorieren.",
+	"memberaccess-invitation-email-subject": "Sie wurden zu {{SITENAME}} eingeladen.",
+	"memberaccess-invitation-email-intro": "Sie können sich jetzt hier anmelden:",
+	"memberaccess-invitation-email-instructions": "Melden Sie sich mit der E-Mail-Adresse $1 an. Sie erhalten jedes Mal einen einmaligen Anmeldecode per E-Mail. Es ist kein Passwort erforderlich.",
+	"memberaccess-invitation-email-disclaimer": "Falls Sie diese Nachricht nicht erwartet haben, können Sie sie ignorieren.",
+	"memberaccess-invitation-email-body": "Sie können sich jetzt bei {{SITENAME}} anmelden:\n\n $1 \n\nMelden Sie sich mit der E-Mail-Adresse $2 an. Sie erhalten jedes Mal einen einmaligen Anmeldecode per E-Mail. Es ist kein Passwort erforderlich.\n\nFalls Sie diese Nachricht nicht erwartet haben, können Sie sie ignorieren.",
+	"memberaccess-auth-button-help": "Wir senden Ihnen einen einmaligen Anmeldecode an Ihre E-Mail-Adresse. Außer Ihrer E-Mail-Adresse werden keine weiteren Angaben benötigt.",
+	"memberaccess-auth-resend-throttled": "Es wurden zu viele Anmeldecodes angefordert. Nutzen Sie den bereits zugesandten Anmeldecode.",
+	"memberaccess-auth-email-help": "Die E-Mail-Adresse, mit der Sie Mitglied sind.",
+	"memberaccess-auth-email-placeholder": "Geben Sie Ihre E-Mail-Adresse ein",
+	"memberaccess-auth-form-divider": "oder melden Sie sich mit einem Passwort an",
+	"memberaccess-auth-email-missing": "Geben Sie Ihre E-Mail-Adresse ein, um einen Anmeldecode zu erhalten.",
+	"memberaccess-auth-throttled": "Es wurden zu viele Anmeldecodes angefordert. Bitte versuchen Sie es später erneut.",
+	"memberaccess-auth-code-sent": "Wenn die E-Mail-Adresse <strong>$1</strong> zu einem Mitglied gehört, ist ein Anmeldecode unterwegs. Geben Sie ihn unten innerhalb von $2 Minute{{PLURAL:$2||n}} ein.",
+	"memberaccess-auth-code-missing": "Geben Sie den Ihnen per E-Mail zugesandten Anmeldecode ein.",
+	"memberaccess-auth-code-outstanding": "Geben Sie den an die E-Mail-Adresse <strong>$1</strong> gesendeten Anmeldecode ein.",
+	"memberaccess-auth-code-expired": "Dieser Anmeldecode ist ungültig. Bitte fordern Sie einen neuen an.",
+	"memberaccess-auth-failed": "Die Anmeldung ist fehlgeschlagen. Fordern Sie einen neuen Anmeldecode an. Sollte das Problem weiterhin bestehen, kontaktieren Sie einen Administrator dieses Wikis."
+}

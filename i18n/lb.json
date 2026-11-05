@@ -1,0 +1,18 @@
+{
+	"@metadata": {
+		"authors": [
+			"Volvox"
+		]
+	},
+	"memberaccess-code-email-intro": "Hei ass Äre Login-Code.",
+	"memberaccess-auth-resend-label": "Neie Code schécken",
+	"memberaccess-auth-restart-line": "Falsch Adress? $1.",
+	"memberaccess-auth-email-label": "E-Mail-Adress",
+	"memberaccess-auth-email-placeholder": "Gitt Är E-Mail-Adress an",
+	"memberaccess-auth-email-invalid": "Gitt eng gülteg E-Mail-Adress an.",
+	"memberaccess-auth-code-label": "Login-Code",
+	"memberaccess-auth-code-missing": "Gitt de Login-Code an, deen Dir per E-Mail geschéckt kritt hutt.",
+	"group-reader": "Lieser",
+	"group-reader-member": "{{GENDER:$1|Lieser|Lieserin}}",
+	"grouppage-reader": "{{ns:project}}:Lieser"
+}
