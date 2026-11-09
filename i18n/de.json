@@ -1,6 +1,7 @@
 {
 	"@metadata": {
 		"authors": [
+			"Brettchenweber",
 			"Kghbln"
 		]
 	},
@@ -26,7 +27,7 @@
 	"memberaccess-auth-email-label": "E-Mail-Adresse",
 	"memberaccess-auth-email-help": "Die E-Mail-Adresse, mit der du Mitglied bist.",
 	"memberaccess-auth-email-placeholder": "Gib deine E-Mail-Adresse ein",
-	"memberaccess-auth-form-divider": "oder melden dich mit einem Passwort an",
+	"memberaccess-auth-form-divider": "oder melde dich mit einem Passwort an",
 	"memberaccess-auth-email-missing": "Gib deine E-Mail-Adresse ein, um einen Anmeldecode zu erhalten.",
 	"memberaccess-auth-email-invalid": "Bitte eine gültige E-Mail-Adresse eingeben.",
 	"memberaccess-auth-throttled": "Es wurden zu viele Anmeldecodes angefordert. Bitte versuch es später erneut.",
@@ -36,7 +37,7 @@
 	"memberaccess-auth-code-wrong": "Dieser Anmeldecode ist falsch. Es verbleiben noch $2 Versuch{{PLURAL:$2||e}} für den an die E-Mail-Adresse $1 gesendeten Anmeldecode.",
 	"memberaccess-auth-code-missing": "Gib den dir per E-Mail zugesandten Anmeldecode ein.",
 	"memberaccess-auth-code-outstanding": "Gib den an die E-Mail-Adresse <strong>$1</strong> gesendeten Anmeldecode ein.",
-	"memberaccess-auth-code-expired": "Dieser Anmeldecode ist ungültig. Bitte forder einen neuen an.",
+	"memberaccess-auth-code-expired": "Dieser Anmeldecode ist ungültig. Bitte fordere einen neuen an.",
 	"memberaccess-auth-not-authorized": "Diese E-Mail-Adresse kann hier nicht zum Anmelden verwendet werden.",
 	"memberaccess-auth-failed": "Die Anmeldung ist fehlgeschlagen. Fordere einen neuen Anmeldecode an. Sollte das Problem weiterhin bestehen, kontaktiere einen Administrator dieses Wikis.",
 	"memberaccess-auth-password-refused": "Mitglieder melden sich mit einem einmaligen Anmeldecode an. Daher kann dieses Konto kein Passwort haben.",

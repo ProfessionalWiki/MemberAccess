@@ -4,6 +4,7 @@
 			"Volvox"
 		]
 	},
+	"memberaccess-code-email-subject": "$1 ass Äre Login-Code fir {{SITENAME}}",
 	"memberaccess-code-email-intro": "Hei ass Äre Login-Code.",
 	"memberaccess-auth-resend-label": "Neie Code schécken",
 	"memberaccess-auth-restart-line": "Falsch Adress? $1.",
