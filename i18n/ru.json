@@ -1,0 +1,35 @@
+{
+	"@metadata": {
+		"authors": [
+			"Yurina Tatiana"
+		]
+	},
+	"memberaccess-code-email-subject": "$1 — ваш код для входа на {{SITENAME}}",
+	"memberaccess-code-email-intro": "Вот ваш код для входа.",
+	"memberaccess-code-email-validity": "Он работает один раз и перестанет работать через {{PLURAL:$1|минуту|минуты|минут}}.",
+	"memberaccess-invitation-email-subject": "Вы приглашены на {{SITENAME}}",
+	"memberaccess-invitation-email-intro": "Теперь вы можете войти здесь:",
+	"memberaccess-invitation-email-disclaimer": "Если вы не ожидали этого, можете проигнорировать это сообщение.",
+	"memberaccess-auth-button-label": "Продолжить с эл. почтой",
+	"memberaccess-auth-button-help": "Мы отправим одноразовый код на ваш адрес эл. почты. Нужен только адрес эл. почты.",
+	"memberaccess-auth-resend-label": "Отправить новый код",
+	"memberaccess-auth-resend-help": "Ранее отправленный код перестанет работать.",
+	"memberaccess-auth-resend-line": "Ничего не пришло? $1.",
+	"memberaccess-auth-resend-throttled": "Запрошено слишком много кодов. Используйте тот, который уже был отправлен.",
+	"memberaccess-auth-restart": "Начать сначала",
+	"memberaccess-auth-restart-line": "Неправильный адрес? $1.",
+	"memberaccess-auth-email-label": "Адрес эл. почты",
+	"memberaccess-auth-email-placeholder": "Введите свою эл. почту",
+	"memberaccess-auth-form-divider": "или войдите с помощью пароля",
+	"memberaccess-auth-email-missing": "Введите ваш адрес эл. почты, чтобы получить код для входа.",
+	"memberaccess-auth-email-invalid": "Введите действительный адрес эл. почты.",
+	"memberaccess-auth-throttled": "Запрошено слишком много кодов для входа. Повторите попытку позже.",
+	"memberaccess-auth-code-label": "Код для входа",
+	"memberaccess-auth-code-help": "Шестизначный код для входа.",
+	"memberaccess-auth-code-wrong": "Этот код неверен. {{PLURAL:$2|Осталась $2 попытка|Осталось $2 попытки|Осталось $2 попыток}} для кода, отправленного на $1.",
+	"memberaccess-auth-code-missing": "Введите код для входа, который был отправлен вам на электронную почту.",
+	"memberaccess-auth-code-outstanding": "Введите код для входа, отправленный на <strong>$1</strong>.",
+	"memberaccess-auth-code-expired": "Этот код больше не может быть использован. Запросите новый.",
+	"memberaccess-auth-not-authorized": "Этот адрес не может быть использован для входа здесь.",
+	"memberaccess-auth-failed": "Вход не завершился. Запросите новый код для входа; если эта проблема продолжит повторяться, обратитесь к администратору этой вики."
+}
