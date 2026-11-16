@@ -1,0 +1,33 @@
+{
+	"@metadata": {
+		"authors": [
+			"PacmanD"
+		]
+	},
+	"memberaccess-code-email-subject": "$1是您在 {{SITENAME}} 的登录码",
+	"memberaccess-code-email-intro": "这是您的登录码。",
+	"memberaccess-invitation-email-subject": "您已受邀访问 {{SITENAME}}",
+	"memberaccess-invitation-email-intro": "您现在可以在这里登录：",
+	"memberaccess-auth-button-label": "以电子邮件继续",
+	"memberaccess-auth-button-help": "我们会向您的邮箱发送一次性验证码。除邮箱地址外，我们不会要求您提供任何其他信息。",
+	"memberaccess-auth-resend-label": "发送新登录码",
+	"memberaccess-auth-resend-line": "没收到？$1。",
+	"memberaccess-auth-restart": "重新开始",
+	"memberaccess-auth-restart-line": "地址错误？$1。",
+	"memberaccess-auth-email-label": "电子邮件地址",
+	"memberaccess-auth-email-help": "您作为会员使用的地址。",
+	"memberaccess-auth-email-placeholder": "请输入您的电子邮件地址",
+	"memberaccess-auth-form-divider": "或使用密码登录",
+	"memberaccess-auth-email-missing": "请输入您的电子邮件地址以获取登录验证码。",
+	"memberaccess-auth-email-invalid": "请输入有效的电子邮件地址。",
+	"memberaccess-auth-throttled": "请求的登录验证码次数过多，请稍后再试。",
+	"memberaccess-auth-code-label": "登录码",
+	"memberaccess-auth-code-help": "六位数的登录码。",
+	"memberaccess-auth-code-missing": "请输入发送到您邮箱的登录验证码。",
+	"memberaccess-auth-code-outstanding": "输入发送到<strong>$1</strong>登录代码。",
+	"memberaccess-auth-code-expired": "该代码已失效，请申请新的登录码。",
+	"memberaccess-auth-not-authorized": "此地址无法用于此处登录。",
+	"memberaccess-block-reason": "会员资格已终止",
+	"memberaccess-unblock-reason": "会员资格已恢复",
+	"group-reader": "读者"
+}
