@@ -8,10 +8,13 @@
 	"memberaccess-code-email-intro": "这是您的登录码。",
 	"memberaccess-invitation-email-subject": "您已受邀访问 {{SITENAME}}",
 	"memberaccess-invitation-email-intro": "您现在可以在这里登录：",
+	"memberaccess-invitation-email-disclaimer": "如果您不预期收到此消息，可以忽略它。",
 	"memberaccess-auth-button-label": "以电子邮件继续",
 	"memberaccess-auth-button-help": "我们会向您的邮箱发送一次性验证码。除邮箱地址外，我们不会要求您提供任何其他信息。",
 	"memberaccess-auth-resend-label": "发送新登录码",
+	"memberaccess-auth-resend-help": "已发送的登录码失效了。",
 	"memberaccess-auth-resend-line": "没收到？$1。",
+	"memberaccess-auth-resend-throttled": "登录码请求次数太多了，请使用已发送的登录码。",
 	"memberaccess-auth-restart": "重新开始",
 	"memberaccess-auth-restart-line": "地址错误？$1。",
 	"memberaccess-auth-email-label": "电子邮件地址",
@@ -27,7 +30,12 @@
 	"memberaccess-auth-code-outstanding": "输入发送到<strong>$1</strong>登录代码。",
 	"memberaccess-auth-code-expired": "该代码已失效，请申请新的登录码。",
 	"memberaccess-auth-not-authorized": "此地址无法用于此处登录。",
+	"memberaccess-auth-password-refused": "会员使用一次性登录码登录，因此该帐户不能设置密码。",
 	"memberaccess-block-reason": "会员资格已终止",
 	"memberaccess-unblock-reason": "会员资格已恢复",
-	"group-reader": "读者"
+	"right-memberaccess-manage": "管理成员白名单和名册",
+	"action-memberaccess-manage": "管理成员白名单和名册",
+	"group-reader": "读者",
+	"group-reader-member": "{{GENDER:$1|读者}}",
+	"grouppage-reader": "{{ns:project}}:读者"
 }
